@@ -1,133 +1,115 @@
-# TeamHub Universal Voice Stack
+# Teamspeak Managment
 
 English · [Türkçe](README.md)
 
-![TeamHub Universal Voice Stack menu](docs/menu.svg)
+![Teamspeak Managment menu](docs/menu.en.svg)
 
-An interactive, clean-room installer for TeamSpeak 3, TeamSpeak 6, TS6 Manager,
-and its music bot module. It does not contain copied databases, identities,
-passwords, API keys, SSH keys, or configuration from an existing server.
+An interactive Docker Compose deployment and management tool for TeamSpeak 3,
+TeamSpeak 6, TS6 Manager, and the Manager music bot.
 
-### TeamHub Universal Voice Stack
+| Metadata | Value |
+|---|---|
+| Version | **0.3.0** |
+| Developer | **Berat Akar** |
+| Source | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
-Version
+## Downloads
 
-**0.2.0**
+- [GitHub Releases](https://github.com/iNUIZ/teamspeak-managment/releases): versioned ZIP, TAR.GZ, and SHA-256 files
+- [GitHub Packages](https://github.com/users/iNUIZ/packages?repo_name=teamspeak-managment): npm package
 
-Developer
+## Components
 
-**Berat Akar**
+- TeamSpeak 3 Server with HTTP WebQuery
+- TeamSpeak 6 Server with WebQuery
+- TS6 Manager web panel
+- Manager music bot support
+- Service control, logs, backup, and data-preserving updates
 
-Source
+Every deployment starts with clean Docker volumes. The repository contains no
+passwords, API keys, SSH keys, bot identities, databases, or existing server data.
 
-[GitHub @iNUIZ](https://github.com/iNUIZ)
+## Requirements
 
-## Supported platforms
+| Platform | Requirements |
+|---|---|
+| Ubuntu/Debian x86_64 | Root/sudo access and an internet connection |
+| Ubuntu/Debian ARM64 | Root/sudo and internet; amd64 emulation for TS3 |
+| Windows 10/11 | Docker Desktop, WSL2, Node.js 18+, and npm 9+ |
 
-- Debian and Ubuntu on x86_64 or ARM64
-- Windows 10/11 with Docker Desktop and Git Bash or WSL
+The Linux installer adds Docker's official APT repository when Docker is not
+installed. Docker Desktop WSL Integration must be enabled on Windows.
 
-The installer uses Docker Compose and stores all application data in named
-volumes. Secrets are generated locally during setup and kept out of Git.
+## Installation
 
-## Quick start
+### Ubuntu or Debian
 
-Linux:
+```bash
+git clone https://github.com/iNUIZ/teamspeak-managment.git
+cd teamspeak-managment
+chmod +x install.sh
+sudo ./install.sh
+```
+
+### ARM64 Linux
+
+Use the same Linux commands. If a native Manager image is unavailable, the
+installer builds an ARM64 image from a pinned upstream commit. The official TS3
+image is amd64-only, so the TS3 option verifies Docker binfmt/QEMU emulation.
+
+### Windows 10/11 — PowerShell and npm
+
+1. Install Docker Desktop and enable your distribution under
+   **Settings > Resources > WSL Integration**.
+2. Install Node.js LTS and npm.
+3. Run these commands in the project directory from PowerShell:
+
+```powershell
+npm install
+npm run setup
+```
+
+`npm run setup` starts the PowerShell launcher and executes the shared installer
+engine through WSL2. Git Bash is not required.
+
+### WSL2 terminal
 
 ```bash
 chmod +x install.sh
 sudo ./install.sh
 ```
 
-Windows PowerShell, with Docker Desktop running:
+## Network model
 
-```powershell
-Set-ExecutionPolicy -Scope Process Bypass
-.\install.ps1
-```
-
-## Components
-
-| Component | Image | Persistent storage |
-|---|---|---|
-| TeamSpeak 3 | `teamspeak:3.13.8` | `teamhub_ts3-data` |
-| TeamSpeak 6 | `teamspeaksystems/teamspeak6-server:6.0.0-beta13.1` | `teamhub_ts6-data` |
-| TS6 Manager and music bot | `ghcr.io/uniskela/ts6-manager/all-in-one:1.11.0` | Manager data and music volumes |
-
-The TS3 option enables HTTP WebQuery and automatically creates a manage-scope
-API key for the Manager. TS6 receives a generated WebQuery API key. Both are
-stored in the private installation environment file.
-
-The official TS3 image is amd64-only. On ARM64, the installer verifies that
-Docker's amd64 emulation works before continuing. For Manager, it first tries a
-native published image; if none is available, it builds the upstream all-in-one
-image locally for the host architecture.
-
-TS6 worker and query thread counts are derived from the detected CPU count
-within conservative server-supported limits. Containers use bounded log
-rotation, an init process, and graceful shutdown periods for predictable
-long-running operation.
-
-Query ports bind to `127.0.0.1` by default while the Manager continues to reach
-the servers over the private Docker network. The Manager UI is also local-only
-by default and requires an explicit installer choice before being exposed to
-other devices.
-
-## Network architecture and IP selection
-
-When TeamSpeak, Manager, and the music bot run on the same VPS, they normally
-share one public IP. The bot does not need a second public IP. Each component
-still has an isolated container address and uses private service discovery:
+TeamSpeak, Manager, and the bot may share one public IP on the same VPS. Internal
+traffic uses the private `teamhub` Docker network:
 
 ```text
 Internet ── voice/file ports ──> TS3 or TS6
-User ── HTTPS/domain ──────────> reverse proxy ──> Manager (127.0.0.1:3000)
-Manager + music bot ── private Docker network ──> ts3:10080 or ts6:10080
+HTTPS/domain ── reverse proxy ──> Manager (default 127.0.0.1:3000)
+Manager + bot ── private Docker network ──> ts3:10080 or ts6:10080
 ```
 
-- TeamSpeak clients use the VPS public IP or a domain pointing to it.
-- Manager uses `ts3` or `ts6` as the host for an in-stack connection, not the
-  VPS public IP.
-- Query ports stay off the public internet; Manager reaches them through the
-  private `teamhub` network.
-- The panel binds to `127.0.0.1:3000` by default. A domain and HTTPS reverse
-  proxy are recommended for remote access.
-- A bot on a different physical host may have another public IP; prefer a VPN
-  or private network for Query access in that topology.
+Query and Manager ports bind to localhost by default. Use a TLS reverse proxy
+and firewall rules when exposing the panel remotely.
 
 ## Data locations
 
-- Linux: `/opt/teamhub`
-- Windows through Git Bash: `~/.teamhub`
-- WSL follows the Linux location
+- Linux and WSL2: `/opt/teamhub`
+- Windows launcher deployment data: `/opt/teamhub` inside WSL2
+- Persistent volumes: `teamhub_ts3-data`, `teamhub_ts6-data`,
+  `teamhub_manager-data`, and `teamhub_manager-music`
 
-Never publish the generated `.env`, databases, cookie files, backups, or keys.
+The generated `.env` contains secrets and must never be committed.
 
-Container versions are pinned to immutable SHA-256 manifest digests so a reused
-tag cannot silently change the installed artifact.
+## Initial Manager connection
 
-## First Manager login
+1. Create the first administrator at the `/setup` URL printed by the installer.
+2. For an in-stack TS6 server, use host `ts6` and port `10080`.
+3. For TS3, use host `ts3` and port `10080`.
+4. Read the corresponding API key from `/opt/teamhub/.env`.
 
-1. Open the `/setup` URL printed by the installer.
-2. Create the first administrator account. There are no default credentials.
-3. Add the TeamSpeak connection under `Settings > Connections`.
-4. For an in-stack TS6 server use host `ts6`, port `10080`, and `TS6_API_KEY`.
-5. For an in-stack TS3 server use host `ts3`, port `10080`, and `TS3_API_KEY`.
-6. Create a bot under `Music Bots > Add Bot` and select its channel.
+## License and dependencies
 
-## Project documentation
-
-- [Contributing](CONTRIBUTING.md)
-- [Security policy](SECURITY.md)
-- [Changelog](CHANGELOG.md)
-- [MIT license](LICENSE)
-
-Third-party TeamSpeak software and container images retain their own licenses
-and terms. This repository licenses only the installer code and documentation.
-
-## Upstream dependencies
-
-`TeamHub Universal Voice Stack` is the name of this repository. References to `teamspeak`,
-`teamspeaksystems`, and `uniskela/ts6-manager` are the real image and source
-names of the installed upstream components, not stale project branding or
-misdirected links. Those projects retain their own names, licenses, and terms.
+Installer code is released under the [MIT license](LICENSE). TeamSpeak software
+and `uniskela/ts6-manager` remain subject to their own licenses and terms.

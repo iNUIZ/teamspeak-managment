@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping improve TeamHub Universal Voice Stack.
+Thanks for helping improve Teamspeak Managment.
 
 ## Development rules
 

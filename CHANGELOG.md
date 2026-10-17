@@ -2,6 +2,16 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-10-17
+
+### Changed
+
+- Renamed the project to Teamspeak Managment.
+- Reworked both README files as concise technical documentation.
+- Added a separate English menu illustration.
+- Added an npm-driven Windows setup command using PowerShell and WSL2.
+- Removed the Git Bash requirement from the Windows installation path.
+
 ## [0.2.0] - 2026-10-17
 
 ### Added

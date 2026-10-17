@@ -39,3 +39,11 @@ jobs:
             $errors | Format-List
             exit 1
           }
+
+  package:
+    name: Package validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Validate npm package contents
+        run: npm pack --dry-run

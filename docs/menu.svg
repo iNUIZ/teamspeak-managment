@@ -1,16 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="960" height="630" viewBox="0 0 960 630" role="img" aria-labelledby="title desc">
-  <title id="title">TeamHub Universal Voice Stack interactive menu</title>
+  <title id="title">Teamspeak Managment etkileşimli menüsü</title>
   <desc id="desc">A terminal window showing TeamSpeak 3, TeamSpeak 6, Manager, music bot, backup, and service management options.</desc>
   <rect width="960" height="630" rx="18" fill="#10141d"/>
   <rect x="1" y="1" width="958" height="628" rx="17" fill="none" stroke="#30394b" stroke-width="2"/>
   <circle cx="34" cy="31" r="7" fill="#ff5f57"/>
   <circle cx="57" cy="31" r="7" fill="#febc2e"/>
   <circle cx="80" cy="31" r="7" fill="#28c840"/>
-  <text x="480" y="37" text-anchor="middle" fill="#8f9bad" font-family="Consolas,monospace" font-size="15">teamhub-installer</text>
+  <text x="480" y="37" text-anchor="middle" fill="#8f9bad" font-family="Consolas,monospace" font-size="15">teamspeak-managment</text>
   <line x1="0" y1="57" x2="960" y2="57" stroke="#30394b"/>
   <g font-family="Consolas,monospace" font-size="19">
-    <text x="38" y="97" fill="#67b7ff">TeamHub Universal Voice Stack</text>
-    <text x="397" y="97" fill="#8f9bad">v0.2.0</text>
+    <text x="38" y="97" fill="#67b7ff">Teamspeak Managment</text>
+    <text x="310" y="97" fill="#8f9bad">v0.3.0</text>
     <text x="38" y="126" fill="#8f9bad">==================================</text>
     <text x="38" y="169" fill="#d8dee9">1) Docker gereksinimlerini kur</text>
     <text x="38" y="203" fill="#d8dee9">2) TeamSpeak 3 sunucusu kur</text>

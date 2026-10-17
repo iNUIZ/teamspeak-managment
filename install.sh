@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-readonly APP_NAME="TeamHub Universal Voice Stack"
-readonly APP_VERSION="0.2.0"
+readonly APP_NAME="Teamspeak Managment"
+readonly APP_VERSION="0.3.0"
 KERNEL_NAME="$(uname -s)"
 readonly KERNEL_NAME
 case "$KERNEL_NAME" in
