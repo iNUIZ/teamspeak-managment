@@ -35,6 +35,9 @@ jobs:
           [System.Management.Automation.Language.Parser]::ParseFile(
             (Resolve-Path .\install.ps1), [ref]$tokens, [ref]$errors
           ) | Out-Null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path .\bootstrap.ps1), [ref]$tokens, [ref]$errors
+          ) | Out-Null
           if ($errors.Count) {
             $errors | Format-List
             exit 1

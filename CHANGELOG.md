@@ -11,6 +11,7 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Added a separate English menu illustration.
 - Added an npm-driven Windows setup command using PowerShell and WSL2.
 - Removed the Git Bash requirement from the Windows installation path.
+- Added a checksum-verifying one-line PowerShell bootstrap installer.
 
 ## [0.2.0] - 2026-10-17
 

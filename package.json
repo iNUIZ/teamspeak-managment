@@ -12,6 +12,7 @@
   "files": [
     "install.sh",
     "install.ps1",
+    "bootstrap.ps1",
     "README.md",
     "README.en.md",
     "LICENSE",

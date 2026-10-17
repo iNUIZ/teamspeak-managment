@@ -72,6 +72,14 @@ npm run setup
 `npm run setup` starts the PowerShell launcher and executes the shared installer
 engine through WSL2. Git Bash is not required.
 
+One-line alternative that downloads the latest Release and verifies its SHA-256:
+
+```powershell
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/main/bootstrap.ps1 | iex
+```
+
+Review `bootstrap.ps1` before running it in a production environment.
+
 ### WSL2 terminal
 
 ```bash

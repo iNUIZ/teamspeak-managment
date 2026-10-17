@@ -72,6 +72,14 @@ npm run setup
 `npm run setup`, PowerShell başlatıcısını çalıştırır ve kurulum motorunu WSL2
 üzerinden açar. Git Bash gerekli değildir.
 
+En son Release paketini indirip SHA-256 değerini doğrulayan tek satırlık alternatif:
+
+```powershell
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/main/bootstrap.ps1 | iex
+```
+
+Üretim ortamında çalıştırmadan önce `bootstrap.ps1` içeriğinin incelenmesi önerilir.
+
 ### WSL2 terminali
 
 ```bash
