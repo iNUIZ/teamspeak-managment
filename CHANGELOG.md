@@ -2,6 +2,27 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.3] - 2026-10-18
+
+### Added
+
+- Added TeaSpeak as a separately installable, hardened Compose service.
+- Added automatic QEMU/binfmt preparation for the amd64-only TS3 image on ARM64 Linux.
+- Added Manager access modes for an SSH tunnel or deliberate direct network exposure.
+- Added a guided second isolated server instance with separate project, network,
+  volumes, configuration root, and port collision checks.
+
+### Fixed
+
+- Backups now run the helper image for the host architecture and no longer create empty
+  volumes for components that are not installed.
+- Service actions now reject missing services, identify already-running or stopped
+  services, and verify the requested final state.
+- Uninstall no longer reports success for a component that has no container.
+- Reinstall prompts protect existing TS3, TS6, TeaSpeak, and Manager deployments.
+- User-facing connection instructions now distinguish bind addresses from the public
+  IP or hostname clients must use.
+
 ## [0.3.2] - 2026-10-17
 
 ### Security

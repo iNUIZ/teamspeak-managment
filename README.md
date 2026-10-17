@@ -4,12 +4,12 @@
 
 ![Teamspeak Managment menüsü](docs/menu.svg)
 
-TeamSpeak 3, TeamSpeak 6, TS6 Manager ve müzik botu bileşenlerini Docker
+TeamSpeak 3, TeaSpeak, TeamSpeak 6, TS6 Manager ve müzik botu bileşenlerini Docker
 Compose ile kuran ve yöneten etkileşimli dağıtım aracı.
 
 | Bilgi | Değer |
 |---|---|
-| Sürüm | **0.3.2** |
+| Sürüm | **0.3.3** |
 | Geliştirici | **Berat Akar** |
 | Kaynak | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -21,6 +21,7 @@ Compose ile kuran ve yöneten etkileşimli dağıtım aracı.
 ## Bileşenler
 
 - TeamSpeak 3 Server ve HTTP WebQuery
+- TeaSpeak Server
 - TeamSpeak 6 Server ve WebQuery
 - TS6 Manager web paneli
 - Manager müzik botu desteği
@@ -29,12 +30,19 @@ Compose ile kuran ve yöneten etkileşimli dağıtım aracı.
 Kurulumlar temiz Docker volume'larında oluşturulur. Repo; parola, API anahtarı,
 SSH anahtarı, bot kimliği, veritabanı veya mevcut sunucu verisi içermez.
 
+TS3, TeaSpeak ve TS6 birbirinden farklı portlarla aynı makinede birlikte
+kurulabilir. Aynı bileşen yeniden seçildiğinde kurucu ikinci bağımsız örneği
+`/opt/teamhub-2` ve `teamhub2` Compose projesinde açmayı önerir. İkinci örnek
+ayrı volume/ağ kullanır ve port çakışmaları yeniden denetlenir. İstenirse mevcut
+örnek de verileri korunarak yeniden oluşturulabilir; yanlışlıkla tekrar seçmek
+veriyi silmez.
+
 ## Gereksinimler
 
 | Platform | Gereksinimler |
 |---|---|
 | Ubuntu/Debian x86_64 | Root/sudo, internet bağlantısı |
-| Ubuntu/Debian ARM64 | Root/sudo, internet bağlantısı; TS3 için amd64 emülasyonu |
+| Ubuntu/Debian ARM64 | Root/sudo, internet bağlantısı; TS3 için QEMU/binfmt kurucu tarafından hazırlanır |
 | Windows 10/11 | Docker Desktop, WSL2, Node.js 18+ ve npm 9+ |
 
 Linux kurucusu Docker bulunmadığında Docker'ın resmî APT deposunu kullanır.
@@ -57,7 +65,7 @@ sudo ./install.sh
 
 ARM64 kurulumu aynı komutları kullanır. Manager için uygun hazır imaj yoksa
 kurucu sabitlenmiş kaynak commit'inden yerel ARM64 imajı üretir. Resmî TS3 imajı
-amd64 olduğundan TS3 seçeneği Docker binfmt/QEMU emülasyonunu doğrular.
+amd64 olduğundan TS3 seçeneği Docker binfmt/QEMU emülasyonunu otomatik kurar ve doğrular.
 
 ### Windows 10/11 — PowerShell ve npm
 
@@ -78,10 +86,10 @@ En son Release paketini indirip önce Ed25519 imzasını, ardından SHA-256 değ
 doğrulayan tek satırlık alternatif:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.2/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.3/bootstrap.ps1 | iex
 ```
 
-Komut değiştirilemeyen `v0.3.2` sürüm etiketine sabitlenmiştir. Üretim ortamında
+Komut değiştirilemeyen `v0.3.3` sürüm etiketine sabitlenmiştir. Üretim ortamında
 çalıştırmadan önce `bootstrap.ps1` içeriğinin incelenmesi yine de önerilir.
 
 ### WSL2 terminali
@@ -97,20 +105,26 @@ TeamSpeak, Manager ve bot aynı VPS üzerinde tek public IP'yi paylaşabilir.
 Bileşenler birbirlerine `teamhub` Docker ağı üzerinden bağlanır:
 
 ```text
-İnternet ── ses/dosya portları ──> TS3 veya TS6
+İnternet ── ses/dosya portları ──> TS3, TeaSpeak veya TS6
 HTTPS/domain ── reverse proxy ──> Manager (varsayılan 127.0.0.1:3000)
 Manager + bot ── özel Docker ağı ──> ts3:10080 veya ts6:10080
 ```
 
-Query ve Manager portları varsayılan olarak localhost'a bağlanır. Uzak panel
-erişimi için TLS kullanan reverse proxy ve güvenlik duvarı önerilir.
+`0.0.0.0` bir bağlantı adresi değil, servisin tüm ağ arayüzlerinde dinlediğini
+belirten bağlama değeridir. İstemciler sunucunun public IP'sini veya alan adını
+kullanır. Query portları varsayılan olarak localhost'a bağlanır. Manager kurucusu
+iki erişim modu sunar: güvenli varsayılan SSH tüneli veya doğrudan ağ erişimi.
+SSH tüneli seçildiğinde Windows PowerShell için hazır komut gösterilir; Linux'a
+grafik arayüz kurulması gerekmez. Doğrudan erişimde TLS reverse proxy ve güvenlik
+duvarı kullanılması kuvvetle önerilir.
 
 ## Veri konumları
 
 - Linux ve WSL2: `/opt/teamhub`
+- İkinci bağımsız örnek: `/opt/teamhub-2`
 - Windows başlatıcı yapılandırması: WSL2 içindeki `/opt/teamhub`
 - Kalıcı veriler: `teamhub_ts3-data`, `teamhub_ts6-data`,
-  `teamhub_manager-data`, `teamhub_manager-music`
+  `teamhub_teaspeak-*`, `teamhub_manager-data`, `teamhub_manager-music`
 
 Üretilen `.env` dosyası gizli anahtarları içerir ve repoya eklenmemelidir.
 Menüdeki yedekleme işlemi önce gerçekten çalışan servisleri belirler, yalnızca
@@ -125,7 +139,7 @@ openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
   -in teamhub-TARIH.tar.gz.enc | tar xzf -
 ```
 
-Manager, UID/GID `10001` ile root olmadan çalışır. TS3, TS6 ve Manager tüm Linux
+Manager, UID/GID `10001` ile root olmadan çalışır. TS3, TS6, TeaSpeak ve Manager tüm Linux
 capability'lerini bırakır ve `no-new-privileges` korumasını kullanır. Manager
 ayrıca salt okunur kök dosya sistemiyle çalışır.
 
@@ -140,3 +154,6 @@ ayrıca salt okunur kök dosya sistemiyle çalışır.
 
 Kurucu kodu [MIT lisansı](LICENSE) ile yayımlanır. TeamSpeak yazılımları ve
 `uniskela/ts6-manager` kendi lisansları ve kullanım koşullarına tabidir.
+TeaSpeak ücretsiz kullanılabilir; varsa lisans kodu kurulum sırasında gizli
+olarak alınır ve yalnız `/opt/teamhub/.env` içinde saklanır. TeaSpeak 1.5.6
+arşivi sabit SHA-256 değeri doğrulandıktan sonra yerel imaja alınır.
