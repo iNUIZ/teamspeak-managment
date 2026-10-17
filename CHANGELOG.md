@@ -7,6 +7,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 ### Added
 
 - Added TeaSpeak as a separately installable, hardened Compose service.
+- Removed TeaSpeak's bundled shared TLS private key; every deployment generates
+  unique default and query certificates inside its persistent certificate volume.
 - Added automatic QEMU/binfmt preparation for the amd64-only TS3 image on ARM64 Linux.
 - Added Manager access modes for an SSH tunnel or deliberate direct network exposure.
 - Added a guided second isolated server instance with separate project, network,
