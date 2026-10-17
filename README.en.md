@@ -9,7 +9,7 @@ TeamSpeak 6, TS6 Manager, and the Manager music bot.
 
 | Metadata | Value |
 |---|---|
-| Version | **0.3.3** |
+| Version | **0.3.4** |
 | Developer | **Berat Akar** |
 | Source | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -85,10 +85,10 @@ One-line alternative that downloads the latest Release, verifies its Ed25519
 signature, and only then verifies the archive SHA-256:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.3/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.4/bootstrap.ps1 | iex
 ```
 
-The command is pinned to the immutable `v0.3.3` release tag. Review
+The command is pinned to the immutable `v0.3.4` release tag. Review
 `bootstrap.ps1` before running it in a production environment.
 
 ### WSL2 terminal

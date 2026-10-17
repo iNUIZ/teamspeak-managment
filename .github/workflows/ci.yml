@@ -54,3 +54,24 @@ jobs:
         run: |
           npm audit --omit=dev --audit-level=high
           npm pack --dry-run
+
+  teaspeak-runtime:
+    name: TeaSpeak runtime smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Build TeaSpeak image
+        run: docker build -f docker/teaspeak-hardened.Dockerfile -t teamspeak-managment/teaspeak-smoke docker
+      - name: Verify TeaSpeak reaches healthy state
+        run: |
+          docker run -d --name teaspeak-smoke \
+            --cap-drop ALL --security-opt no-new-privileges:true \
+            teamspeak-managment/teaspeak-smoke
+          for attempt in $(seq 1 24); do
+            status=$(docker inspect --format '{{.State.Status}}' teaspeak-smoke)
+            test "$status" = running || { docker logs teaspeak-smoke; exit 1; }
+            docker exec teaspeak-smoke timeout 3 bash -c '</dev/tcp/127.0.0.1/10101' && exit 0
+            sleep 5
+          done
+          docker logs teaspeak-smoke
+          exit 1
