@@ -2,6 +2,16 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.5] - 2026-10-18
+
+### Fixed
+
+- TeaSpeak installation now stops with a clear compatibility message on ARM64;
+  upstream has no stable ARM64 server build and its amd64 build can start Query
+  under emulation while failing to allocate the UDP voice event.
+- TeaSpeak health checks and CI now require both Query TCP and the actual 9987/UDP
+  voice listener before reporting a healthy installation.
+
 ## [0.3.4] - 2026-10-18
 
 ### Fixed
