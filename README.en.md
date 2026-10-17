@@ -9,7 +9,7 @@ TeamSpeak 6, TS6 Manager, and the Manager music bot.
 
 | Metadata | Value |
 |---|---|
-| Version | **0.3.4** |
+| Version | **0.3.5** |
 | Developer | **Berat Akar** |
 | Source | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -41,7 +41,7 @@ its data preserved. An accidental repeated selection does not erase data.
 | Platform | Requirements |
 |---|---|
 | Ubuntu/Debian x86_64 | Root/sudo access and an internet connection |
-| Ubuntu/Debian ARM64 | Root/sudo and internet; the installer prepares QEMU/binfmt for TS3 |
+| Ubuntu/Debian ARM64 | Root/sudo and internet; QEMU/binfmt is prepared for TS3; TeaSpeak is unsupported |
 | Windows 10/11 | Docker Desktop, WSL2, Node.js 18+, and npm 9+ |
 
 The Linux installer adds Docker's official APT repository when Docker is not
@@ -85,10 +85,10 @@ One-line alternative that downloads the latest Release, verifies its Ed25519
 signature, and only then verifies the archive SHA-256:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.4/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.5/bootstrap.ps1 | iex
 ```
 
-The command is pinned to the immutable `v0.3.4` release tag. Review
+The command is pinned to the immutable `v0.3.5` release tag. Review
 `bootstrap.ps1` before running it in a production environment.
 
 ### WSL2 terminal

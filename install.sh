@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 readonly APP_NAME="Teamspeak Managment"
-readonly APP_VERSION="0.3.4"
+readonly APP_VERSION="0.3.5"
 KERNEL_NAME="$(uname -s)"
 readonly KERNEL_NAME
 case "$KERNEL_NAME" in
@@ -405,7 +405,7 @@ services:
     logging: *default-logging
     stop_grace_period: 45s
     healthcheck:
-      test: ["CMD-SHELL", "timeout 3 bash -c '</dev/tcp/127.0.0.1/10101'"]
+      test: ["CMD-SHELL", "timeout 3 bash -c '</dev/tcp/127.0.0.1/10101' && awk '$$2 ~ /:2703$$/ && $$4 == \"07\" { found=1 } END { exit !found }' /proc/net/udp /proc/net/udp6"]
       interval: 10s
       timeout: 5s
       retries: 9
@@ -496,8 +496,10 @@ install_ts3() {
 install_teaspeak() {
   local license_code
   install_docker
+  if [[ $(docker_platform) == linux/arm64 ]]; then
+    die "TeaSpeak 1.5.6'nın resmî ARM64 sunucu paketi yoktur; amd64 emülasyonunda UDP ses servisi güvenilir çalışmaz. Bu sunucuda yerel ARM64 destekli TS6 seçeneğini kullanın veya TeaSpeak için x86_64/amd64 bir sunucu seçin."
+  fi
   handle_existing_component teaspeak && return
-  ensure_amd64_emulation
   ensure_env_defaults
   prepare_teaspeak_image
   read -r -s -p "TeaSpeak lisans kodu (yoksa boş bırakın): " license_code
