@@ -39,6 +39,8 @@ SSH anahtarı, bot kimliği, veritabanı veya mevcut sunucu verisi içermez.
 
 Linux kurucusu Docker bulunmadığında Docker'ın resmî APT deposunu kullanır.
 Windows'ta Docker Desktop'ın WSL Integration özelliği etkin olmalıdır.
+TS3 ve TS6 taban imajlarına kurulum sırasında dağıtım güvenlik güncellemeleri
+uygulanır; CI aynı hardened imajları HIGH/CRITICAL CVE'lere karşı tarar.
 
 ## Kurulum
 

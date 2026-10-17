@@ -18,7 +18,8 @@
     "LICENSE",
     "SECURITY.md",
     "VERSION",
-    "docs"
+    "docs",
+    "docker"
   ],
   "description": "TeamSpeak 3, TeamSpeak 6, Manager and music bot deployment toolkit",
   "scripts": {

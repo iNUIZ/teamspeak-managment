@@ -39,6 +39,8 @@ passwords, API keys, SSH keys, bot identities, databases, or existing server dat
 
 The Linux installer adds Docker's official APT repository when Docker is not
 installed. Docker Desktop WSL Integration must be enabled on Windows.
+Distribution security updates are applied to the TS3 and TS6 base images during
+installation; CI scans the same hardened images for HIGH and CRITICAL CVEs.
 
 ## Installation
 

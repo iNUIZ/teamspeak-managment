@@ -12,6 +12,8 @@ This project follows [Semantic Versioning](https://semver.org/).
 - Uploaded container findings to GitHub code scanning in SARIF format.
 - Fixed PowerShell CI parsing so errors from both scripts are preserved.
 - Updated TS6 Manager to 1.11.1 with immutable image and source checksums.
+- Added locally built hardened TS3 and TS6 images with current base OS security updates.
+- Made fixed HIGH/CRITICAL container findings fail the Security workflow.
 
 ## [0.3.0] - 2026-10-17
 

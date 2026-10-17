@@ -10,6 +10,7 @@ case "$KERNEL_NAME" in
   *)                    readonly OS_FAMILY="linux";   readonly DEFAULT_INSTALL_ROOT="/opt/teamhub" ;;
 esac
 readonly INSTALL_ROOT="${TEAMHUB_ROOT:-$DEFAULT_INSTALL_ROOT}"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly COMPOSE_FILE="${INSTALL_ROOT}/compose.yml"
 readonly ENV_FILE="${INSTALL_ROOT}/.env"
 readonly DEFAULT_TS3_IMAGE="teamspeak:3.13.8@sha256:6dfdfb22869adf50e1b66d024b360b786d57a85ea09e8e8fdb6cca23949b2813"
@@ -351,6 +352,7 @@ install_ts3() {
       || die "Docker amd64 emülasyonu etkin değil. Docker Desktop emülasyonunu veya Linux binfmt/QEMU desteğini etkinleştirin."
   fi
   ensure_env_defaults
+  prepare_ts3_image
   set_env TS3_VOICE_PORT "$(ask_port TS3_VOICE_PORT 'TS3 ses UDP portu' udp)"
   set_env TS3_QUERY_PORT "$(ask_port TS3_QUERY_PORT 'TS3 ServerQuery TCP portu' tcp)"
   set_env TS3_WEBQUERY_PORT "$(ask_port TS3_WEBQUERY_PORT 'TS3 WebQuery HTTP TCP portu' tcp)"
@@ -383,6 +385,7 @@ generate_ts3_api_key() {
 install_ts6() {
   install_docker
   ensure_env_defaults
+  prepare_ts6_image
   set_env TS6_VOICE_PORT "$(ask_port TS6_VOICE_PORT 'TS6 ses UDP portu' udp)"
   set_env TS6_QUERY_SSH_PORT "$(ask_port TS6_QUERY_SSH_PORT 'TS6 Query SSH TCP portu' tcp)"
   set_env TS6_QUERY_HTTP_PORT "$(ask_port TS6_QUERY_HTTP_PORT 'TS6 WebQuery HTTP TCP portu' tcp)"
@@ -391,6 +394,26 @@ install_ts6() {
   write_compose
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile ts6 up -d ts6
   ok "TS6 kuruldu. Yönetim bilgileri sadece ${ENV_FILE} içinde (izin 600)."
+}
+
+prepare_ts3_image() {
+  local hardened_image="teamspeak-managment/ts3-hardened:3.13.8"
+  info "Güvenlik güncellemeleri uygulanmış TS3 imajı hazırlanıyor..."
+  docker build --platform linux/amd64 \
+    --build-arg "BASE_IMAGE=${DEFAULT_TS3_IMAGE}" \
+    -f "${SCRIPT_DIR}/docker/ts3-hardened.Dockerfile" \
+    -t "$hardened_image" "${SCRIPT_DIR}/docker"
+  set_env TS3_IMAGE "$hardened_image"
+}
+
+prepare_ts6_image() {
+  local hardened_image="teamspeak-managment/ts6-hardened:6.0.0-beta13.1"
+  info "Güvenlik güncellemeleri uygulanmış TS6 imajı hazırlanıyor..."
+  docker build \
+    --build-arg "BASE_IMAGE=${DEFAULT_TS6_IMAGE}" \
+    -f "${SCRIPT_DIR}/docker/ts6-hardened.Dockerfile" \
+    -t "$hardened_image" "${SCRIPT_DIR}/docker"
+  set_env TS6_IMAGE "$hardened_image"
 }
 
 install_manager() {
