@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  bash:
+    name: Bash validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Parse script
+        run: bash -n install.sh
+      - name: Run ShellCheck
+        run: shellcheck install.sh
+      - name: Reject generated secrets and data
+        run: |
+          forbidden=$(find . -type f \( -name '.env' -o -name '*.db' -o -name '*.sqlite' -o -name '*.pem' -o -name '*.key' -o -name 'cookies.txt' \) -print)
+          test -z "$forbidden" || { printf '%s\n' "$forbidden"; exit 1; }
+
+  powershell:
+    name: PowerShell validation
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Parse script
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path .\install.ps1), [ref]$tokens, [ref]$errors
+          ) | Out-Null
+          if ($errors.Count) {
+            $errors | Format-List
+            exit 1
+          }

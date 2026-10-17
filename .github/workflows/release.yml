@@ -1,0 +1,32 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Validate tag and version
+        run: test "${GITHUB_REF_NAME#v}" = "$(tr -d '[:space:]' < VERSION)"
+      - name: Build release archive
+        run: |
+          archive="teamhub-universal-voice-stack-${GITHUB_REF_NAME}.zip"
+          zip -r "$archive" install.sh install.ps1 README.md README.en.md LICENSE CONTRIBUTING.md SECURITY.md CHANGELOG.md VERSION docs .gitignore .editorconfig
+          sha256sum "$archive" > "${archive}.sha256"
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            "teamhub-universal-voice-stack-${GITHUB_REF_NAME}.zip" \
+            "teamhub-universal-voice-stack-${GITHUB_REF_NAME}.zip.sha256" \
+            --verify-tag \
+            --generate-notes \
+            --title "TeamHub Universal Voice Stack ${GITHUB_REF_NAME}"
