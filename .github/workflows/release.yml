@@ -26,7 +26,9 @@ jobs:
       - name: Publish GitHub npm package
         env:
           NODE_AUTH_TOKEN: ${{ github.token }}
-        run: npm publish
+        run: |
+          npm config set //npm.pkg.github.com/:_authToken "$NODE_AUTH_TOKEN"
+          npm publish
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
