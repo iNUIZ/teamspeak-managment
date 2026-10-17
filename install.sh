@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 readonly APP_NAME="Teamspeak Managment"
-readonly APP_VERSION="0.3.2"
+readonly APP_VERSION="0.3.3"
 KERNEL_NAME="$(uname -s)"
 readonly KERNEL_NAME
 case "$KERNEL_NAME" in
@@ -10,12 +10,14 @@ case "$KERNEL_NAME" in
   *)                    readonly OS_FAMILY="linux";   readonly DEFAULT_INSTALL_ROOT="/opt/teamhub" ;;
 esac
 readonly INSTALL_ROOT="${TEAMHUB_ROOT:-$DEFAULT_INSTALL_ROOT}"
+readonly PROJECT_NAME="${TEAMHUB_PROJECT:-teamhub}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 readonly SCRIPT_DIR
 readonly COMPOSE_FILE="${INSTALL_ROOT}/compose.yml"
 readonly ENV_FILE="${INSTALL_ROOT}/.env"
 readonly DEFAULT_TS3_IMAGE="teamspeak:3.13.8@sha256:6dfdfb22869adf50e1b66d024b360b786d57a85ea09e8e8fdb6cca23949b2813"
 readonly DEFAULT_TS6_IMAGE="teamspeaksystems/teamspeak6-server:6.0.0-beta13.1@sha256:d845f803aecf842c2df034c959c23ff2462357bacafb3807500885c5ec170fa1"
+readonly HARDENED_TEASPEAK_IMAGE="teamspeak-managment/teaspeak-hardened:1.5.6"
 readonly DEFAULT_MANAGER_IMAGE="ghcr.io/uniskela/ts6-manager/all-in-one:1.11.1@sha256:f5323c743865a157293eb9028548a68941b6e8743a97597825e19fab339fc83d"
 readonly HARDENED_MANAGER_IMAGE="teamspeak-managment/manager-hardened:1.11.1-teamhub.1"
 readonly DEFAULT_MANAGER_SOURCE_REF="4002b43739429481fe80765ae14384d12323fe93"
@@ -31,6 +33,9 @@ declare -A DEFAULTS=(
   [TS6_QUERY_SSH_PORT]=10022
   [TS6_QUERY_HTTP_PORT]=10081
   [TS6_FILE_PORT]=30034
+  [TEASPEAK_VOICE_PORT]=9990
+  [TEASPEAK_QUERY_PORT]=10101
+  [TEASPEAK_FILE_PORT]=30303
   [MANAGER_PORT]=3000
 )
 
@@ -129,6 +134,79 @@ docker_arch() {
   docker info --format '{{.Architecture}}' 2>/dev/null || uname -m
 }
 
+docker_platform() {
+  case "$(docker_arch)" in
+    aarch64|arm64) printf 'linux/arm64' ;;
+    x86_64|amd64) printf 'linux/amd64' ;;
+    *) die "Desteklenmeyen Docker mimarisi: $(docker_arch)" ;;
+  esac
+}
+
+service_exists() {
+  local service=$1
+  docker ps -a --filter "label=com.docker.compose.project=${PROJECT_NAME}" \
+    --filter "label=com.docker.compose.service=${service}" --format '{{.ID}}' | grep -q .
+}
+
+service_running() {
+  local service=$1
+  docker ps --filter "label=com.docker.compose.project=${PROJECT_NAME}" \
+    --filter "label=com.docker.compose.service=${service}" --format '{{.ID}}' | grep -q .
+}
+
+launch_second_instance() {
+  local second_root
+  if [[ $OS_FAMILY == windows ]]; then
+    second_root="${HOME}/.teamhub-2"
+  else
+    second_root="/opt/teamhub-2"
+  fi
+  info "İkinci bağımsız kurulum açılıyor: ${second_root} (Compose projesi: teamhub2)"
+  info "Açılan menüden istediğiniz sunucu türünü seçin; kullanılan portlar reddedilecektir."
+  TEAMHUB_ROOT="$second_root" TEAMHUB_PROJECT="teamhub2" bash "$0"
+}
+
+handle_existing_component() {
+  local component=$1
+  service_exists "$component" || return 1
+  if [[ $PROJECT_NAME == teamhub ]] && confirm "${component} zaten kurulu. İkinci bağımsız sunucu kurmak istiyor musunuz?" N; then
+    launch_second_instance
+    return 0
+  fi
+  confirm "${component} zaten kurulu. Mevcut verileri koruyarak yeniden oluşturmak istiyor musunuz?" N || return 0
+  return 1
+}
+
+volume_exists() {
+  docker volume inspect "$1" >/dev/null 2>&1
+}
+
+detect_public_host() {
+  local host
+  host=$(curl -4fsS --max-time 4 https://api.ipify.org 2>/dev/null || true)
+  if [[ ! $host =~ ^([0-9]{1,3}\.){3}[0-9]{1,3}$ ]]; then
+    host=$(hostname -I 2>/dev/null | awk '{print $1}')
+  fi
+  printf '%s' "${host:-SUNUCU_IP}"
+}
+
+ensure_amd64_emulation() {
+  [[ $(docker_platform) == linux/arm64 ]] || return 0
+  if docker run --rm --platform linux/amd64 "$ALPINE_IMAGE" true >/dev/null 2>&1; then
+    ok "amd64 emülasyonu hazır."
+    return
+  fi
+  [[ $OS_FAMILY == linux ]] || die "Docker Desktop ayarlarında x86/amd64 emülasyonunu etkinleştirin."
+  info "TS3 için QEMU/binfmt amd64 emülasyonu otomatik hazırlanıyor..."
+  apt-get update
+  DEBIAN_FRONTEND=noninteractive apt-get install -y qemu-user-static binfmt-support
+  systemctl restart systemd-binfmt.service 2>/dev/null || true
+  systemctl restart docker
+  docker run --rm --platform linux/amd64 "$ALPINE_IMAGE" true >/dev/null 2>&1 \
+    || die "amd64 emülasyonu otomatik etkinleştirilemedi. Çekirdekte binfmt_misc desteğini kontrol edin."
+  ok "amd64 emülasyonu etkinleştirildi."
+}
+
 clamp() {
   local value=$1 minimum=$2 maximum=$3
   (( value < minimum )) && value=$minimum
@@ -184,8 +262,10 @@ ensure_env_defaults() {
   [[ -n $(get_env TS3_ADMIN_PASSWORD || true) ]] || set_env TS3_ADMIN_PASSWORD "$(random_secret)"
   [[ -n $(get_env TS3_IMAGE || true) ]] || set_env TS3_IMAGE "$DEFAULT_TS3_IMAGE"
   [[ -n $(get_env TS6_IMAGE || true) ]] || set_env TS6_IMAGE "$DEFAULT_TS6_IMAGE"
+  [[ -n $(get_env TEASPEAK_IMAGE || true) ]] || set_env TEASPEAK_IMAGE "$HARDENED_TEASPEAK_IMAGE"
   [[ -n $(get_env MANAGER_IMAGE || true) ]] || set_env MANAGER_IMAGE "$DEFAULT_MANAGER_IMAGE"
   [[ -n $(get_env MANAGER_SOURCE_REF || true) ]] || set_env MANAGER_SOURCE_REF "$DEFAULT_MANAGER_SOURCE_REF"
+  [[ -n $(get_env COMPOSE_PROJECT_NAME || true) ]] || set_env COMPOSE_PROJECT_NAME "$PROJECT_NAME"
   [[ -n $(get_env QUERY_BIND_IP || true) ]] || set_env QUERY_BIND_IP "127.0.0.1"
   [[ -n $(get_env MANAGER_BIND_IP || true) ]] || set_env MANAGER_BIND_IP "127.0.0.1"
   detect_performance_defaults
@@ -224,7 +304,7 @@ write_compose() {
   ensure_env_defaults
   mkdir -p "$INSTALL_ROOT"
   cat > "${COMPOSE_FILE}.tmp" <<'YAML'
-name: teamhub
+name: ${COMPOSE_PROJECT_NAME}
 
 x-logging: &default-logging
   driver: json-file
@@ -298,6 +378,34 @@ services:
     logging: *default-logging
     stop_grace_period: 45s
 
+  teaspeak:
+    image: ${TEASPEAK_IMAGE}
+    platform: linux/amd64
+    profiles: ["teaspeak"]
+    init: true
+    user: "4242:4242"
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    restart: ${TEASPEAK_RESTART_POLICY:-unless-stopped}
+    command:
+      - "-Pgeneral.database.url=sqlite://database/TeaData.sqlite"
+      - "-Pgeneral.license=${TEASPEAK_LICENSE:-none}"
+    ports:
+      - "${TEASPEAK_VOICE_PORT}:9987/tcp"
+      - "${TEASPEAK_VOICE_PORT}:9987/udp"
+      - "${QUERY_BIND_IP}:${TEASPEAK_QUERY_PORT}:10101/tcp"
+      - "${TEASPEAK_FILE_PORT}:30303/tcp"
+    volumes:
+      - teaspeak-logs:/ts/logs
+      - teaspeak-database:/ts/database
+      - teaspeak-files:/ts/files
+      - teaspeak-certs:/ts/certs
+      - teaspeak-config:/ts/config
+      - teaspeak-crash-dumps:/ts/crash_dumps
+    networks: [teamhub]
+    logging: *default-logging
+    stop_grace_period: 45s
+
   manager:
     image: ${MANAGER_IMAGE}
     profiles: ["manager"]
@@ -334,11 +442,17 @@ services:
 
 networks:
   teamhub:
-    name: teamhub
+    name: ${COMPOSE_PROJECT_NAME}
 
 volumes:
   ts3-data:
   ts6-data:
+  teaspeak-logs:
+  teaspeak-database:
+  teaspeak-files:
+  teaspeak-certs:
+  teaspeak-config:
+  teaspeak-crash-dumps:
   manager-data:
   manager-music:
 YAML
@@ -359,11 +473,8 @@ configure_restart_policy() {
 
 install_ts3() {
   install_docker
-  if [[ $(uname -m) =~ ^(aarch64|arm64)$ ]]; then
-    info "ARM üzerinde TS3 amd64 emülasyonu kontrol ediliyor..."
-    docker run --rm --platform linux/amd64 "$ALPINE_IMAGE" true >/dev/null \
-      || die "Docker amd64 emülasyonu etkin değil. Docker Desktop emülasyonunu veya Linux binfmt/QEMU desteğini etkinleştirin."
-  fi
+  handle_existing_component ts3 && return
+  ensure_amd64_emulation
   ensure_env_defaults
   prepare_ts3_image
   set_env TS3_VOICE_PORT "$(ask_port TS3_VOICE_PORT 'TS3 ses UDP portu' udp)"
@@ -375,6 +486,35 @@ install_ts3() {
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile ts3 up -d ts3
   generate_ts3_api_key || warn "TS3 API anahtarı otomatik üretilemedi; log ve ServerQuery erişimini kontrol edin."
   ok "TS3 ve HTTP WebQuery kuruldu. Yönetim bilgileri ${ENV_FILE} içinde saklandı."
+}
+
+install_teaspeak() {
+  local license_code
+  install_docker
+  handle_existing_component teaspeak && return
+  ensure_amd64_emulation
+  ensure_env_defaults
+  prepare_teaspeak_image
+  read -r -s -p "TeaSpeak lisans kodu (yoksa boş bırakın): " license_code
+  printf '\n'
+  set_env TEASPEAK_LICENSE "${license_code:-none}"
+  unset license_code
+  set_env TEASPEAK_VOICE_PORT "$(ask_port TEASPEAK_VOICE_PORT 'TeaSpeak ses TCP/UDP portu' udp)"
+  set_env TEASPEAK_QUERY_PORT "$(ask_port TEASPEAK_QUERY_PORT 'TeaSpeak Query TCP portu' tcp)"
+  set_env TEASPEAK_FILE_PORT "$(ask_port TEASPEAK_FILE_PORT 'TeaSpeak dosya aktarım TCP portu' tcp)"
+  configure_restart_policy teaspeak
+  write_compose
+  docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile teaspeak up -d teaspeak
+  ok "TeaSpeak kuruldu. Query parolası ve yönetici anahtarı aşağıdaki ilk başlatma logundadır:"
+  compose_cmd logs --tail=80 teaspeak
+}
+
+prepare_teaspeak_image() {
+  info "SHA-256 doğrulamalı TeaSpeak 1.5.6 imajı hazırlanıyor..."
+  docker build --platform linux/amd64 \
+    -f "${SCRIPT_DIR}/docker/teaspeak-hardened.Dockerfile" \
+    -t "$HARDENED_TEASPEAK_IMAGE" "${SCRIPT_DIR}/docker"
+  set_env TEASPEAK_IMAGE "$HARDENED_TEASPEAK_IMAGE"
 }
 
 generate_ts3_api_key() {
@@ -397,6 +537,7 @@ generate_ts3_api_key() {
 
 install_ts6() {
   install_docker
+  handle_existing_component ts6 && return
   ensure_env_defaults
   prepare_ts6_image
   set_env TS6_VOICE_PORT "$(ask_port TS6_VOICE_PORT 'TS6 ses UDP portu' udp)"
@@ -431,20 +572,35 @@ prepare_ts6_image() {
 
 install_manager() {
   install_docker
+  handle_existing_component manager && return
   ensure_env_defaults
   prepare_manager_image
-  local port public_host
+  local port public_host bind_ip access_mode
   port=$(ask_port MANAGER_PORT 'Manager web TCP portu' tcp)
   set_env MANAGER_PORT "$port"
-  set_env MANAGER_BIND_IP "127.0.0.1"
-  public_host="localhost"
-  set_env FRONTEND_URL "http://${public_host}:${port}"
+  public_host=$(detect_public_host)
+  access_mode="tunnel"
+  if confirm "Manager doğrudan ağdan erişilebilir olsun mu? (TLS/reverse proxy önerilir)" N; then
+    bind_ip="0.0.0.0"
+    access_mode="direct"
+    set_env FRONTEND_URL "http://${public_host}:${port}"
+  else
+    bind_ip="127.0.0.1"
+    set_env FRONTEND_URL "http://localhost:${port}"
+  fi
+  set_env MANAGER_BIND_IP "$bind_ip"
   configure_restart_policy manager
   write_compose
   prepare_manager_volume_permissions
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile manager up -d manager
-  ok "Manager kuruldu: http://${public_host}:${port}/setup"
-  info "Uzak erişim için TLS reverse proxy veya SSH tüneli kullanın; panel doğrudan internete açılmaz."
+  if [[ $access_mode == direct ]]; then
+    ok "Manager kuruldu: http://${public_host}:${port}/setup"
+    warn "Panel ağda açık. Güvenlik duvarı ile sınırlandırın ve TLS reverse proxy kullanın."
+  else
+    ok "Manager yalnız sunucu üzerinde dinliyor: http://127.0.0.1:${port}/setup"
+    info "Windows PowerShell'de tünel açın: ssh -L ${port}:127.0.0.1:${port} KULLANICI@${public_host}"
+    info "Sonra bilgisayarınızda açın: http://127.0.0.1:${port}/setup"
+  fi
   music_bot_guide
 }
 
@@ -482,22 +638,29 @@ prepare_manager_image() {
 prepare_manager_volume_permissions() {
   info "Manager veri volume izinleri root olmayan çalışma kullanıcısına hazırlanıyor..."
   docker run --rm --user 0:0 \
-    -v teamhub_manager-data:/app/packages/backend/data \
-    -v teamhub_manager-music:/data/music \
+    -v "${PROJECT_NAME}_manager-data:/app/packages/backend/data" \
+    -v "${PROJECT_NAME}_manager-music:/data/music" \
     "$HARDENED_MANAGER_IMAGE" \
     sh -c 'chown -R 10001:10001 /app/packages/backend/data /data/music'
 }
 
 music_bot_guide() {
-  local manager_port ts6_http ts3_http
+  local manager_port manager_bind public_host ts6_http ts3_http manager_step
   manager_port=$(get_env MANAGER_PORT || printf '3000')
+  manager_bind=$(get_env MANAGER_BIND_IP || printf '127.0.0.1')
+  public_host=$(detect_public_host)
   ts6_http=$(get_env TS6_QUERY_HTTP_PORT || printf '10081')
   ts3_http=$(get_env TS3_WEBQUERY_PORT || printf '10080')
+  if [[ $manager_bind == 127.0.0.1 ]]; then
+    manager_step="Windows PowerShell'de 'ssh -L ${manager_port}:127.0.0.1:${manager_port} KULLANICI@${public_host}' çalıştır; ardından http://127.0.0.1:${manager_port}/setup adresini aç."
+  else
+    manager_step="Tarayıcıda http://${public_host}:${manager_port}/setup adresini aç (üretimde TLS reverse proxy kullan)."
+  fi
   cat <<EOF
 
 Müzik botu temiz kurulum adımları
 ---------------------------------
-1. Tarayıcıda http://SUNUCU_IP:${manager_port}/setup adresini açıp ilk admini oluştur.
+1. ${manager_step}
 2. Ayarlar > Connections bölümünde sunucuyu ekle.
    - Aynı paket içindeki TS6: host ts6, port 10080, anahtar ${ENV_FILE} içindeki TS6_API_KEY.
    - Aynı paket içindeki TS3: host ts3, port 10080, anahtar ${ENV_FILE} içindeki TS3_API_KEY.
@@ -539,33 +702,59 @@ show_status() {
 
 show_logs() {
   local service
-  service=$(prompt_value "Servis (ts3/ts6/manager)" "manager")
-  [[ $service =~ ^(ts3|ts6|manager)$ ]] || die "Geçersiz servis."
+  service=$(prompt_value "Servis (ts3/ts6/teaspeak/manager)" "manager")
+  [[ $service =~ ^(ts3|ts6|teaspeak|manager)$ ]] || die "Geçersiz servis."
+  service_exists "$service" || die "$service kurulu değil."
   compose_cmd logs --tail=200 "$service"
 }
 
 manage_service() {
   local service action
-  service=$(prompt_value "Servis (ts3/ts6/manager)" "manager")
-  [[ $service =~ ^(ts3|ts6|manager)$ ]] || die "Geçersiz servis."
+  service=$(prompt_value "Servis (ts3/ts6/teaspeak/manager)" "manager")
+  [[ $service =~ ^(ts3|ts6|teaspeak|manager)$ ]] || die "Geçersiz servis."
+  service_exists "$service" || die "$service kurulu değil; önce kurulum menüsünden yükleyin."
   action=$(prompt_value "İşlem (start/stop/restart)" "restart")
   [[ $action =~ ^(start|stop|restart)$ ]] || die "Geçersiz işlem."
+  if [[ $action == start ]] && service_running "$service"; then
+    info "$service zaten çalışıyor; işlem yapılmadı."
+    return
+  fi
+  if [[ $action == stop ]] && ! service_running "$service"; then
+    info "$service zaten durmuş; işlem yapılmadı."
+    return
+  fi
   compose_cmd "$action" "$service"
+  if [[ $action == stop ]]; then
+    service_running "$service" && die "$service durdurulamadı."
+  else
+    service_running "$service" || die "$service başlatılamadı; logları kontrol edin."
+  fi
   ok "$service: $action tamamlandı."
 }
 
 backup_data() {
   [[ -f $COMPOSE_FILE && -f $ENV_FILE ]] || die "Henüz kurulum bulunamadı."
   local backup_dir archive backup_password backup_password_confirm service
-  local -a running_services=()
+  local -a running_services=() volume_mounts=()
   backup_dir="${INSTALL_ROOT}/backups"
   archive="${backup_dir}/teamhub-$(date +%Y%m%d-%H%M%S).tar.gz.enc"
   mkdir -p "$backup_dir"
   while IFS= read -r service; do
     case "$service" in
-      ts3|ts6|manager) running_services+=("$service") ;;
+      ts3|ts6|teaspeak|manager) running_services+=("$service") ;;
     esac
-  done < <(docker ps --filter label=com.docker.compose.project=teamhub --format '{{.Label "com.docker.compose.service"}}' | sort -u)
+  done < <(docker ps --filter "label=com.docker.compose.project=${PROJECT_NAME}" --format '{{.Label "com.docker.compose.service"}}' | sort -u)
+
+  volume_exists "${PROJECT_NAME}_ts3-data" && volume_mounts+=(-v "${PROJECT_NAME}_ts3-data:/data/ts3:ro")
+  volume_exists "${PROJECT_NAME}_ts6-data" && volume_mounts+=(-v "${PROJECT_NAME}_ts6-data:/data/ts6:ro")
+  volume_exists "${PROJECT_NAME}_teaspeak-database" && volume_mounts+=(-v "${PROJECT_NAME}_teaspeak-database:/data/teaspeak/database:ro")
+  volume_exists "${PROJECT_NAME}_teaspeak-files" && volume_mounts+=(-v "${PROJECT_NAME}_teaspeak-files:/data/teaspeak/files:ro")
+  volume_exists "${PROJECT_NAME}_teaspeak-config" && volume_mounts+=(-v "${PROJECT_NAME}_teaspeak-config:/data/teaspeak/config:ro")
+  volume_exists "${PROJECT_NAME}_teaspeak-certs" && volume_mounts+=(-v "${PROJECT_NAME}_teaspeak-certs:/data/teaspeak/certs:ro")
+  volume_exists "${PROJECT_NAME}_teaspeak-logs" && volume_mounts+=(-v "${PROJECT_NAME}_teaspeak-logs:/data/teaspeak/logs:ro")
+  volume_exists "${PROJECT_NAME}_teaspeak-crash-dumps" && volume_mounts+=(-v "${PROJECT_NAME}_teaspeak-crash-dumps:/data/teaspeak/crash_dumps:ro")
+  volume_exists "${PROJECT_NAME}_manager-data" && volume_mounts+=(-v "${PROJECT_NAME}_manager-data:/data/manager:ro")
+  volume_exists "${PROJECT_NAME}_manager-music" && volume_mounts+=(-v "${PROJECT_NAME}_manager-music:/data/music:ro")
 
   read -r -s -p "Yedek şifresi (en az 16 karakter): " backup_password
   printf '\n'
@@ -581,13 +770,10 @@ backup_data() {
     info "Çalışan TeamHub servisi yok; veri doğrudan yedeklenecek."
   fi
   if ! docker run --rm \
-      -v teamhub_ts3-data:/data/ts3:ro \
-      -v teamhub_ts6-data:/data/ts6:ro \
-      -v teamhub_manager-data:/data/manager:ro \
-      -v teamhub_manager-music:/data/music:ro \
+      "${volume_mounts[@]}" \
       -v "${ENV_FILE}:/config/.env:ro" \
       -v "${COMPOSE_FILE}:/config/compose.yml:ro" \
-      "$ALPINE_IMAGE" sh -c "tar czf - -C / data config" \
+      --platform "$(docker_platform)" "$ALPINE_IMAGE" sh -c "tar czf - -C / data config" \
       | openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt \
           -out "$archive" -pass fd:3 3<<<"$backup_password"; then
     warn "Yedekleme başarısız oldu; servisler yeniden başlatılıyor."
@@ -605,16 +791,35 @@ backup_data() {
 
 uninstall_component() {
   local service volume
-  service=$(prompt_value "Kaldırılacak bileşen (ts3/ts6/manager)" "manager")
-  [[ $service =~ ^(ts3|ts6|manager)$ ]] || die "Geçersiz bileşen."
+  service=$(prompt_value "Kaldırılacak bileşen (ts3/ts6/teaspeak/manager)" "manager")
+  [[ $service =~ ^(ts3|ts6|teaspeak|manager)$ ]] || die "Geçersiz bileşen."
+  if ! service_exists "$service"; then
+    warn "$service konteyneri kurulu değil; hiçbir konteyner silinmedi."
+    case "$service" in
+      ts3) volume="${PROJECT_NAME}_ts3-data" ;;
+      ts6) volume="${PROJECT_NAME}_ts6-data" ;;
+      teaspeak) volume="${PROJECT_NAME}_teaspeak-database" ;;
+      manager) volume="${PROJECT_NAME}_manager-data" ;;
+    esac
+    if volume_exists "$volume"; then
+      info "$service için kalıntı veri volume'u var. Güvenlik için otomatik silinmedi: $volume"
+    fi
+    return
+  fi
   confirm "$service konteyneri kaldırılsın mı?" N || return
   compose_cmd rm -sf "$service"
   if confirm "$service verileri de kalıcı olarak silinsin mi?" N; then
     case "$service" in
-      ts3) volume="teamhub_ts3-data" ;;
-      ts6) volume="teamhub_ts6-data" ;;
+      ts3) volume="${PROJECT_NAME}_ts3-data" ;;
+      ts6) volume="${PROJECT_NAME}_ts6-data" ;;
+      teaspeak)
+        docker volume rm "${PROJECT_NAME}_teaspeak-logs" "${PROJECT_NAME}_teaspeak-database" "${PROJECT_NAME}_teaspeak-files" \
+          "${PROJECT_NAME}_teaspeak-certs" "${PROJECT_NAME}_teaspeak-config" "${PROJECT_NAME}_teaspeak-crash-dumps" 2>/dev/null || true
+        ok "TeaSpeak verileri silindi."
+        return
+        ;;
       manager)
-        docker volume rm teamhub_manager-data teamhub_manager-music 2>/dev/null || true
+        docker volume rm "${PROJECT_NAME}_manager-data" "${PROJECT_NAME}_manager-music" 2>/dev/null || true
         ok "Manager verileri silindi."
         return
         ;;
@@ -627,6 +832,7 @@ uninstall_component() {
 show_header() {
   clear 2>/dev/null || true
   printf '\n%s v%s\n' "$APP_NAME" "$APP_VERSION"
+  printf 'Kurulum: %s (%s)\n' "$PROJECT_NAME" "$INSTALL_ROOT"
   printf '%s\n' '=================================='
 }
 
@@ -636,16 +842,17 @@ main_menu() {
     cat <<'MENU'
 1) Docker gereksinimlerini kur
 2) TeamSpeak 3 sunucusu kur
-3) TeamSpeak 6 sunucusu kur
-4) TS6 Manager kur
-5) Müzik botu bağlantı yönergesini göster
-6) Önerilen tam paket (TS6 + Manager + müzik botu hazırlığı)
-7) TeamSpeak Manager'ı verileri koruyarak güncelle
-8) Servis durumları
-9) Logları göster
-10) Servis başlat / durdur / yeniden başlat
-11) Verileri yedekle
-12) Bir bileşeni kaldır
+3) TeaSpeak sunucusu kur
+4) TeamSpeak 6 sunucusu kur
+5) TS6 Manager kur
+6) Müzik botu bağlantı yönergesini göster
+7) Önerilen tam paket (TS6 + Manager + müzik botu hazırlığı)
+8) TeamSpeak Manager'ı verileri koruyarak güncelle
+9) Servis durumları
+10) Logları göster
+11) Servis başlat / durdur / yeniden başlat
+12) Verileri yedekle
+13) Bir bileşeni kaldır
 0) Çıkış
 MENU
     local choice
@@ -653,16 +860,17 @@ MENU
     case "$choice" in
       1) install_docker ;;
       2) install_ts3 ;;
-      3) install_ts6 ;;
-      4) install_manager ;;
-      5) ensure_env_defaults; music_bot_guide ;;
-      6) install_full_stack ;;
-      7) update_manager ;;
-      8) show_status ;;
-      9) show_logs ;;
-      10) manage_service ;;
-      11) backup_data ;;
-      12) uninstall_component ;;
+      3) install_teaspeak ;;
+      4) install_ts6 ;;
+      5) install_manager ;;
+      6) ensure_env_defaults; music_bot_guide ;;
+      7) install_full_stack ;;
+      8) update_manager ;;
+      9) show_status ;;
+      10) show_logs ;;
+      11) manage_service ;;
+      12) backup_data ;;
+      13) uninstall_component ;;
       0) exit 0 ;;
       *) warn "Geçersiz seçim." ;;
     esac

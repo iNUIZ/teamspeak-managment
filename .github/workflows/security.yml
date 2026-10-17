@@ -48,6 +48,11 @@ jobs:
             dockerfile: docker/ts6-hardened.Dockerfile
             scan_image: teamspeak-managment/ts6-hardened:ci
             context: docker
+          - name: teaspeak
+            base_image: ubuntu:24.04@sha256:68ee22004a9109b44973313b02ff7b1de250f1de0f5ecb628d73f579aaff33ac
+            dockerfile: docker/teaspeak-hardened.Dockerfile
+            scan_image: teamspeak-managment/teaspeak-hardened:ci
+            context: docker
           - name: manager
             base_image: ghcr.io/uniskela/ts6-manager/all-in-one:1.11.1@sha256:f5323c743865a157293eb9028548a68941b6e8743a97597825e19fab339fc83d
             dockerfile: docker/manager-hardened.Dockerfile
