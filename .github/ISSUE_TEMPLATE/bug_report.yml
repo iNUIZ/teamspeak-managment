@@ -1,0 +1,47 @@
+name: Bug report
+description: Report a reproducible installer problem
+title: "[Bug]: "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: Never include passwords, API keys, cookies, private IPs, or `.env` contents.
+  - type: input
+    id: version
+    attributes:
+      label: Installer version
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - Ubuntu x86_64
+        - Ubuntu ARM64
+        - Debian x86_64
+        - Debian ARM64
+        - Windows Docker Desktop
+        - WSL
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Explain the selected menu options and what happened. Redact all secrets.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sanitized output
+      render: shell

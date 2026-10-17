@@ -1,0 +1,83 @@
+name: Security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "17 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  repository:
+    name: Repository security scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - name: Scan source, configuration, and secrets
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret,misconfig
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  images:
+    name: Container scan (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: ts3
+            base_image: teamspeak:3.13.8@sha256:6dfdfb22869adf50e1b66d024b360b786d57a85ea09e8e8fdb6cca23949b2813
+            dockerfile: docker/ts3-hardened.Dockerfile
+            scan_image: teamspeak-managment/ts3-hardened:ci
+          - name: ts6
+            base_image: teamspeaksystems/teamspeak6-server:6.0.0-beta13.1@sha256:d845f803aecf842c2df034c959c23ff2462357bacafb3807500885c5ec170fa1
+            dockerfile: docker/ts6-hardened.Dockerfile
+            scan_image: teamspeak-managment/ts6-hardened:ci
+          - name: manager
+            base_image: ghcr.io/uniskela/ts6-manager/all-in-one:1.11.1@sha256:f5323c743865a157293eb9028548a68941b6e8743a97597825e19fab339fc83d
+            dockerfile: ""
+            scan_image: ghcr.io/uniskela/ts6-manager/all-in-one:1.11.1@sha256:f5323c743865a157293eb9028548a68941b6e8743a97597825e19fab339fc83d
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Build hardened image
+        if: matrix.dockerfile != ''
+        run: |
+          docker build \
+            --build-arg "BASE_IMAGE=${{ matrix.base_image }}" \
+            -f "${{ matrix.dockerfile }}" \
+            -t "${{ matrix.scan_image }}" docker
+      - name: Scan image and create SARIF
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.scan_image }}
+          format: sarif
+          output: trivy-${{ matrix.name }}.sarif
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "0"
+      - name: Upload findings to GitHub code scanning
+        uses: github/codeql-action/upload-sarif@ce5e7eeac396d720fe2d802714996c8ce561e311 # v3
+        with:
+          sarif_file: trivy-${{ matrix.name }}.sarif
+          category: trivy-${{ matrix.name }}
+      - name: Block fixed high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ matrix.scan_image }}
+          format: table
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
