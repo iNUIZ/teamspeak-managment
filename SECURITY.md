@@ -21,7 +21,13 @@ all real credentials and personal data before attaching logs.
 - Restrict Query and Manager ports with the host and cloud firewalls.
 - Pin tested container versions for production deployments.
 - Back up named volumes and deployment configuration before upgrades. Backup
-  archives contain `.env` secrets, so store them encrypted and off-server.
+  archives are encrypted with AES-256-CBC + PBKDF2, but must still be stored
+  off-server and protected with a unique password.
+- Runtime containers drop all Linux capabilities and set `no-new-privileges`.
+  Manager runs as UID/GID 10001 with a read-only root filesystem.
+- Refresh-token rotation keeps consumed-token tombstones. Reuse revokes the
+  complete token family for that session.
+- A release is created only after the reusable security workflow succeeds.
 
 ## Release verification
 

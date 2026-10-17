@@ -9,7 +9,7 @@ Compose ile kuran ve yöneten etkileşimli dağıtım aracı.
 
 | Bilgi | Değer |
 |---|---|
-| Sürüm | **0.3.1** |
+| Sürüm | **0.3.2** |
 | Geliştirici | **Berat Akar** |
 | Kaynak | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -78,10 +78,10 @@ En son Release paketini indirip önce Ed25519 imzasını, ardından SHA-256 değ
 doğrulayan tek satırlık alternatif:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.1/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.2/bootstrap.ps1 | iex
 ```
 
-Komut değiştirilemeyen `v0.3.1` sürüm etiketine sabitlenmiştir. Üretim ortamında
+Komut değiştirilemeyen `v0.3.2` sürüm etiketine sabitlenmiştir. Üretim ortamında
 çalıştırmadan önce `bootstrap.ps1` içeriğinin incelenmesi yine de önerilir.
 
 ### WSL2 terminali
@@ -113,9 +113,21 @@ erişimi için TLS kullanan reverse proxy ve güvenlik duvarı önerilir.
   `teamhub_manager-data`, `teamhub_manager-music`
 
 Üretilen `.env` dosyası gizli anahtarları içerir ve repoya eklenmemelidir.
-Menüdeki yedekleme işlemi kalıcı volume'larla birlikte `.env` ve `compose.yml`
-dosyalarını da arşivler. Yedek `0600` izinleriyle oluşturulur; yine de parola ve
-anahtar içerdiği için şifreli, sunucu dışındaki bir depoda tutulmalıdır.
+Menüdeki yedekleme işlemi önce gerçekten çalışan servisleri belirler, yalnızca
+onları durdurur ve işlem bitince yine yalnızca onları başlatır. Kalıcı volume'lar,
+`.env` ve `compose.yml`; AES-256-CBC + PBKDF2 ile şifrelenmiş `.tar.gz.enc`
+arşivine yazılır. Yedek parolası saklanmaz ve en az 16 karakter olmalıdır.
+
+Yedeği açmak için:
+
+```bash
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+  -in teamhub-TARIH.tar.gz.enc | tar xzf -
+```
+
+Manager, UID/GID `10001` ile root olmadan çalışır. TS3, TS6 ve Manager tüm Linux
+capability'lerini bırakır ve `no-new-privileges` korumasını kullanır. Manager
+ayrıca salt okunur kök dosya sistemiyle çalışır.
 
 ## İlk Manager bağlantısı
 

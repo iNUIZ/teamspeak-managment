@@ -9,7 +9,7 @@ TeamSpeak 6, TS6 Manager, and the Manager music bot.
 
 | Metadata | Value |
 |---|---|
-| Version | **0.3.1** |
+| Version | **0.3.2** |
 | Developer | **Berat Akar** |
 | Source | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -78,10 +78,10 @@ One-line alternative that downloads the latest Release, verifies its Ed25519
 signature, and only then verifies the archive SHA-256:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.1/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.2/bootstrap.ps1 | iex
 ```
 
-The command is pinned to the immutable `v0.3.1` release tag. Review
+The command is pinned to the immutable `v0.3.2` release tag. Review
 `bootstrap.ps1` before running it in a production environment.
 
 ### WSL2 terminal
@@ -113,9 +113,21 @@ and firewall rules when exposing the panel remotely.
   `teamhub_manager-data`, and `teamhub_manager-music`
 
 The generated `.env` contains secrets and must never be committed.
-The backup menu action archives `.env` and `compose.yml` together with all
-persistent volumes. The archive is created with `0600` permissions, but it still
-contains credentials and keys; keep it encrypted and off-server.
+The backup action records the services that are actually running, stops only
+those services, and restarts only that same set. Persistent volumes, `.env`, and
+`compose.yml` are streamed into an AES-256-CBC + PBKDF2 encrypted `.tar.gz.enc`
+archive. The password is never stored and must contain at least 16 characters.
+
+To decrypt and extract a backup:
+
+```bash
+openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+  -in teamhub-DATE.tar.gz.enc | tar xzf -
+```
+
+Manager runs without root as UID/GID `10001`. TS3, TS6, and Manager drop all
+Linux capabilities and enable `no-new-privileges`; Manager also uses a read-only
+root filesystem.
 
 ## Initial Manager connection
 
