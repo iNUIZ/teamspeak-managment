@@ -10,7 +10,8 @@ case "$KERNEL_NAME" in
   *)                    readonly OS_FAMILY="linux";   readonly DEFAULT_INSTALL_ROOT="/opt/teamhub" ;;
 esac
 readonly INSTALL_ROOT="${TEAMHUB_ROOT:-$DEFAULT_INSTALL_ROOT}"
-readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly SCRIPT_DIR
 readonly COMPOSE_FILE="${INSTALL_ROOT}/compose.yml"
 readonly ENV_FILE="${INSTALL_ROOT}/.env"
 readonly DEFAULT_TS3_IMAGE="teamspeak:3.13.8@sha256:6dfdfb22869adf50e1b66d024b360b786d57a85ea09e8e8fdb6cca23949b2813"
