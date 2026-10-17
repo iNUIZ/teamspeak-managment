@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 readonly APP_NAME="Teamspeak Managment"
-readonly APP_VERSION="0.3.1"
+readonly APP_VERSION="0.3.2"
 KERNEL_NAME="$(uname -s)"
 readonly KERNEL_NAME
 case "$KERNEL_NAME" in
@@ -17,6 +17,7 @@ readonly ENV_FILE="${INSTALL_ROOT}/.env"
 readonly DEFAULT_TS3_IMAGE="teamspeak:3.13.8@sha256:6dfdfb22869adf50e1b66d024b360b786d57a85ea09e8e8fdb6cca23949b2813"
 readonly DEFAULT_TS6_IMAGE="teamspeaksystems/teamspeak6-server:6.0.0-beta13.1@sha256:d845f803aecf842c2df034c959c23ff2462357bacafb3807500885c5ec170fa1"
 readonly DEFAULT_MANAGER_IMAGE="ghcr.io/uniskela/ts6-manager/all-in-one:1.11.1@sha256:f5323c743865a157293eb9028548a68941b6e8743a97597825e19fab339fc83d"
+readonly HARDENED_MANAGER_IMAGE="teamspeak-managment/manager-hardened:1.11.1-teamhub.1"
 readonly DEFAULT_MANAGER_SOURCE_REF="4002b43739429481fe80765ae14384d12323fe93"
 readonly DEFAULT_MANAGER_SOURCE_SHA256="95829a5cbca6e7537fd9b16645993b9337f51c714dab24bc27179b0029b6616f"
 readonly ALPINE_IMAGE="alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc"
@@ -236,6 +237,8 @@ services:
     image: ${TS3_IMAGE}
     platform: linux/amd64
     init: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
     profiles: ["ts3"]
     restart: ${TS3_RESTART_POLICY:-unless-stopped}
     environment:
@@ -265,6 +268,8 @@ services:
     image: ${TS6_IMAGE}
     profiles: ["ts6"]
     init: true
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
     restart: ${TS6_RESTART_POLICY:-unless-stopped}
     environment:
       TSSERVER_LICENSE_ACCEPTED: accept
@@ -297,6 +302,13 @@ services:
     image: ${MANAGER_IMAGE}
     profiles: ["manager"]
     init: true
+    user: "10001:10001"
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=512m
+      - /home/teamhub/.cache:rw,noexec,nosuid,nodev,size=256m
     restart: ${MANAGER_RESTART_POLICY:-unless-stopped}
     environment:
       NODE_ENV: production
@@ -312,7 +324,7 @@ services:
       SIDECAR_URL: http://127.0.0.1:9800
       SIDECAR_PORT: "9800"
     ports:
-      - "${MANAGER_BIND_IP}:${MANAGER_PORT}:80/tcp"
+      - "${MANAGER_BIND_IP}:${MANAGER_PORT}:8080/tcp"
     volumes:
       - manager-data:/app/packages/backend/data
       - manager-music:/data/music
@@ -429,6 +441,7 @@ install_manager() {
   set_env FRONTEND_URL "http://${public_host}:${port}"
   configure_restart_policy manager
   write_compose
+  prepare_manager_volume_permissions
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile manager up -d manager
   ok "Manager kuruldu: http://${public_host}:${port}/setup"
   info "Uzak erişim için TLS reverse proxy veya SSH tüneli kullanın; panel doğrudan internete açılmaz."
@@ -436,35 +449,43 @@ install_manager() {
 }
 
 prepare_manager_image() {
-  local upstream source_ref arch tmp
-  upstream=$(get_env MANAGER_IMAGE || printf '%s' "$DEFAULT_MANAGER_IMAGE")
+  local upstream source_ref arch tmp base_image
+  upstream="$DEFAULT_MANAGER_IMAGE"
   source_ref=$(get_env MANAGER_SOURCE_REF || printf '%s' "$DEFAULT_MANAGER_SOURCE_REF")
   arch=$(docker_arch)
-  if [[ $arch =~ ^(amd64|x86_64)$ ]]; then
-    set_env MANAGER_IMAGE "$upstream"
-    return
+  base_image="$upstream"
+  info "Manager temel imajı ve mimari uyumluluğu kontrol ediliyor..."
+  if ! docker pull "$upstream" >/dev/null 2>&1; then
+    warn "Hazır ${arch} Manager imajı bulunamadı; doğrulanmış kaynak koddan derlenecek."
+    command -v curl >/dev/null 2>&1 || die "Kaynak derleme için curl gerekli."
+    command -v tar >/dev/null 2>&1 || die "Kaynak derleme için tar gerekli."
+    command -v sha256sum >/dev/null 2>&1 || die "Kaynak doğrulama için sha256sum gerekli."
+    tmp=$(mktemp -d)
+    curl -fsSL "https://github.com/uniskela/ts6-manager/archive/${source_ref}.tar.gz" -o "${tmp}/manager.tar.gz"
+    printf '%s  %s\n' "$DEFAULT_MANAGER_SOURCE_SHA256" "${tmp}/manager.tar.gz" | sha256sum -c -
+    mkdir -p "${tmp}/src"
+    tar -xzf "${tmp}/manager.tar.gz" -C "${tmp}/src" --strip-components=1
+    docker build -f "${tmp}/src/Dockerfile.all-in-one" -t teamhub/ts6-manager:base "${tmp}/src"
+    rm -rf -- "$tmp"
+    base_image="teamhub/ts6-manager:base"
   fi
 
-  info "${arch} için hazır Manager imajı kontrol ediliyor..."
-  if docker pull "$upstream" >/dev/null 2>&1; then
-    set_env MANAGER_IMAGE "$upstream"
-    ok "Manager için doğal ${arch} imajı bulundu."
-    return
-  fi
+  info "Root olmayan, yetkileri azaltılmış Manager imajı hazırlanıyor..."
+  docker build \
+    --build-arg "BASE_IMAGE=${base_image}" \
+    -f "${SCRIPT_DIR}/docker/manager-hardened.Dockerfile" \
+    -t "$HARDENED_MANAGER_IMAGE" "$SCRIPT_DIR"
+  set_env MANAGER_IMAGE "$HARDENED_MANAGER_IMAGE"
+  ok "Manager güvenlik yamasıyla ${arch} için hazırlandı."
+}
 
-  warn "Hazır ${arch} Manager imajı bulunamadı; kaynak koddan doğal mimaride derlenecek."
-  command -v curl >/dev/null 2>&1 || die "Kaynak derleme için curl gerekli."
-  command -v tar >/dev/null 2>&1 || die "Kaynak derleme için tar gerekli."
-  command -v sha256sum >/dev/null 2>&1 || die "Kaynak doğrulama için sha256sum gerekli."
-  tmp=$(mktemp -d)
-  curl -fsSL "https://github.com/uniskela/ts6-manager/archive/${source_ref}.tar.gz" -o "${tmp}/manager.tar.gz"
-  printf '%s  %s\n' "$DEFAULT_MANAGER_SOURCE_SHA256" "${tmp}/manager.tar.gz" | sha256sum -c -
-  mkdir -p "${tmp}/src"
-  tar -xzf "${tmp}/manager.tar.gz" -C "${tmp}/src" --strip-components=1
-  docker build -f "${tmp}/src/Dockerfile.all-in-one" -t teamhub/ts6-manager:local "${tmp}/src"
-  rm -rf -- "$tmp"
-  set_env MANAGER_IMAGE "teamhub/ts6-manager:local"
-  ok "Manager ${arch} için yerel olarak derlendi."
+prepare_manager_volume_permissions() {
+  info "Manager veri volume izinleri root olmayan çalışma kullanıcısına hazırlanıyor..."
+  docker run --rm --user 0:0 \
+    -v teamhub_manager-data:/app/packages/backend/data \
+    -v teamhub_manager-music:/data/music \
+    "$HARDENED_MANAGER_IMAGE" \
+    sh -c 'chown -R 10001:10001 /app/packages/backend/data /data/music'
 }
 
 music_bot_guide() {
@@ -495,7 +516,6 @@ install_full_stack() {
 }
 
 update_manager() {
-  local manager_image
   [[ -f $COMPOSE_FILE && -f $ENV_FILE ]] || die "Güncellenecek bir TeamHub kurulumu bulunamadı."
   info "Manager verileri yedekleniyor; veritabanı ve müzikler korunacak."
   backup_data
@@ -503,10 +523,7 @@ update_manager() {
   set_env MANAGER_SOURCE_REF "$DEFAULT_MANAGER_SOURCE_REF"
   prepare_manager_image
   write_compose
-  manager_image=$(get_env MANAGER_IMAGE)
-  if [[ $manager_image != teamhub/* ]]; then
-    docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile manager pull manager
-  fi
+  prepare_manager_volume_permissions
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile manager up -d manager
   ok "TeamSpeak Manager güncellendi; mevcut veritabanı ve müzik volume'ları korundu."
 }
@@ -539,12 +556,30 @@ manage_service() {
 
 backup_data() {
   [[ -f $COMPOSE_FILE && -f $ENV_FILE ]] || die "Henüz kurulum bulunamadı."
-  local backup_dir archive
+  local backup_dir archive backup_password backup_password_confirm service
+  local -a running_services=()
   backup_dir="${INSTALL_ROOT}/backups"
-  archive="${backup_dir}/teamhub-$(date +%Y%m%d-%H%M%S).tar.gz"
+  archive="${backup_dir}/teamhub-$(date +%Y%m%d-%H%M%S).tar.gz.enc"
   mkdir -p "$backup_dir"
-  info "Tutarlı yedek için çalışan servisler kısa süre durduruluyor..."
-  compose_cmd stop
+  while IFS= read -r service; do
+    case "$service" in
+      ts3|ts6|manager) running_services+=("$service") ;;
+    esac
+  done < <(docker ps --filter label=com.docker.compose.project=teamhub --format '{{.Label "com.docker.compose.service"}}' | sort -u)
+
+  read -r -s -p "Yedek şifresi (en az 16 karakter): " backup_password
+  printf '\n'
+  (( ${#backup_password} >= 16 )) || die "Yedek şifresi en az 16 karakter olmalıdır."
+  read -r -s -p "Yedek şifresini tekrar girin: " backup_password_confirm
+  printf '\n'
+  [[ $backup_password == "$backup_password_confirm" ]] || die "Yedek şifreleri eşleşmiyor."
+
+  if (( ${#running_services[@]} > 0 )); then
+    info "Tutarlı yedek için yalnızca çalışan servisler durduruluyor: ${running_services[*]}"
+    compose_cmd stop "${running_services[@]}"
+  else
+    info "Çalışan TeamHub servisi yok; veri doğrudan yedeklenecek."
+  fi
   if ! docker run --rm \
       -v teamhub_ts3-data:/data/ts3:ro \
       -v teamhub_ts6-data:/data/ts6:ro \
@@ -552,16 +587,20 @@ backup_data() {
       -v teamhub_manager-music:/data/music:ro \
       -v "${ENV_FILE}:/config/.env:ro" \
       -v "${COMPOSE_FILE}:/config/compose.yml:ro" \
-      -v "$backup_dir:/backup" \
-      "$ALPINE_IMAGE" sh -c "tar czf /backup/$(basename "$archive") -C / data config"; then
+      "$ALPINE_IMAGE" sh -c "tar czf - -C / data config" \
+      | openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt \
+          -out "$archive" -pass fd:3 3<<<"$backup_password"; then
     warn "Yedekleme başarısız oldu; servisler yeniden başlatılıyor."
-    compose_cmd start || warn "Servisler otomatik başlayamadı; menüden durumlarını kontrol edin."
+    (( ${#running_services[@]} == 0 )) || compose_cmd start "${running_services[@]}" \
+      || warn "Servisler otomatik başlayamadı; menüden durumlarını kontrol edin."
+    rm -f -- "$archive"
     return 1
   fi
-  compose_cmd start
+  (( ${#running_services[@]} == 0 )) || compose_cmd start "${running_services[@]}"
+  unset backup_password backup_password_confirm
   chmod 600 "$archive"
   ok "Yedek oluşturuldu: $archive"
-  warn "Bu arşiv .env içindeki parolaları ve anahtarları içerir; şifreli ve sunucu dışında saklayın."
+  warn "Şifreyi kaybederseniz yedek kurtarılamaz; arşivi sunucu dışında saklayın."
 }
 
 uninstall_component() {
