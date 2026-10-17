@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 readonly APP_NAME="Teamspeak Managment"
-readonly APP_VERSION="0.3.3"
+readonly APP_VERSION="0.3.4"
 KERNEL_NAME="$(uname -s)"
 readonly KERNEL_NAME
 case "$KERNEL_NAME" in
@@ -377,7 +377,6 @@ services:
     networks: [teamhub]
     logging: *default-logging
     stop_grace_period: 45s
-
   teaspeak:
     image: ${TEASPEAK_IMAGE}
     platform: linux/amd64
@@ -405,6 +404,12 @@ services:
     networks: [teamhub]
     logging: *default-logging
     stop_grace_period: 45s
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 3 bash -c '</dev/tcp/127.0.0.1/10101'"]
+      interval: 10s
+      timeout: 5s
+      retries: 9
+      start_period: 15s
 
   manager:
     image: ${MANAGER_IMAGE}
@@ -504,7 +509,10 @@ install_teaspeak() {
   set_env TEASPEAK_FILE_PORT "$(ask_port TEASPEAK_FILE_PORT 'TeaSpeak dosya aktarım TCP portu' tcp)"
   configure_restart_policy teaspeak
   write_compose
-  docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile teaspeak up -d teaspeak
+  if ! docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile teaspeak up -d --wait --wait-timeout 120 teaspeak; then
+    compose_cmd logs --tail=120 teaspeak || true
+    die "TeaSpeak sağlıklı duruma geçemedi; yukarıdaki logları kontrol edin."
+  fi
   ok "TeaSpeak kuruldu. Query parolası ve yönetici anahtarı aşağıdaki ilk başlatma logundadır:"
   compose_cmd logs --tail=80 teaspeak
 }

@@ -2,6 +2,16 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.4] - 2026-10-18
+
+### Fixed
+
+- Removed a stale TeaSpeak `LD_PRELOAD` reference to a jemalloc library that is
+  not present in the verified 1.5.6 archive.
+- Added a real TeaSpeak Query-port health check. Installation now waits up to
+  120 seconds and prints logs instead of claiming success when startup fails.
+- Added a CI runtime smoke test that boots TeaSpeak and verifies its Query port.
+
 ## [0.3.3] - 2026-10-18
 
 ### Added

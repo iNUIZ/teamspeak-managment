@@ -22,8 +22,7 @@ RUN apt-get update \
 
 WORKDIR /ts
 COPY --chmod=0555 teaspeak-entrypoint.sh /usr/local/bin/teaspeak-entrypoint
-ENV LD_LIBRARY_PATH=/ts/libs \
-    LD_PRELOAD=/ts/libs/libjemalloc.so.2
+ENV LD_LIBRARY_PATH=/ts/libs
 USER 4242:4242
 EXPOSE 9987/tcp 9987/udp 10101/tcp 30303/tcp
 VOLUME ["/ts/logs", "/ts/certs", "/ts/config", "/ts/files", "/ts/database", "/ts/crash_dumps"]
