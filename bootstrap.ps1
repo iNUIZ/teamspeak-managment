@@ -13,7 +13,7 @@ MCowBQYDK2VwAyEASPwsjRuEXYxMgbrwFPKFcouJaqd2lZZmhw+7nOwNzQE=
 try {
     New-Item -ItemType Directory -Path $temporaryRoot | Out-Null
     $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repository/releases/latest" -Headers $apiHeaders
-    $zipAsset = $release.assets | Where-Object { $_.name -match '\.zip$' } | Select-Object -First 1
+    $zipAsset = $release.assets | Where-Object { $_.name -match '-windows\.zip$' } | Select-Object -First 1
     $checksumAsset = $release.assets | Where-Object { $_.name -match 'SHA256SUMS\.txt$' } | Select-Object -First 1
     $signatureAsset = $release.assets | Where-Object { $_.name -match 'SHA256SUMS\.txt\.sig$' } | Select-Object -First 1
     if (-not $zipAsset -or -not $checksumAsset -or -not $signatureAsset) {

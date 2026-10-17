@@ -9,14 +9,19 @@ TeamSpeak 6, TS6 Manager, and the Manager music bot.
 
 | Metadata | Value |
 |---|---|
-| Version | **0.3.5** |
+| Version | **0.3.6** |
 | Developer | **Berat Akar** |
 | Source | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
 ## Downloads
 
-- [GitHub Releases](https://github.com/iNUIZ/teamspeak-managment/releases): versioned ZIP and TAR.GZ files with a signed SHA-256 manifest
+- [GitHub Releases](https://github.com/iNUIZ/teamspeak-managment/releases): a Windows ZIP, Linux/ARM TAR.GZ, and signed SHA-256 manifest
 - [GitHub Packages](https://github.com/users/iNUIZ/packages?repo_name=teamspeak-managment): npm package
+
+Releases provide `*-windows.zip` for Windows and `*-linux.tar.gz` for Ubuntu/
+Debian x86_64 and ARM64. The Windows ZIP includes `install.ps1` plus the shared
+`install.sh` and Docker definitions required inside WSL2. The Linux archive does
+not include PowerShell or npm development files.
 
 ## Components
 
@@ -85,10 +90,10 @@ One-line alternative that downloads the latest Release, verifies its Ed25519
 signature, and only then verifies the archive SHA-256:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.5/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.6/bootstrap.ps1 | iex
 ```
 
-The command is pinned to the immutable `v0.3.5` release tag. Review
+The command is pinned to the immutable `v0.3.6` release tag. Review
 `bootstrap.ps1` before running it in a production environment.
 
 ### WSL2 terminal

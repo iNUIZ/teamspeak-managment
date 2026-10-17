@@ -6,9 +6,7 @@ on:
       - "v*"
 
 permissions:
-  contents: write
-  packages: write
-  security-events: write
+  contents: read
 
 jobs:
   security:
@@ -19,18 +17,41 @@ jobs:
 
   release:
     needs: security
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
       - name: Validate tag and version
-        run: test "${GITHUB_REF_NAME#v}" = "$(tr -d '[:space:]' < VERSION)"
+        run: |
+          test "${GITHUB_REF_NAME#v}" = "$(tr -d '[:space:]' < VERSION)"
+          git fetch --no-tags origin main
+          test "$GITHUB_SHA" = "$(git rev-parse origin/main)" || {
+            echo "Release tags must point to the current protected main commit." >&2
+            exit 1
+          }
       - name: Build release archive
         run: |
           base="teamspeak-managment-${GITHUB_REF_NAME}"
-          files=(install.sh install.ps1 bootstrap.ps1 package.json package-lock.json README.md README.en.md LICENSE CONTRIBUTING.md SECURITY.md CHANGELOG.md VERSION docs docker security .gitignore .editorconfig)
-          zip -r "${base}.zip" "${files[@]}"
-          tar -czf "${base}.tar.gz" "${files[@]}"
-          sha256sum "${base}.zip" "${base}.tar.gz" > "${base}-SHA256SUMS.txt"
+          common=(install.sh README.md README.en.md LICENSE SECURITY.md CHANGELOG.md VERSION docs docker)
+          windows=(install.ps1 "${common[@]}")
+          linux=("${common[@]}")
+          zip -r "${base}-windows.zip" "${windows[@]}"
+          tar -czf "${base}-linux.tar.gz" "${linux[@]}"
+          sha256sum "${base}-windows.zip" "${base}-linux.tar.gz" > "${base}-SHA256SUMS.txt"
+      - name: Validate platform archive contents
+        run: |
+          base="teamspeak-managment-${GITHUB_REF_NAME}"
+          unzip -Z1 "${base}-windows.zip" > windows-files.txt
+          tar -tzf "${base}-linux.tar.gz" > linux-files.txt
+          grep -Fxq install.ps1 windows-files.txt
+          grep -Fxq install.sh windows-files.txt
+          grep -Fxq install.sh linux-files.txt
+          ! grep -Eq '(^|/)(install\.ps1|bootstrap\.ps1|package(-lock)?\.json)$' linux-files.txt
+          ! grep -Eq '(^|/)(bootstrap\.ps1|package(-lock)?\.json)$' windows-files.txt
       - name: Sign and verify checksum manifest
         env:
           RELEASE_SIGNING_KEY_B64: ${{ secrets.RELEASE_SIGNING_KEY_B64 }}
@@ -63,16 +84,16 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           assets=(
-            "teamspeak-managment-${GITHUB_REF_NAME}.zip"
-            "teamspeak-managment-${GITHUB_REF_NAME}.tar.gz"
+            "teamspeak-managment-${GITHUB_REF_NAME}-windows.zip"
+            "teamspeak-managment-${GITHUB_REF_NAME}-linux.tar.gz"
             "teamspeak-managment-${GITHUB_REF_NAME}-SHA256SUMS.txt"
             "teamspeak-managment-${GITHUB_REF_NAME}-SHA256SUMS.txt.sig"
           )
-          if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            gh release upload "$GITHUB_REF_NAME" "${assets[@]}" --clobber
-          else
-            gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
-              --verify-tag \
-              --generate-notes \
-              --title "Teamspeak Managment ${GITHUB_REF_NAME}"
-          fi
+          ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || {
+            echo "Release already exists; refusing to replace immutable assets." >&2
+            exit 1
+          }
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+            --verify-tag \
+            --generate-notes \
+            --title "Teamspeak Managment ${GITHUB_REF_NAME}"

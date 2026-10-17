@@ -2,6 +2,19 @@
 
 This project follows [Semantic Versioning](https://semver.org/).
 
+## [0.3.6] - 2026-10-18
+
+### Changed
+
+- Split release downloads into a Windows-specific ZIP and a Linux/ARM TAR.GZ.
+- Removed npm and repository-development metadata from end-user archives.
+- Made the Windows bootstrapper select only the explicitly named Windows ZIP.
+- Added release-time assertions that prevent platform-only files from leaking
+  into the wrong archive.
+- Reduced release job permissions and pinned CI runners to explicit OS versions.
+- Restricted releases to the current protected `main` commit and made published
+  release assets immutable instead of replacing them with `--clobber`.
+
 ## [0.3.5] - 2026-10-18
 
 ### Fixed

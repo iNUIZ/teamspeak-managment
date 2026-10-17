@@ -9,14 +9,19 @@ Compose ile kuran ve yöneten etkileşimli dağıtım aracı.
 
 | Bilgi | Değer |
 |---|---|
-| Sürüm | **0.3.5** |
+| Sürüm | **0.3.6** |
 | Geliştirici | **Berat Akar** |
 | Kaynak | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
 ## İndirmeler
 
-- [GitHub Releases](https://github.com/iNUIZ/teamspeak-managment/releases): imzalı SHA-256 manifestiyle sürümlenmiş ZIP ve TAR.GZ dosyaları
+- [GitHub Releases](https://github.com/iNUIZ/teamspeak-managment/releases): Windows için ZIP, Linux/ARM için TAR.GZ ve imzalı SHA-256 manifesti
 - [GitHub Packages](https://github.com/users/iNUIZ/packages?repo_name=teamspeak-managment): npm paketi
+
+Windows arşivi `*-windows.zip`, Ubuntu/Debian x86_64 ve ARM64 arşivi
+`*-linux.tar.gz` adıyla yayımlanır. Windows ZIP'i `install.ps1` ile birlikte,
+WSL2 içinde gereken ortak `install.sh` ve Docker tanımlarını içerir; Linux arşivi
+PowerShell ve npm geliştirme dosyalarını içermez.
 
 ## Bileşenler
 
@@ -86,10 +91,10 @@ En son Release paketini indirip önce Ed25519 imzasını, ardından SHA-256 değ
 doğrulayan tek satırlık alternatif:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.5/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.6/bootstrap.ps1 | iex
 ```
 
-Komut değiştirilemeyen `v0.3.5` sürüm etiketine sabitlenmiştir. Üretim ortamında
+Komut değiştirilemeyen `v0.3.6` sürüm etiketine sabitlenmiştir. Üretim ortamında
 çalıştırmadan önce `bootstrap.ps1` içeriğinin incelenmesi yine de önerilir.
 
 ### WSL2 terminali
