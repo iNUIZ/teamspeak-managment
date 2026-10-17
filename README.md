@@ -9,7 +9,7 @@ Compose ile kuran ve yöneten etkileşimli dağıtım aracı.
 
 | Bilgi | Değer |
 |---|---|
-| Sürüm | **0.3.0** |
+| Sürüm | **0.3.1** |
 | Geliştirici | **Berat Akar** |
 | Kaynak | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -75,10 +75,11 @@ npm run setup
 En son Release paketini indirip SHA-256 değerini doğrulayan tek satırlık alternatif:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/main/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.1/bootstrap.ps1 | iex
 ```
 
-Üretim ortamında çalıştırmadan önce `bootstrap.ps1` içeriğinin incelenmesi önerilir.
+Komut değiştirilemeyen `v0.3.1` sürüm etiketine sabitlenmiştir. Üretim ortamında
+çalıştırmadan önce `bootstrap.ps1` içeriğinin incelenmesi yine de önerilir.
 
 ### WSL2 terminali
 

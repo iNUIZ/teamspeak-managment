@@ -19,7 +19,7 @@ jobs:
       - name: Build release archive
         run: |
           base="teamspeak-managment-${GITHUB_REF_NAME}"
-          files=(install.sh install.ps1 bootstrap.ps1 package.json README.md README.en.md LICENSE CONTRIBUTING.md SECURITY.md CHANGELOG.md VERSION docs .gitignore .editorconfig)
+          files=(install.sh install.ps1 bootstrap.ps1 package.json package-lock.json README.md README.en.md LICENSE CONTRIBUTING.md SECURITY.md CHANGELOG.md VERSION docs .gitignore .editorconfig)
           zip -r "${base}.zip" "${files[@]}"
           tar -czf "${base}.tar.gz" "${files[@]}"
           sha256sum "${base}.zip" "${base}.tar.gz" > "${base}-SHA256SUMS.txt"

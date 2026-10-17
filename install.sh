@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 readonly APP_NAME="Teamspeak Managment"
-readonly APP_VERSION="0.3.0"
+readonly APP_VERSION="0.3.1"
 KERNEL_NAME="$(uname -s)"
 readonly KERNEL_NAME
 case "$KERNEL_NAME" in
@@ -14,9 +14,9 @@ readonly COMPOSE_FILE="${INSTALL_ROOT}/compose.yml"
 readonly ENV_FILE="${INSTALL_ROOT}/.env"
 readonly DEFAULT_TS3_IMAGE="teamspeak:3.13.8@sha256:6dfdfb22869adf50e1b66d024b360b786d57a85ea09e8e8fdb6cca23949b2813"
 readonly DEFAULT_TS6_IMAGE="teamspeaksystems/teamspeak6-server:6.0.0-beta13.1@sha256:d845f803aecf842c2df034c959c23ff2462357bacafb3807500885c5ec170fa1"
-readonly DEFAULT_MANAGER_IMAGE="ghcr.io/uniskela/ts6-manager/all-in-one:1.11.0@sha256:0ed720e3ee8c4635add4c8e028457aa693dd73ef49216572089c26bd72201840"
-readonly DEFAULT_MANAGER_SOURCE_REF="6cb29eb6093ce39ca99699b7ead80d13edcf19bf"
-readonly DEFAULT_MANAGER_SOURCE_SHA256="d3938e96afe8b232e21ec4dbf80b18963a6afa1f4e3196b810997d936f93836a"
+readonly DEFAULT_MANAGER_IMAGE="ghcr.io/uniskela/ts6-manager/all-in-one:1.11.1@sha256:f5323c743865a157293eb9028548a68941b6e8743a97597825e19fab339fc83d"
+readonly DEFAULT_MANAGER_SOURCE_REF="4002b43739429481fe80765ae14384d12323fe93"
+readonly DEFAULT_MANAGER_SOURCE_SHA256="95829a5cbca6e7537fd9b16645993b9337f51c714dab24bc27179b0029b6616f"
 readonly ALPINE_IMAGE="alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc"
 
 declare -A DEFAULTS=(
@@ -397,28 +397,17 @@ install_manager() {
   install_docker
   ensure_env_defaults
   prepare_manager_image
-  local port public_host default_host
+  local port public_host
   port=$(ask_port MANAGER_PORT 'Manager web TCP portu' tcp)
   set_env MANAGER_PORT "$port"
-  if confirm "Manager web arayüzü diğer cihazlardan erişilebilir olsun mu?" N; then
-    set_env MANAGER_BIND_IP "0.0.0.0"
-    default_host=$(hostname -I 2>/dev/null | awk '{print $1}' || true)
-    [[ -n $default_host ]] || default_host="localhost"
-    while true; do
-      public_host=$(prompt_value "Manager için sunucu IP/alan adı (http:// yazmadan)" "$default_host")
-      valid_public_host "$public_host" && break
-      warn "Yalnız geçerli bir IPv4 veya alan adı girin; protokol, port, boşluk ve yol eklemeyin."
-    done
-    warn "Manager dış ağa açıldı. Güvenlik duvarı ve TLS reverse proxy yapılandırın."
-  else
-    set_env MANAGER_BIND_IP "127.0.0.1"
-    public_host="localhost"
-  fi
+  set_env MANAGER_BIND_IP "127.0.0.1"
+  public_host="localhost"
   set_env FRONTEND_URL "http://${public_host}:${port}"
   configure_restart_policy manager
   write_compose
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile manager up -d manager
   ok "Manager kuruldu: http://${public_host}:${port}/setup"
+  info "Uzak erişim için TLS reverse proxy veya SSH tüneli kullanın; panel doğrudan internete açılmaz."
   music_bot_guide
 }
 
