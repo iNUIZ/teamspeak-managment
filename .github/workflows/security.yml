@@ -17,7 +17,7 @@ jobs:
     name: Repository security scan
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
       - name: Scan source, configuration, and secrets
@@ -50,7 +50,7 @@ jobs:
             dockerfile: ""
             scan_image: ghcr.io/uniskela/ts6-manager/all-in-one:1.11.1@sha256:f5323c743865a157293eb9028548a68941b6e8743a97597825e19fab339fc83d
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build hardened image
         if: matrix.dockerfile != ''
         run: |

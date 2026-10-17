@@ -12,7 +12,7 @@ jobs:
     name: Bash validation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Parse script
         run: bash -n install.sh
       - name: Run ShellCheck
@@ -26,7 +26,7 @@ jobs:
     name: PowerShell validation
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Parse script
         shell: pwsh
         run: |
@@ -49,7 +49,7 @@ jobs:
     name: Package validation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Validate npm package contents
         run: |
           npm audit --omit=dev --audit-level=high
