@@ -778,7 +778,12 @@ show_connection_summary() {
   local public_host=$1 manager_id kind server_id host key uid user_names
   printf '\nBağlantı bilgileri\n------------------\n'
   printf 'Sunucu genel adresi: %s\n' "$public_host"
-  printf 'Manager: http://%s:%s/login (dinleme: %s)\n' "$public_host" "$(get_env MANAGER_PORT)" "$(get_env MANAGER_BIND_IP)"
+  if [[ $(get_env MANAGER_BIND_IP) == 127.0.0.1 ]]; then
+    printf 'Manager: özel erişim; önce ssh -L %s:127.0.0.1:%s KULLANICI@%s\n' "$(get_env MANAGER_PORT)" "$(get_env MANAGER_PORT)" "$public_host"
+    printf 'Ardından kendi bilgisayarınızda http://127.0.0.1:%s/login açın.\n' "$(get_env MANAGER_PORT)"
+  else
+    printf 'Manager: http://%s:%s/login (üretimde HTTPS kullanın)\n' "$public_host" "$(get_env MANAGER_PORT)"
+  fi
   manager_id=$(docker ps -q --filter "label=com.docker.compose.project=${PROJECT_NAME}" --filter label=com.docker.compose.service=manager | head -n 1)
   user_names=$(get_env MANAGER_ADMIN_USERNAME || true)
   if [[ -n $manager_id ]]; then
@@ -833,7 +838,7 @@ Müzik botu temiz kurulum adımları
    Bot Hub > New bot ile sunucusunu, adını, kanalını ve otomatik başlatma tercihini seç.
 4. Bot bağlandıktan sonra !play, !radio, !vol ve !skip komutlarını kanalda dene.
 
-Hiçbir eski bot kimliği, token, veritabanı veya parola bu kuruluma aktarılmaz.
+Yeni kurulum başka sistemden veri aktarmaz; güncellemede mevcut verileriniz korunur.
 EOF
 }
 
