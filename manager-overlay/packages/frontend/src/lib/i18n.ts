@@ -1,9 +1,11 @@
 import { useEffect } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { extraTurkish } from './tr-extra';
 
 export type Language = 'tr' | 'en';
 const turkish: Record<string, string> = {
+  ...extraTurkish,
   'Plain theme background': 'Sade tema arka planı', 'Technical grid lines': 'İnce ızgara çizgileri',
   'Subtle dot matrix': 'Hafif noktalı desen', 'Soft accent-coloured glow': 'Vurgu renginde yumuşak ışıltı',
   'Slow-moving accent gradient': 'Yavaş hareket eden renk geçişi', 'Subtle static texture': 'Hafif sabit doku',
@@ -74,8 +76,12 @@ export const useLanguageStore = create<{ language: Language; setLanguage: (langu
   }),
 );
 
+export function translate(text: string): string {
+  return useLanguageStore.getState().language === 'tr' ? turkish[text] ?? text : text;
+}
+
 export function useTranslation() {
   const language = useLanguageStore((s) => s.language);
   useEffect(() => { document.documentElement.lang = language; }, [language]);
-  return { language, t: (text: string) => language === 'tr' ? turkish[text] ?? text : text };
+  return { language, t: translate };
 }

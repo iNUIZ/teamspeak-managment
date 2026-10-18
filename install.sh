@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 readonly APP_NAME="Teamspeak Managment"
-readonly APP_VERSION="0.3.8-alpha.1"
+readonly APP_VERSION="0.3.8-alpha.2"
 KERNEL_NAME="$(uname -s)"
 readonly KERNEL_NAME
 case "$KERNEL_NAME" in
@@ -19,7 +19,7 @@ readonly DEFAULT_TS3_IMAGE="teamspeak:3.13.8@sha256:6dfdfb22869adf50e1b66d024b36
 readonly DEFAULT_TS6_IMAGE="teamspeaksystems/teamspeak6-server:6.0.0-beta13.1@sha256:d845f803aecf842c2df034c959c23ff2462357bacafb3807500885c5ec170fa1"
 readonly HARDENED_TEASPEAK_IMAGE="teamspeak-managment/teaspeak-hardened:1.5.6"
 readonly DEFAULT_MANAGER_IMAGE="ghcr.io/uniskela/ts6-manager/all-in-one:1.11.1@sha256:f5323c743865a157293eb9028548a68941b6e8743a97597825e19fab339fc83d"
-readonly HARDENED_MANAGER_IMAGE="teamspeak-managment/manager-hardened:0.3.8-alpha.1"
+readonly HARDENED_MANAGER_IMAGE="teamspeak-managment/manager-hardened:0.3.8-alpha.2"
 readonly DEFAULT_MANAGER_SOURCE_REF="789a40d0eb2e66ae419ceb01d01d7243fc7b3072"
 readonly DEFAULT_MANAGER_SOURCE_SHA256="1dd4841ee2b70c2256b52f8cb431dddc097901e15f0ae2e69ec853e243a45ed5"
 readonly ALPINE_IMAGE="alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc"
@@ -486,6 +486,7 @@ install_ts3() {
   set_env TS3_QUERY_PORT "$(ask_port TS3_QUERY_PORT 'TS3 ServerQuery TCP portu' tcp)"
   set_env TS3_WEBQUERY_PORT "$(ask_port TS3_WEBQUERY_PORT 'TS3 WebQuery HTTP TCP portu' tcp)"
   set_env TS3_FILE_PORT "$(ask_port TS3_FILE_PORT 'TS3 dosya aktarım TCP portu' tcp)"
+  configure_admin_uid ts3
   configure_restart_policy ts3
   write_compose
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile ts3 up -d ts3
@@ -555,6 +556,7 @@ install_ts6() {
   set_env TS6_QUERY_SSH_PORT "$(ask_port TS6_QUERY_SSH_PORT 'TS6 Query SSH TCP portu' tcp)"
   set_env TS6_QUERY_HTTP_PORT "$(ask_port TS6_QUERY_HTTP_PORT 'TS6 WebQuery HTTP TCP portu' tcp)"
   set_env TS6_FILE_PORT "$(ask_port TS6_FILE_PORT 'TS6 dosya aktarım TCP portu' tcp)"
+  configure_admin_uid ts6
   configure_restart_policy ts6
   write_compose
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile ts6 up -d ts6
@@ -586,6 +588,13 @@ install_manager() {
   install_docker
   handle_existing_component manager && return
   ensure_env_defaults
+  if [[ -z $(get_env TTS_INSTALL_ENABLED || true) ]]; then
+    if confirm "İsteğe bağlı Türkçe/İngilizce Piper TTS (!say) paketi kurulsun mu? (yaklaşık 130 MB model + çalışma ortamı)" N; then
+      set_env TTS_INSTALL_ENABLED true
+    else
+      set_env TTS_INSTALL_ENABLED false
+    fi
+  fi
   prepare_manager_image
   local port public_host bind_ip access_mode
   port=$(ask_port MANAGER_PORT 'Manager web TCP portu' tcp)
@@ -639,6 +648,7 @@ prepare_manager_image() {
   info "Root olmayan, yetkileri azaltılmış Manager imajı hazırlanıyor..."
   docker build \
     --build-arg "BASE_IMAGE=${base_image}" \
+    --build-arg "INSTALL_TTS=$(get_env TTS_INSTALL_ENABLED || printf 'false')" \
     -f "${SCRIPT_DIR}/docker/manager-hardened.Dockerfile" \
     -t "$HARDENED_MANAGER_IMAGE" "$SCRIPT_DIR"
   set_env MANAGER_IMAGE "$HARDENED_MANAGER_IMAGE"
@@ -689,6 +699,7 @@ configure_manager_admin() {
     warn "Parolalar aynı olmalı ve belirtilen koşulları sağlamalı (UTF-8 en fazla 72 bayt)."
   done
   unset password repeated
+  set_env MANAGER_ADMIN_USERNAME "$username"
   ok "Yönetici hesabı ilk açılış için hazırlandı; parola düz metin olarak saklanmadı."
 }
 
@@ -754,11 +765,55 @@ sync_manager_connections() {
   fi
 }
 
+configure_admin_uid() {
+  local kind=$1 uid
+  read -r -p "${kind^^} Server Admin için isteğe bağlı TeamSpeak kimliği UID (yoksa Enter): " uid
+  if [[ -n $uid ]]; then
+    [[ $uid =~ ^[A-Za-z0-9+/=_-]{20,128}$ ]] || die "Geçersiz TS kimliği UID."
+    set_env "${kind^^}_ADMIN_UID" "$uid"
+  fi
+}
+
+show_connection_summary() {
+  local public_host=$1 manager_id kind server_id host key uid user_names
+  printf '\nBağlantı bilgileri\n------------------\n'
+  printf 'Sunucu genel adresi: %s\n' "$public_host"
+  printf 'Manager: http://%s:%s/login (dinleme: %s)\n' "$public_host" "$(get_env MANAGER_PORT)" "$(get_env MANAGER_BIND_IP)"
+  manager_id=$(docker ps -q --filter "label=com.docker.compose.project=${PROJECT_NAME}" --filter label=com.docker.compose.service=manager | head -n 1)
+  user_names=$(get_env MANAGER_ADMIN_USERNAME || true)
+  if [[ -n $manager_id ]]; then
+    user_names=$(docker exec --workdir /app/packages/backend "$manager_id" node dist/bootstrap/installer-cli.js admin-usernames 2>/dev/null || printf '%s' "$user_names")
+  fi
+  printf 'Manager yönetici adı: %s\n' "${user_names:-Mevcut yönetici hesabınız}"
+  printf 'Manager parolası: Kurulumda belirlediğiniz parola; yalnızca bcrypt özeti saklanır, geri okunamaz.\n'
+  printf 'Bot adresi: Seçilen TS sunucusunun adresi; bot ayrı bir ses sunucusu açmaz.\n'
+  for kind in ts3 ts6; do
+    server_id=$(docker ps -aq --filter "label=com.docker.compose.project=${PROJECT_NAME}" --filter "label=com.docker.compose.service=${kind}" | head -n 1)
+    [[ -n $server_id ]] || continue
+    host=$(docker inspect "$server_id" --format '{{.Name}}'); host=${host#/}
+    printf '\n%s istemci bağlantısı: %s:%s\n' "${kind^^}" "$public_host" "$(get_env "${kind^^}_VOICE_PORT")"
+    printf 'Manager/bot iç ağ adresi: %s (ses portu panelden otomatik öğrenilir)\n' "$host"
+    printf 'WebQuery: %s:10080 (özel Docker ağı)\n' "$host"
+    if [[ $kind == ts3 ]]; then printf 'ServerQuery kullanıcı adı: serveradmin; TCP portu: %s\n' "$(get_env TS3_QUERY_PORT)"
+    else printf 'ServerQuery kullanıcı adı: serveradmin; SSH portu: %s\n' "$(get_env TS6_QUERY_SSH_PORT)"; fi
+    printf 'Query parolası ve API anahtarı: %s (%s_ADMIN_PASSWORD / %s_API_KEY)\n' "$ENV_FILE" "${kind^^}" "${kind^^}"
+    key=$(get_env "${kind^^}_API_KEY" || true); uid=$(get_env "${kind^^}_ADMIN_UID" || true)
+    if [[ -n $manager_id && -n $key ]]; then
+      printf '%s\0%s\0%s\0' "$host" "$key" "$uid" | docker exec -i --workdir /app/packages/backend "$manager_id" node dist/bootstrap/installer-cli.js server-access \
+        || warn "Privilege key otomatik alınamadı; panelde Yetki anahtarları bölümünü açın."
+    else
+      info "Manager kurulduktan sonra menü 6 ile privilege key bilgilerini görüntüleyin."
+    fi
+  done
+  unset key
+}
+
 music_bot_guide() {
   local manager_port manager_bind public_host ts6_http ts3_http manager_step
   manager_port=$(get_env MANAGER_PORT || printf '3000')
   manager_bind=$(get_env MANAGER_BIND_IP || printf '127.0.0.1')
   public_host=$(detect_public_host)
+  show_connection_summary "$public_host"
   ts6_http=$(get_env TS6_QUERY_HTTP_PORT || printf '10081')
   ts3_http=$(get_env TS3_WEBQUERY_PORT || printf '10080')
   if [[ $manager_bind == 127.0.0.1 ]]; then
@@ -786,6 +841,16 @@ install_full_stack() {
   info "Tam paket sırasıyla TS6, Manager ve müzik botu hazırlığını kurar."
   install_ts6
   install_manager
+}
+
+configure_tts_package() {
+  [[ -f $ENV_FILE && -f $COMPOSE_FILE ]] || die "Önce Manager kurulmalı."
+  info "TTS paketi Piper GPL-3.0 motorunu ve kendi lisansları olan TR/EN ses modellerini içerir."
+  if confirm "Türkçe/İngilizce TTS paketini kurarak Manager imajını güncellemek istiyor musunuz?" N; then
+    set_env TTS_INSTALL_ENABLED true
+    update_manager
+    ok "TTS paketi kuruldu. Panel > Ayarlar > TTS bölümünden etkinleştirebilirsiniz."
+  fi
 }
 
 update_manager() {
@@ -965,6 +1030,7 @@ main_menu() {
 11) Servis başlat / durdur / yeniden başlat
 12) Verileri yedekle
 13) Bir bileşeni kaldır
+14) İsteğe bağlı Türkçe/İngilizce TTS paketini kur
 0) Çıkış
 MENU
     local choice
@@ -983,6 +1049,7 @@ MENU
       11) manage_service ;;
       12) backup_data ;;
       13) uninstall_component ;;
+      14) configure_tts_package ;;
       0) exit 0 ;;
       *) warn "Geçersiz seçim." ;;
     esac

@@ -8,10 +8,11 @@ import { chooseCommandBot, parseBotTarget, type ChannelBot } from './targeting.j
 import { channelCommandKey, claimChannelCommand } from './dedupe.js';
 import { checkMediaCommand, handleVoteSkip } from './media-access.js';
 import { handleSearchChoice } from './search.js';
+import { handleSay } from './tts.js';
 import { handleListenerRemote, revokeDepartedRemote } from './listener-remote.js';
 const CMD_PREFIX = '!';
 const MUSIC_COMMANDS = new Set<string>(BUILTIN_CHAT_COMMANDS);
-const loggableMessage = (message: string) => /^\s*!remote(?:\s|$)/i.test(message) ? '!remote [redacted]' : message;
+const loggableMessage = (message: string) => /^\s*!(remote|say)(?:\s|$)/i.test(message) ? message.split(/\s/)[0] + ' [redacted]' : message;
 
 /**
  * Channel a ServerQuery text event belongs to.
@@ -400,9 +401,12 @@ export async function onTextMessage(
   if (MUSIC_COMMANDS.has(command)) {
     if (!await checkMediaCommand(context, bot, userClid, command, args, data.invokeruid)) return;
     if (bot.floodHoldActive) { bot.noteIgnoredCommand(); return; }
-    console.log(`[MusicCmd] Bot ${botId}: !${command} ${args} (from clid=${userClid})`);
+    console.log(`[MusicCmd] Bot ${botId}: !${command} ${command === 'say' ? '[redacted]' : args} (from clid=${userClid})`);
     try {
       switch (command) {
+        case 'say':
+          await handleSay(context, botId, bot, userClid, args);
+          break;
         case 'help':
           await context.handleHelp(botId, bot, userClid);
           break;

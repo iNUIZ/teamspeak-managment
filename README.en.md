@@ -1,5 +1,9 @@
 # Teamspeak Managment
 
+The alpha includes an original waveform brand, persistent TR/EN UI, automatic
+bot voice-port discovery and optional local TR/EN `!say` speech synthesis.
+See the [panel and TTS guide](docs/panel-and-tts.md) (Turkish).
+
 English · [Türkçe](README.md)
 
 ![Teamspeak Managment menu](docs/menu.en.svg)
@@ -11,7 +15,7 @@ TeamSpeak 6, TS6 Manager, and the Manager music bot.
 
 | Metadata | Value |
 |---|---|
-| Version | **0.3.8-alpha.1** |
+| Version | **0.3.8-alpha.2** |
 | Developer | **Berat Akar** |
 | Source | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -93,10 +97,10 @@ One-line alternative that downloads this alpha release, verifies its Ed25519
 signature, and only then verifies the archive SHA-256:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.8-alpha.1/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.8-alpha.2/bootstrap.ps1 | iex
 ```
 
-The command is pinned to the immutable `v0.3.8-alpha.1` release tag. Review
+The command is pinned to the immutable `v0.3.8-alpha.2` release tag. Review
 `bootstrap.ps1` before running it in a production environment.
 
 ### WSL2 terminal

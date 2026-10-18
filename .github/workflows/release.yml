@@ -106,7 +106,7 @@ jobs:
             --generate-notes \
             --title "Teamspeak Managment ${GITHUB_REF_NAME}"
       - name: Retire legacy pre-alpha npm versions
-        if: github.ref_name == 'v0.3.8-alpha.1'
+        if: github.ref_name == 'v0.3.8-alpha.2'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |

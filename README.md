@@ -11,7 +11,7 @@ Compose ile kuran ve yöneten etkileşimli dağıtım aracı.
 
 | Bilgi | Değer |
 |---|---|
-| Sürüm | **0.3.8-alpha.1** |
+| Sürüm | **0.3.8-alpha.2** |
 | Geliştirici | **Berat Akar** |
 | Kaynak | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -26,6 +26,9 @@ WSL2 içinde gereken ortak `install.sh` ve Docker tanımlarını içerir; Linux 
 PowerShell ve npm geliştirme dosyalarını içermez.
 
 ## Bileşenler
+
+Panelin yeni logosu, TR/EN arayüzü, otomatik bot portu ve isteğe bağlı
+`!say` konuşma sentezi için [panel ve TTS kılavuzunu](docs/panel-and-tts.md) okuyun.
 
 - TeamSpeak 3 Server ve HTTP WebQuery
 - TeaSpeak Server
@@ -94,10 +97,10 @@ En son Release paketini indirip önce Ed25519 imzasını, ardından SHA-256 değ
 doğrulayan tek satırlık alternatif:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.8-alpha.1/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.8-alpha.2/bootstrap.ps1 | iex
 ```
 
-Komut değiştirilemeyen `v0.3.8-alpha.1` sürüm etiketine sabitlenmiştir. Üretim ortamında
+Komut değiştirilemeyen `v0.3.8-alpha.2` sürüm etiketine sabitlenmiştir. Üretim ortamında
 çalıştırmadan önce `bootstrap.ps1` içeriğinin incelenmesi yine de önerilir.
 
 ### WSL2 terminali
