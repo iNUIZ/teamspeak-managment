@@ -22,9 +22,11 @@ import { timeAgo } from '@/lib/utils';
 import { CommandsTab } from '@/pages/media-bots/CommandsTab';
 import { MediaCommandPermissions } from '@/components/bots/MediaCommandPermissions';
 import { ExtensionsTab } from '@/pages/extensions/ExtensionsTab';
+import { useTranslation } from '@/lib/i18n';
 
 /** Render Bot Flows and its server-scoped Chat commands tab. */
 export default function BotList() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const qc = useQueryClient();
@@ -85,7 +87,7 @@ export default function BotList() {
         onKeyDown={handleTabKeyDown}
         className={`border-b-2 px-3 py-2 text-sm ${activeTab === 'flows' ? 'border-primary font-medium' : 'border-transparent text-muted-foreground'}`}
         onClick={() => setSearchParams({})}
-      >Flows</button>
+      >{t('Flows')}</button>
       <button
         type="button"
         role="tab"
@@ -97,7 +99,7 @@ export default function BotList() {
         onKeyDown={handleTabKeyDown}
         className={`border-b-2 px-3 py-2 text-sm ${commandsTab ? 'border-primary font-medium' : 'border-transparent text-muted-foreground'}`}
         onClick={() => setSearchParams({ tab: 'commands' })}
-      >Chat commands</button>
+      >{t('Chat commands')}</button>
       <button
         type="button"
         role="tab"
@@ -109,7 +111,7 @@ export default function BotList() {
         onKeyDown={handleTabKeyDown}
         className={`border-b-2 px-3 py-2 text-sm ${extensionsTab ? 'border-primary font-medium' : 'border-transparent text-muted-foreground'}`}
         onClick={() => setSearchParams({ tab: 'extensions' })}
-      >Extensions</button>
+      >{t('Extensions')}</button>
     </div>
   );
 

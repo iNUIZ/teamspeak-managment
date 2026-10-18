@@ -1,0 +1,510 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Outfit:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Teamhub console: accent-aware surfaces, generous navigation and clear focus. */
+.language-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  background: hsl(var(--muted) / .45);
+}
+.language-switch button {
+  min-height: 32px;
+  min-width: 34px;
+  border-radius: 8px;
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+.language-switch button[aria-pressed="true"] {
+  color: hsl(var(--primary-foreground));
+  background: hsl(var(--primary));
+  box-shadow: 0 2px 12px hsl(var(--primary) / .2);
+}
+.language-switch button:focus-visible { outline: 2px solid hsl(var(--ring)); outline-offset: 2px; }
+.app-viewport > aside {
+  background-image: linear-gradient(165deg, hsl(var(--primary) / .065), transparent 45%);
+}
+.app-viewport > aside nav a { min-height: 34px; border: 1px solid transparent; border-radius: 10px; }
+.app-viewport > aside nav a[aria-current="page"] {
+  background: hsl(var(--primary) / .12);
+  border-color: hsl(var(--primary) / .24);
+  box-shadow: inset 3px 0 0 hsl(var(--primary));
+}
+.app-viewport header { background: hsl(var(--card) / .85); }
+.app-viewport main h1 { letter-spacing: -.035em; font-size: 1.5rem; line-height: 1.35; }
+.app-viewport main [role="tablist"] { border: 1px solid hsl(var(--border)); padding: 5px; border-radius: 14px; height: auto; gap: 3px; }
+.app-viewport main [role="tab"] { min-height: 34px; border-radius: 9px; }
+.app-viewport main [role="tab"][data-state="active"] { background: hsl(var(--primary) / .13); color: hsl(var(--primary)); box-shadow: none; }
+.app-viewport main fieldset > div > button { border-radius: 12px; }
+.auth-viewport { background-image: radial-gradient(ellipse at 20% 15%, hsl(var(--primary) / .14), transparent 45%), radial-gradient(ellipse at 85% 85%, hsl(var(--primary) / .08), transparent 40%); }
+.auth-viewport form input { min-height: 44px; border-radius: 10px; }
+.auth-viewport form button[type="submit"] { min-height: 44px; border-radius: 10px; }
+
+@layer base {
+  :root {
+    --background: 210 20% 98%;
+    --foreground: 215 25% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 10%;
+    --primary: 186 72% 42%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 214 20% 92%;
+    --secondary-foreground: 215 25% 15%;
+    --muted: 214 20% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 214 20% 93%;
+    --accent-foreground: 215 25% 15%;
+    --destructive: 0 72% 47%;
+    --destructive-foreground: 210 40% 98%;
+    --success: 160 68% 28%;
+    --success-foreground: 210 40% 98%;
+    --warning: 40 90% 30%;
+    --warning-foreground: 210 40% 98%;
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 186 72% 42%;
+    --radius: 0.5rem;
+    --sidebar: 214 20% 95%;
+    --sidebar-foreground: 215 25% 30%;
+    --sidebar-accent: 214 20% 90%;
+    --sidebar-accent-foreground: 186 72% 35%;
+    --sidebar-border: 214 20% 88%;
+    --chart-1: 186 72% 42%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 280 60% 55%;
+    --chart-4: 40 80% 55%;
+    --chart-5: 0 72% 55%;
+  }
+
+  .dark {
+    --background: 220 25% 6%;
+    --foreground: 213 20% 85%;
+    --card: 218 25% 8%;
+    --card-foreground: 213 20% 85%;
+    --popover: 218 28% 10%;
+    --popover-foreground: 213 20% 85%;
+    --primary: 186 72% 42%;
+    --primary-foreground: 220 25% 4%;
+    --secondary: 215 25% 14%;
+    --secondary-foreground: 213 20% 75%;
+    --muted: 215 25% 12%;
+    --muted-foreground: 215 16% 50%;
+    --accent: 215 25% 14%;
+    --accent-foreground: 213 20% 85%;
+    --destructive: 0 72% 61%;
+    --destructive-foreground: 220 25% 4%;
+    --success: 160 60% 48%;
+    --success-foreground: 220 25% 4%;
+    --warning: 40 90% 55%;
+    --warning-foreground: 220 25% 4%;
+    --border: 215 22% 14%;
+    --input: 215 22% 16%;
+    --ring: 186 72% 42%;
+    --sidebar: 220 30% 5%;
+    --sidebar-foreground: 213 18% 55%;
+    --sidebar-accent: 215 25% 10%;
+    --sidebar-accent-foreground: 186 72% 55%;
+    --sidebar-border: 215 22% 12%;
+    --chart-1: 186 72% 50%;
+    --chart-2: 160 60% 50%;
+    --chart-3: 280 55% 60%;
+    --chart-4: 40 80% 60%;
+    --chart-5: 0 65% 60%;
+  }
+
+  .dark.black {
+    --background: 0 0% 0%;
+    --foreground: 213 20% 88%;
+    --card: 220 15% 3%;
+    --card-foreground: 213 20% 88%;
+    --popover: 220 15% 5%;
+    --popover-foreground: 213 20% 88%;
+    --secondary: 220 12% 9%;
+    --secondary-foreground: 213 20% 78%;
+    --muted: 220 12% 7%;
+    --muted-foreground: 215 16% 55%;
+    --accent: 220 12% 9%;
+    --accent-foreground: 213 20% 88%;
+    --border: 220 12% 12%;
+    --input: 220 12% 14%;
+    --sidebar: 0 0% 0%;
+    --sidebar-foreground: 213 18% 60%;
+    --sidebar-accent: 220 12% 7%;
+    --sidebar-border: 220 12% 10%;
+  }
+
+  :root:not(.dark)[data-accent='cyan'] {
+    --primary: 186 72% 27%;
+    --primary-foreground: 210 40% 98%;
+    --ring: 186 72% 27%;
+    --sidebar-accent-foreground: 186 72% 27%;
+    --chart-1: 186 72% 27%;
+  }
+  :root:not(.dark)[data-accent='violet'] {
+    --primary: 267 70% 48%;
+    --primary-foreground: 210 40% 98%;
+    --ring: 267 70% 48%;
+    --sidebar-accent-foreground: 267 70% 48%;
+    --chart-1: 267 70% 48%;
+  }
+  :root:not(.dark)[data-accent='red'] {
+    --primary: 350 72% 44%;
+    --primary-foreground: 210 40% 98%;
+    --ring: 350 72% 44%;
+    --sidebar-accent-foreground: 350 72% 44%;
+    --chart-1: 350 72% 44%;
+  }
+  :root:not(.dark)[data-accent='blue'] {
+    --primary: 217 75% 46%;
+    --primary-foreground: 210 40% 98%;
+    --ring: 217 75% 46%;
+    --sidebar-accent-foreground: 217 75% 46%;
+    --chart-1: 217 75% 46%;
+  }
+  :root:not(.dark)[data-accent='emerald'] {
+    --primary: 160 70% 26%;
+    --primary-foreground: 210 40% 98%;
+    --ring: 160 70% 26%;
+    --sidebar-accent-foreground: 160 70% 26%;
+    --chart-1: 160 70% 26%;
+  }
+  :root:not(.dark)[data-accent='amber'] {
+    --primary: 35 90% 29%;
+    --primary-foreground: 210 40% 98%;
+    --ring: 35 90% 29%;
+    --sidebar-accent-foreground: 35 90% 29%;
+    --chart-1: 35 90% 29%;
+  }
+
+  .dark[data-accent='cyan'] {
+    --primary: 186 72% 50%;
+    --primary-foreground: 220 25% 4%;
+    --ring: 186 72% 50%;
+    --sidebar-accent-foreground: 186 72% 55%;
+    --chart-1: 186 72% 50%;
+  }
+  .dark[data-accent='violet'] {
+    --primary: 267 85% 70%;
+    --primary-foreground: 220 25% 4%;
+    --ring: 267 85% 70%;
+    --sidebar-accent-foreground: 267 85% 72%;
+    --chart-1: 267 85% 70%;
+  }
+  .dark[data-accent='red'] {
+    --primary: 350 80% 66%;
+    --primary-foreground: 220 25% 4%;
+    --ring: 350 80% 66%;
+    --sidebar-accent-foreground: 350 80% 68%;
+    --chart-1: 350 80% 66%;
+  }
+  .dark[data-accent='blue'] {
+    --primary: 217 90% 68%;
+    --primary-foreground: 220 25% 4%;
+    --ring: 217 90% 68%;
+    --sidebar-accent-foreground: 217 90% 70%;
+    --chart-1: 217 90% 68%;
+  }
+  .dark[data-accent='emerald'] {
+    --primary: 160 65% 52%;
+    --primary-foreground: 220 25% 4%;
+    --ring: 160 65% 52%;
+    --sidebar-accent-foreground: 160 65% 54%;
+    --chart-1: 160 65% 52%;
+  }
+  .dark[data-accent='amber'] {
+    --primary: 35 92% 60%;
+    --primary-foreground: 220 25% 4%;
+    --ring: 35 92% 60%;
+    --sidebar-accent-foreground: 35 92% 63%;
+    --chart-1: 35 92% 60%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'Outfit', system-ui, sans-serif;
+    min-width: 320px;
+    overflow-x: hidden;
+  }
+
+  #root {
+    min-width: 0;
+  }
+
+  .brand-mark {
+    background-color: currentColor;
+    -webkit-mask: url('/favicon.svg') center / contain no-repeat;
+    mask: url('/favicon.svg') center / contain no-repeat;
+  }
+
+  /* Apply safe areas at container edges, including landscape and iPad. */
+  .app-viewport {
+    padding-top: env(safe-area-inset-top);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  .auth-viewport {
+    padding: max(1rem, env(safe-area-inset-top)) env(safe-area-inset-right)
+      calc(var(--pwa-status-height, 0px) + max(1rem, env(safe-area-inset-bottom))) env(safe-area-inset-left);
+  }
+
+  .app-dialog {
+    --dialog-gap: 1rem;
+    top: calc(var(--visual-top, 0px) + (var(--visual-height, 100dvh) + env(safe-area-inset-top) - env(safe-area-inset-bottom)) / 2);
+    left: calc((100vw + env(safe-area-inset-left) - env(safe-area-inset-right)) / 2);
+    width: calc(100vw - var(--dialog-gap) - env(safe-area-inset-left) - env(safe-area-inset-right));
+    max-height: min(var(--dialog-max-height, 100dvh), calc(var(--visual-height, 100dvh) - var(--dialog-gap) - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  }
+
+  @media (min-width: 640px) {
+    .app-dialog { --dialog-gap: 2rem; }
+  }
+
+  .pwa-status {
+    position: fixed;
+    z-index: 40;
+    right: max(0.75rem, env(safe-area-inset-right));
+    bottom: max(0.75rem, env(safe-area-inset-bottom));
+    max-width: min(24rem, calc(100vw - 1.5rem - env(safe-area-inset-left) - env(safe-area-inset-right)));
+  }
+
+  /*
+   * iOS Safari automatically zooms focused form controls rendered below 16px.
+   * Keep phone form text at 16px rather than disabling viewport zoom, which
+   * preserves user-controlled pinch zoom/accessibility.
+   */
+  @supports (-webkit-touch-callout: none) {
+    @media screen and (max-width: 639px) {
+      input,
+      textarea,
+      select {
+        font-size: 16px !important;
+      }
+    }
+  }
+
+  /* Fix Radix ScrollArea display:table bug preventing scrolling */
+  [data-radix-scroll-area-viewport] > div {
+    display: block !important;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-muted-foreground/30;
+  }
+}
+
+@layer utilities {
+  .font-mono-data {
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(hsl(var(--primary) / 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--primary) / 0.03) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /*
+   * Decorative app background (Settings → Appearance → Background). Implemented as the
+   * scroll container's own background-image so it never adds DOM nodes, never intercepts
+   * pointer events, never causes layout shift or document-level overflow, and is invisible
+   * to assistive technology (CSS backgrounds are not exposed in the accessibility tree).
+   * "grid" intentionally matches the pattern .grid-bg already shipped, so existing users
+   * who have never touched this preference see no visual change.
+   */
+  .app-background-surface {
+    --app-bg-alpha: 1;
+  }
+  .app-background-surface[data-intensity='subtle'] { --app-bg-alpha: 0.55; }
+  .app-background-surface[data-intensity='normal'] { --app-bg-alpha: 1; }
+  .app-background-surface[data-intensity='strong'] { --app-bg-alpha: 1.6; }
+
+  .app-background-surface[data-background='grid'] {
+    background-image:
+      linear-gradient(hsl(var(--primary) / calc(0.03 * var(--app-bg-alpha))) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--primary) / calc(0.03 * var(--app-bg-alpha))) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .app-background-surface[data-background='dots'] {
+    background-image: radial-gradient(circle, hsl(var(--primary) / calc(0.14 * var(--app-bg-alpha))) 1.5px, transparent 1.5px);
+    background-size: 20px 20px;
+  }
+
+  .app-background-surface[data-background='glow'] {
+    background-image:
+      radial-gradient(circle at 12% -10%, hsl(var(--primary) / calc(0.18 * var(--app-bg-alpha))), transparent 55%),
+      radial-gradient(circle at 88% 110%, hsl(var(--primary) / calc(0.10 * var(--app-bg-alpha))), transparent 60%);
+    background-repeat: no-repeat;
+  }
+
+  .app-background-surface[data-background='aurora'] {
+    background-image:
+      radial-gradient(circle at 15% 15%, hsl(var(--primary) / calc(0.16 * var(--app-bg-alpha))), transparent 45%),
+      radial-gradient(circle at 85% 25%, hsl(var(--chart-3) / calc(0.12 * var(--app-bg-alpha))), transparent 50%),
+      radial-gradient(circle at 50% 90%, hsl(var(--primary) / calc(0.08 * var(--app-bg-alpha))), transparent 55%);
+    background-repeat: no-repeat;
+    background-size: 160% 160%;
+    background-position: 0% 0%;
+  }
+  .app-background-surface[data-background='aurora'][data-motion-resolved='on'] {
+    animation: app-aurora-drift 36s ease-in-out infinite alternate;
+  }
+  @keyframes app-aurora-drift {
+    0% { background-position: 0% 0%; }
+    100% { background-position: 100% 60%; }
+  }
+
+  .app-background-surface[data-background='noise'] {
+    background-repeat: repeat;
+    background-size: 160px 160px;
+  }
+  /*
+   * Noise grain is tinted per theme so it stays visible on both ends of the
+   * lightness scale: dark grain on Light, light grain on Dark/Black (the
+   * default theme). Untinted (black-only) grain is invisible on dark themes.
+   */
+  .app-background-surface[data-background='noise'][data-intensity='subtle'] {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.04 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .app-background-surface[data-background='noise'][data-intensity='normal'] {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.07 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .app-background-surface[data-background='noise'][data-intensity='strong'] {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .dark .app-background-surface[data-background='noise'][data-intensity='subtle'] {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .dark .app-background-surface[data-background='noise'][data-intensity='normal'] {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+  .dark .app-background-surface[data-background='noise'][data-intensity='strong'] {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='matrix' values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 0.15 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  .scan-line {
+    position: relative;
+    overflow: hidden;
+  }
+  .scan-line::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsl(var(--primary) / 0.4), transparent);
+    animation: scan 4s linear infinite;
+  }
+  @keyframes scan {
+    0% { top: 0; opacity: 0; }
+    10% { opacity: 1; }
+    90% { opacity: 1; }
+    100% { top: 100%; opacity: 0; }
+  }
+
+  .glow-teal {
+    box-shadow: 0 0 20px -5px hsl(var(--primary) / 0.3);
+  }
+
+  .text-glow {
+    text-shadow: 0 0 10px hsl(var(--primary) / 0.5);
+  }
+
+  .fade-in {
+    animation: fadeIn 0.3s ease-out;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .slide-in-left {
+    animation: slideInLeft 0.2s ease-out;
+  }
+  @keyframes slideInLeft {
+    from { opacity: 0; transform: translateX(-8px); }
+    to { opacity: 1; transform: translateX(0); }
+  }
+
+  .pulse-dot {
+    animation: pulseDot 2s ease-in-out infinite;
+  }
+  @keyframes pulseDot {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .touch-action-reveal {
+    opacity: 1;
+  }
+
+  /* Fades whichever horizontal edge hides content (set by useHorizontalOverflow). */
+  .scroll-fade-x[data-overflow-end] {
+    -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+    mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+  }
+  .scroll-fade-x[data-overflow-start] {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 2rem);
+    mask-image: linear-gradient(to right, transparent, #000 2rem);
+  }
+  .scroll-fade-x[data-overflow-start][data-overflow-end] {
+    -webkit-mask-image: linear-gradient(to right, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
+    mask-image: linear-gradient(to right, transparent, #000 2rem, #000 calc(100% - 2rem), transparent);
+  }
+
+  @media (hover: hover) and (pointer: fine) {
+    .group .touch-action-reveal {
+      opacity: 0;
+    }
+    .group:hover .touch-action-reveal,
+    .touch-action-reveal:focus-within {
+      opacity: 1;
+    }
+  }
+
+  @media (pointer: coarse) {
+    .touch-action-reveal button,
+    .touch-action-reveal a {
+      min-height: 2.5rem;
+      min-width: 2.5rem;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}

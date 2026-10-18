@@ -48,7 +48,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: process.env.TEAMHUB_PREVIEW_API || 'http://localhost:3001',
         changeOrigin: true,
       },
       '/ws': {

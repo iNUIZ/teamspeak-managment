@@ -15,6 +15,8 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Parse script
         run: bash -n install.sh
+      - name: Check automatic Manager registration
+        run: bash tests/install-auto-config.test.sh
       - name: Run ShellCheck
         run: shellcheck install.sh
       - name: Reject generated secrets and data

@@ -490,6 +490,7 @@ install_ts3() {
   write_compose
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile ts3 up -d ts3
   generate_ts3_api_key || warn "TS3 API anahtarı otomatik üretilemedi; log ve ServerQuery erişimini kontrol edin."
+  sync_manager_connections
   ok "TS3 ve HTTP WebQuery kuruldu. Yönetim bilgileri ${ENV_FILE} içinde saklandı."
 }
 
@@ -557,6 +558,7 @@ install_ts6() {
   configure_restart_policy ts6
   write_compose
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile ts6 up -d ts6
+  sync_manager_connections
   ok "TS6 kuruldu. Yönetim bilgileri sadece ${ENV_FILE} içinde (izin 600)."
 }
 
@@ -602,14 +604,16 @@ install_manager() {
   configure_restart_policy manager
   write_compose
   prepare_manager_volume_permissions
+  configure_manager_admin
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile manager up -d manager
+  sync_manager_connections
   if [[ $access_mode == direct ]]; then
-    ok "Manager kuruldu: http://${public_host}:${port}/setup"
+    ok "Manager kuruldu: http://${public_host}:${port}/login"
     warn "Panel ağda açık. Güvenlik duvarı ile sınırlandırın ve TLS reverse proxy kullanın."
   else
-    ok "Manager yalnız sunucu üzerinde dinliyor: http://127.0.0.1:${port}/setup"
+    ok "Manager yalnız sunucu üzerinde dinliyor: http://127.0.0.1:${port}/login"
     info "Windows PowerShell'de tünel açın: ssh -L ${port}:127.0.0.1:${port} KULLANICI@${public_host}"
-    info "Sonra bilgisayarınızda açın: http://127.0.0.1:${port}/setup"
+    info "Sonra bilgisayarınızda açın: http://127.0.0.1:${port}/login"
   fi
   music_bot_guide
 }
@@ -650,6 +654,106 @@ prepare_manager_volume_permissions() {
     sh -c 'chown -R 10001:10001 /app/packages/backend/data /data/music'
 }
 
+manager_offline_cli() {
+  docker run --rm -i --network none --user 10001:10001 \
+    --cap-drop ALL --security-opt no-new-privileges:true --read-only --tmpfs /tmp \
+    --env-file "$ENV_FILE" \
+    -e DATABASE_URL=file:/app/packages/backend/data/ts6webui.db \
+    -v "${PROJECT_NAME}_manager-data:/app/packages/backend/data" \
+    --workdir /app/packages/backend --entrypoint node \
+    "$HARDENED_MANAGER_IMAGE" dist/bootstrap/installer-cli.js "$@"
+}
+
+configure_manager_admin() {
+  local state username password repeated
+  state=$(manager_offline_cli admin-state)
+  if [[ $state != new ]]; then
+    info "Manager yönetici hesabı mevcut veya hazırlanmış; hesabınız ve parolanız korunuyor."
+    return
+  fi
+  while true; do
+    read -r -p "Manager yönetici kullanıcı adı [admin]: " username
+    username=${username:-admin}
+    if [[ $username =~ ^[a-zA-Z0-9_.-]{3,64}$ ]]; then break; fi
+    warn "Kullanıcı adı 3–64 karakter olmalı; harf, rakam, nokta, tire ve alt çizgi kullanılabilir."
+  done
+  while true; do
+    read -r -s -p "Manager yönetici parolası (8–72 karakter; büyük/küçük harf ve rakam): " password
+    printf '\n'
+    read -r -s -p "Parolayı tekrar girin: " repeated
+    printf '\n'
+    if [[ $password == "$repeated" && ${#password} -ge 8 && ${#password} -le 72 \
+      && $password =~ [A-Z] && $password =~ [a-z] && $password =~ [0-9] ]]; then
+      if printf '%s\0%s\0' "$username" "$password" | manager_offline_cli prepare-admin >/dev/null; then break; fi
+    fi
+    warn "Parolalar aynı olmalı ve belirtilen koşulları sağlamalı (UTF-8 en fazla 72 bayt)."
+  done
+  unset password repeated
+  ok "Yönetici hesabı ilk açılış için hazırlandı; parola düz metin olarak saklanmadı."
+}
+
+wait_manager_ready() {
+  local manager_id=$1
+  for _ in {1..60}; do
+    if docker exec "$manager_id" node -e 'fetch("http://127.0.0.1:3001/api/health", {signal:AbortSignal.timeout(2000)}).then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))' >/dev/null 2>&1; then return 0; fi
+    sleep 2
+  done
+  return 1
+}
+
+sync_manager_connections() {
+  local manager_id project env_path kind server_id host key result network changed=0
+  local -a env_paths=("$ENV_FILE" "${DEFAULT_INSTALL_ROOT}/.env")
+  if [[ $OS_FAMILY == windows ]]; then
+    env_paths+=("${HOME}/.teamhub-2/.env")
+  else
+    env_paths+=("/opt/teamhub-2/.env")
+  fi
+  manager_id=$(docker ps -q --filter "label=com.docker.compose.project=${PROJECT_NAME}" --filter label=com.docker.compose.service=manager | head -n 1)
+  if [[ -z $manager_id ]]; then
+    manager_id=$(docker ps -q --filter label=com.docker.compose.project=teamhub --filter label=com.docker.compose.service=manager | head -n 1)
+  fi
+  if [[ -z $manager_id ]]; then
+    manager_id=$(docker ps -q --filter label=com.docker.compose.project=teamhub2 --filter label=com.docker.compose.service=manager | head -n 1)
+  fi
+  if [[ -z $manager_id ]]; then
+    info "Manager henüz çalışmıyor; sunucu bilgileri Manager kurulduğunda otomatik eşleştirilecek."
+    return
+  fi
+  if ! wait_manager_ready "$manager_id"; then warn "Manager hazır değil; otomatik bağlantı kaydı tamamlanamadı. Manager güncellemesini yeniden çalıştırın."; return; fi
+  for env_path in "${env_paths[@]}"; do
+    [[ -r $env_path ]] || continue
+    project=$(sed -n 's/^COMPOSE_PROJECT_NAME=//p' "$env_path" | tail -n 1)
+    [[ $project =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*$ ]] || continue
+    for kind in ts3 ts6; do
+      server_id=$(docker ps -aq --filter "label=com.docker.compose.project=${project}" --filter "label=com.docker.compose.service=${kind}" | head -n 1)
+      [[ -n $server_id ]] || continue
+      key=$(sed -n "s/^${kind^^}_API_KEY=//p" "$env_path" | tail -n 1)
+      if [[ -z $key ]]; then warn "${project}/${kind}: API anahtarı bulunamadı; bağlantı eklenmedi."; continue; fi
+      network=$(docker network inspect "$project" --format '{{.Name}}' 2>/dev/null || true)
+      [[ -n $network ]] || { warn "${project}/${kind}: Docker ağı bulunamadı."; continue; }
+      if ! docker inspect "$manager_id" --format '{{range $name, $network := .NetworkSettings.Networks}}{{println $name}}{{end}}' | grep -Fxq "$network"; then
+        docker network connect "$network" "$manager_id" || { warn "Manager sunucu ağına bağlanamadı."; continue; }
+      fi
+      host=$(docker inspect "$server_id" --format '{{.Name}}')
+      host=${host#/}
+      if result=$(printf '%s\0%s\0%s\0' "${kind^^} · ${project}" "$host" "$key" \
+        | docker exec -i --workdir /app/packages/backend "$manager_id" node dist/bootstrap/installer-cli.js sync-connection); then
+        [[ $result != changed ]] || changed=1
+        ok "${project}/${kind}: Manager bağlantı kaydı hazır."
+      else
+        warn "${project}/${kind}: otomatik kayıt başarısız; mevcut bağlantılar korundu. Eski Manager kullanılıyorsa önce güncelleyin."
+      fi
+    done
+  done
+  unset key
+  if (( changed )); then
+    info "Yeni bağlantıların yüklenmesi için Manager kısa süre yeniden başlatılıyor."
+    docker restart "$manager_id" >/dev/null
+    wait_manager_ready "$manager_id" || die "Manager yeniden başlatıldı ancak sağlık kontrolü başarısız. Logları kontrol edin."
+  fi
+}
+
 music_bot_guide() {
   local manager_port manager_bind public_host ts6_http ts3_http manager_step
   manager_port=$(get_env MANAGER_PORT || printf '3000')
@@ -658,20 +762,20 @@ music_bot_guide() {
   ts6_http=$(get_env TS6_QUERY_HTTP_PORT || printf '10081')
   ts3_http=$(get_env TS3_WEBQUERY_PORT || printf '10080')
   if [[ $manager_bind == 127.0.0.1 ]]; then
-    manager_step="Windows PowerShell'de 'ssh -L ${manager_port}:127.0.0.1:${manager_port} KULLANICI@${public_host}' çalıştır; ardından http://127.0.0.1:${manager_port}/setup adresini aç."
+    manager_step="Windows PowerShell'de 'ssh -L ${manager_port}:127.0.0.1:${manager_port} KULLANICI@${public_host}' çalıştır; ardından http://127.0.0.1:${manager_port}/login adresini aç."
   else
-    manager_step="Tarayıcıda http://${public_host}:${manager_port}/setup adresini aç (üretimde TLS reverse proxy kullan)."
+    manager_step="Tarayıcıda http://${public_host}:${manager_port}/login adresini aç (üretimde TLS reverse proxy kullan)."
   fi
   cat <<EOF
 
 Müzik botu temiz kurulum adımları
 ---------------------------------
 1. ${manager_step}
-2. Ayarlar > Connections bölümünde sunucuyu ekle.
-   - Aynı paket içindeki TS6: host ts6, port 10080, anahtar ${ENV_FILE} içindeki TS6_API_KEY.
-   - Aynı paket içindeki TS3: host ts3, port 10080, anahtar ${ENV_FILE} içindeki TS3_API_KEY.
+2. Terminalde belirlediğin yönetici hesabıyla giriş yap. Mevcut hesap varsa parolası değişmez.
+3. Kurulan TS3/TS6 bağlantıları sunucu seçicisinde otomatik görünür.
+   - Uzak sunucular Ayarlar > Bağlantılar bölümünden ayrıca eklenebilir.
    - Dış erişimde TS6 WebQuery portu ${ts6_http}, TS3 WebQuery portu ${ts3_http} olur.
-3. Music Bots > Add Bot ile adını, kanalını ve otomatik başlatma tercihini seç.
+   Bot Hub > New bot ile sunucusunu, adını, kanalını ve otomatik başlatma tercihini seç.
 4. Bot bağlandıktan sonra !play, !radio, !vol ve !skip komutlarını kanalda dene.
 
 Hiçbir eski bot kimliği, token, veritabanı veya parola bu kuruluma aktarılmaz.
@@ -693,7 +797,9 @@ update_manager() {
   prepare_manager_image
   write_compose
   prepare_manager_volume_permissions
+  configure_manager_admin
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" --profile manager up -d manager
+  sync_manager_connections
   ok "TeamSpeak Manager güncellendi; mevcut veritabanı ve müzik volume'ları korundu."
 }
 
@@ -885,6 +991,8 @@ MENU
   done
 }
 
-require_root
-check_os
-main_menu
+if [[ ${BASH_SOURCE[0]} == "$0" ]]; then
+  require_root
+  check_os
+  main_menu
+fi

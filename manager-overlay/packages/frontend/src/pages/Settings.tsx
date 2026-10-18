@@ -42,8 +42,10 @@ import { APP_REPOSITORY_URL, APP_VERSION, APP_VERSION_LABEL } from '@/lib/app-ve
 import { apiErrorMessage } from '@/lib/api-error';
 import { toast } from 'sonner';
 import type { ConnectionDiagnosticReport } from '@ts6/common';
+import { useTranslation } from '@/lib/i18n';
 
 export default function Settings() {
+  const { t } = useTranslation();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
   const [searchParams, setSearchParams] = useSearchParams();
@@ -62,16 +64,16 @@ export default function Settings() {
 
   return (
     <div className="min-w-0 space-y-5">
-      <h1 className="text-xl font-semibold">Settings</h1>
+      <h1 className="text-xl font-semibold">{t('Settings')}</h1>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="min-w-0 max-w-full">
         <TabsList className="w-full sm:w-auto">
-          {isAdmin && <TabsTrigger value="connections"><Server className="h-3.5 w-3.5 mr-1" /> Connections</TabsTrigger>}
-          <TabsTrigger value="account"><Lock className="h-3.5 w-3.5 mr-1" /> Account</TabsTrigger>
-          <TabsTrigger value="appearance"><Palette className="h-3.5 w-3.5 mr-1" /> Appearance</TabsTrigger>
-          {isAdmin && <TabsTrigger value="users"><Users className="h-3.5 w-3.5 mr-1" /> Users</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="connections"><Server className="h-3.5 w-3.5 mr-1" /> {t('Connections')}</TabsTrigger>}
+          <TabsTrigger value="account"><Lock className="h-3.5 w-3.5 mr-1" /> {t('Account')}</TabsTrigger>
+          <TabsTrigger value="appearance"><Palette className="h-3.5 w-3.5 mr-1" /> {t('Appearance')}</TabsTrigger>
+          {isAdmin && <TabsTrigger value="users"><Users className="h-3.5 w-3.5 mr-1" /> {t('Users')}</TabsTrigger>}
           {isAdmin && <TabsTrigger value="youtube"><Youtube className="h-3.5 w-3.5 mr-1" /> YouTube</TabsTrigger>}
-          <TabsTrigger value="about"><Info className="h-3.5 w-3.5 mr-1" /> About</TabsTrigger>
+          <TabsTrigger value="about"><Info className="h-3.5 w-3.5 mr-1" /> {t('About')}</TabsTrigger>
         </TabsList>
 
         {isAdmin && (
@@ -154,6 +156,7 @@ const INTENSITY_LABELS: Record<BackgroundIntensity, string> = {
 };
 
 function AppearanceTab() {
+  const { t } = useTranslation();
   const {
     baseTheme, accent, setBaseTheme, setAccent,
     background, setBackground, backgroundMotion, setBackgroundMotion, backgroundIntensity, setBackgroundIntensity,
@@ -188,17 +191,17 @@ function AppearanceTab() {
         <CardHeader>
           <CardTitle className="flex items-center gap-3 text-base font-medium">
             <BrandMark className="h-8 w-8 text-primary" />
-            Appearance
+            {t('Appearance')}
           </CardTitle>
           <p className="text-xs text-muted-foreground">
-            Appearance is stored only in this browser. Operational status colours keep their meaning in every combination.
+            {t('Appearance is stored only in this browser. Operational status colours keep their meaning in every combination.')}
           </p>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid min-w-0 gap-6 xl:grid-cols-2 xl:gap-x-10" data-testid="appearance-columns">
           <div className="min-w-0 space-y-6" data-testid="appearance-column-theme">
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Base theme</legend>
+            <legend className="text-sm font-medium">{t('Base theme')}</legend>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {BASE_THEMES.map(value => {
                 const selected = value === baseTheme;
@@ -207,16 +210,16 @@ function AppearanceTab() {
                   <button
                     key={value}
                     type="button"
-                    aria-label={`${option.label} base theme`}
+                    aria-label={`${t(option.label)} ${t('Base theme')}`}
                     aria-pressed={selected}
                     onClick={() => setBaseTheme(value)}
                     className={`min-w-0 rounded-md border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:bg-accent'}`}
                   >
                     <span className="flex items-center justify-between gap-2 text-sm font-medium">
-                      {option.label}
+                      {t(option.label)}
                       {selected && <Check className="h-4 w-4 text-primary" aria-hidden="true" />}
                     </span>
-                    <span className="mt-1 block text-xs text-muted-foreground">{option.description}</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">{t(option.description)}</span>
                   </button>
                 );
               })}
@@ -224,7 +227,7 @@ function AppearanceTab() {
           </fieldset>
 
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Accent</legend>
+            <legend className="text-sm font-medium">{t('Accent')}</legend>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {ACCENTS.map(value => {
                 const selected = value === accent;
@@ -233,13 +236,13 @@ function AppearanceTab() {
                   <button
                     key={value}
                     type="button"
-                    aria-label={`${label} accent`}
+                    aria-label={`${t(label)} ${t('Accent')}`}
                     aria-pressed={selected}
                     onClick={() => setAccent(value)}
                     className={`flex min-w-0 items-center gap-2 rounded-md border p-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:bg-accent'}`}
                   >
                     <span className="h-4 w-4 shrink-0 rounded-full border border-black/10" style={{ backgroundColor: ACCENT_SWATCHES[value] }} aria-hidden="true" />
-                    <span className="truncate">{label}</span>
+                    <span className="truncate">{t(label)}</span>
                     {selected && <Check className="ml-auto h-4 w-4 shrink-0 text-primary" aria-hidden="true" />}
                   </button>
                 );
@@ -249,9 +252,9 @@ function AppearanceTab() {
 
 
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Motion</legend>
+            <legend className="text-sm font-medium">{t('Motion')}</legend>
             <p className="text-xs text-muted-foreground">
-              Decorative motion is never required to understand application state.
+              {t('Decorative motion is never required to understand application state.')}
             </p>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {BACKGROUND_MOTIONS.map(value => {
@@ -262,18 +265,18 @@ function AppearanceTab() {
                   <button
                     key={value}
                     type="button"
-                    aria-label={`${option.label} motion`}
+                    aria-label={`${t(option.label)} ${t('Motion')}`}
                     aria-pressed={selected}
                     onClick={() => setBackgroundMotion(value)}
                     className={`min-w-0 rounded-md border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:bg-accent'}`}
                   >
                     <span className="flex items-center justify-between gap-2 text-sm font-medium">
-                      {option.label}
+                      {t(option.label)}
                       {selected && <Check className="h-4 w-4 text-primary" aria-hidden="true" />}
                     </span>
                     <span className="mt-1 block text-xs text-muted-foreground">
-                      {option.description}
-                      {showResolvedHint ? ` — currently ${resolvedMotion}` : ''}
+                      {t(option.description)}
+                      {showResolvedHint ? ` — ${t(resolvedMotion === 'on' ? 'On' : 'Off')}` : ''}
                     </span>
                   </button>
                 );
@@ -284,9 +287,9 @@ function AppearanceTab() {
 
           <div className="min-w-0 space-y-6" data-testid="appearance-column-background">
           <fieldset className="space-y-2">
-            <legend className="text-sm font-medium">Background</legend>
+            <legend className="text-sm font-medium">{t('Background')}</legend>
             <p className="text-xs text-muted-foreground">
-              Sits behind content and never affects readability or interaction.
+              {t('Sits behind content and never affects readability or interaction.')}
             </p>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {BACKGROUNDS.map(value => {
@@ -296,7 +299,7 @@ function AppearanceTab() {
                   <button
                     key={value}
                     type="button"
-                    aria-label={`${option.label} background`}
+                    aria-label={`${t(option.label)} ${t('Background')}`}
                     aria-pressed={selected}
                     onClick={() => setBackground(value)}
                     className={`min-w-0 rounded-md border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:bg-accent'}`}
@@ -309,10 +312,10 @@ function AppearanceTab() {
                       data-motion-resolved="off"
                     />
                     <span className="flex items-center justify-between gap-2 text-sm font-medium">
-                      {option.label}
+                      {t(option.label)}
                       {selected && <Check className="h-4 w-4 text-primary" aria-hidden="true" />}
                     </span>
-                    <span className="mt-1 block text-xs text-muted-foreground">{option.description}</span>
+                    <span className="mt-1 block text-xs text-muted-foreground">{t(option.description)}</span>
                   </button>
                 );
               })}
@@ -321,7 +324,7 @@ function AppearanceTab() {
 
           {background !== 'none' && (
             <fieldset className="space-y-2">
-              <legend className="text-sm font-medium">Background intensity</legend>
+              <legend className="text-sm font-medium">{t('Background intensity')}</legend>
               <div className="grid grid-cols-3 gap-2">
                 {BACKGROUND_INTENSITIES.map(value => {
                   const selected = value === backgroundIntensity;
@@ -335,7 +338,7 @@ function AppearanceTab() {
                       className={`min-w-0 rounded-md border p-2 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:bg-accent'}`}
                     >
                       <span className="flex items-center justify-center gap-1.5">
-                        {INTENSITY_LABELS[value]}
+                        {t(INTENSITY_LABELS[value])}
                         {selected && <Check className="h-3.5 w-3.5 text-primary" aria-hidden="true" />}
                       </span>
                     </button>
@@ -349,11 +352,11 @@ function AppearanceTab() {
           </div>
 
           <div className="space-y-2">
-            <p className="text-sm font-medium">Semantic colours</p>
+            <p className="text-sm font-medium">{t('Semantic colours')}</p>
             <div className="grid grid-cols-1 gap-2 text-xs sm:grid-cols-3">
-              <span className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive">Destructive / error</span>
-              <span className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-success">Success</span>
-              <span className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-warning">Warning</span>
+              <span className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-destructive">{t('Destructive / error')}</span>
+              <span className="rounded-md border border-success/30 bg-success/10 px-3 py-2 text-success">{t('Success')}</span>
+              <span className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-warning">{t('Warning')}</span>
             </div>
           </div>
         </CardContent>
@@ -397,6 +400,7 @@ function AboutTab() {
 }
 
 function AccountTab() {
+  const { t } = useTranslation();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -432,19 +436,19 @@ function AccountTab() {
     <div className="max-w-md">
       <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">Change Password</CardTitle>
+          <CardTitle className="text-sm font-medium">{t('Change Password')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div>
-            <Label className="text-xs">Current Password</Label>
+            <Label className="text-xs">{t('Current Password')}</Label>
             <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Enter current password" />
           </div>
           <div>
-            <Label className="text-xs">New Password</Label>
+            <Label className="text-xs">{t('New Password')}</Label>
             <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min. 8 characters, upper, lower, digit" />
           </div>
           <div>
-            <Label className="text-xs">Confirm New Password</Label>
+            <Label className="text-xs">{t('Confirm New Password')}</Label>
             <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat new password" />
           </div>
           <Button
@@ -452,7 +456,7 @@ function AccountTab() {
             disabled={!currentPassword || !newPassword || !confirmPassword || changePassword.isPending}
             className="w-full mt-1"
           >
-            {changePassword.isPending ? 'Changing...' : 'Change Password'}
+            {t(changePassword.isPending ? 'Changing...' : 'Change Password')}
           </Button>
         </CardContent>
       </Card>

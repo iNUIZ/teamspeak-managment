@@ -148,10 +148,21 @@ root filesystem.
 
 ## Initial Manager connection
 
-1. Create the first administrator at the `/setup` URL printed by the installer.
-2. For an in-stack TS6 server, use host `ts6` and port `10080`.
-3. For TS3, use host `ts3` and port `10080`.
-4. Read the corresponding API key from `/opt/teamhub/.env`.
+1. Choose the Manager administrator username and password in the terminal. Password entry
+   is hidden and only a bcrypt hash is staged before startup. Existing accounts are preserved.
+2. Sign in directly at the `/login` URL printed by the installer.
+3. Installer-managed TS3 and TS6 connections are registered automatically, whether you install
+   the server first, Manager first, or choose full-stack option 7. No manual API key transfer is needed.
+4. The `teamhub` and `teamhub2` stacks on the same host can share an existing Manager.
+   The installer joins their private Docker networks without exposing Query publicly.
+   Repeated synchronization updates the same connection and preserves custom names and bots.
+   Manager briefly restarts after connection changes, which may interrupt active bots.
+5. Add remote hosts under **Settings → Connections**. Use the server selector to switch
+   between TS3/TS6 connections and virtual servers, with separate bots and commands per connection.
+
+Automatic registration covers only installer-managed TS3/TS6 servers with an available API key.
+TeaSpeak and servers on other machines require manual configuration. Missing keys or an unready
+Manager produce a warning instead of creating an unusable connection.
 
 ## License and dependencies
 
