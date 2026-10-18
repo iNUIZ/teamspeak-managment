@@ -7,7 +7,7 @@
   <text x="480" y="37" text-anchor="middle" fill="#8f9bad" font-family="Consolas,monospace" font-size="15">teamspeak-managment</text>
   <line x1="0" y1="57" x2="960" y2="57" stroke="#30394b"/>
   <g font-family="Consolas,monospace" font-size="19">
-    <text x="38" y="97" fill="#67b7ff">Teamspeak Managment</text><text x="310" y="97" fill="#8f9bad">v0.3.7</text>
+    <text x="38" y="97" fill="#67b7ff">Teamspeak Managment</text><text x="310" y="97" fill="#8f9bad">v0.3.8-alpha.1</text>
     <text x="38" y="126" fill="#8f9bad">==================================</text>
     <text x="38" y="169" fill="#d8dee9">1) Install Docker requirements</text>
     <text x="38" y="203" fill="#d8dee9">2) Install TeamSpeak 3 server</text>

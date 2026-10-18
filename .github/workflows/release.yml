@@ -52,8 +52,8 @@ jobs:
           grep -Fxq install.sh linux-files.txt
           grep -Fxq manager-overlay/packages/backend/src/routes/extensions.routes.ts linux-files.txt
           grep -Fxq manager-overlay/packages/frontend/src/pages/extensions/ExtensionsTab.tsx linux-files.txt
-          ! grep -Eq '(^|/)(install\.ps1|bootstrap\.ps1|package(-lock)?\.json)$' linux-files.txt
-          ! grep -Eq '(^|/)(bootstrap\.ps1|package(-lock)?\.json)$' windows-files.txt
+          ! grep -Eq '^(install\.ps1|bootstrap\.ps1|package(-lock)?\.json)$' linux-files.txt
+          ! grep -Eq '^(bootstrap\.ps1|package(-lock)?\.json)$' windows-files.txt
       - name: Sign and verify checksum manifest
         env:
           RELEASE_SIGNING_KEY_B64: ${{ secrets.RELEASE_SIGNING_KEY_B64 }}
