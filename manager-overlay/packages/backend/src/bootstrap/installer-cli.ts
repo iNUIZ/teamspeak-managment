@@ -1,10 +1,16 @@
 import fs from 'node:fs/promises';
 import { PrismaClient } from '../../generated/prisma/index.js';
 import { prepareInstallerAdmin, syncInstallerConnection } from './installer.js';
+import { serverAccessSummary } from './server-access.js';
 
 const prisma = new PrismaClient();
 async function main() {
   const action = process.argv[2];
+  if (action === 'admin-usernames') {
+    const users = await prisma.user.findMany({ where: { role: 'admin', enabled: true }, select: { username: true } });
+    console.log(users.map(u => u.username).join(', '));
+    return;
+  }
   if (action === 'admin-state') {
     // Missing schema means this is a new database; other database failures are errors.
     let existing = false;
@@ -27,6 +33,8 @@ async function main() {
   } else if (action === 'sync-connection') {
     const changed = await syncInstallerConnection(prisma, fields[0], fields[1], fields[2]);
     console.log(changed ? 'changed' : 'unchanged');
+  } else if (action === 'server-access') {
+    for (const line of await serverAccessSummary(fields[0], fields[1], fields[2] || undefined)) console.log(line);
   } else throw new Error('Unknown installer action');
 }
 main().catch(() => {

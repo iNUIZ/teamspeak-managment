@@ -43,6 +43,7 @@ import { apiErrorMessage } from '@/lib/api-error';
 import { toast } from 'sonner';
 import type { ConnectionDiagnosticReport } from '@ts6/common';
 import { useTranslation } from '@/lib/i18n';
+import { TtsSettings } from '@/components/settings/TtsSettings';
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -51,7 +52,7 @@ export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const availableTabs = isAdmin
-    ? ['connections', 'account', 'appearance', 'users', 'youtube', 'about']
+    ? ['connections', 'account', 'appearance', 'users', 'youtube', 'tts', 'about']
     : ['account', 'appearance', 'about'];
   const activeTab = tabParam && availableTabs.includes(tabParam) ? tabParam : 'account';
 
@@ -74,6 +75,7 @@ export default function Settings() {
           {isAdmin && <TabsTrigger value="users"><Users className="h-3.5 w-3.5 mr-1" /> {t('Users')}</TabsTrigger>}
           {isAdmin && <TabsTrigger value="youtube"><Youtube className="h-3.5 w-3.5 mr-1" /> YouTube</TabsTrigger>}
           <TabsTrigger value="about"><Info className="h-3.5 w-3.5 mr-1" /> {t('About')}</TabsTrigger>
+          {isAdmin && <TabsTrigger value="tts">TTS</TabsTrigger>}
         </TabsList>
 
         {isAdmin && (
@@ -102,6 +104,7 @@ export default function Settings() {
           </TabsContent>
         )}
 
+        {isAdmin && <TabsContent value="tts" className="mt-4"><TtsSettings /></TabsContent>}
         <TabsContent value="about" className="mt-4">
           <AboutTab />
         </TabsContent>

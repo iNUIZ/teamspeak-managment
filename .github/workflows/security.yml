@@ -32,8 +32,8 @@ jobs:
           exit-code: "1"
 
   images:
-    name: Container scan (${{ matrix.name }})
-    runs-on: ubuntu-24.04
+    name: Container scan (${{ matrix.name }}, ${{ matrix.runner || 'ubuntu-24.04' }})
+    runs-on: ${{ matrix.runner || 'ubuntu-24.04' }}
     strategy:
       fail-fast: false
       matrix:
@@ -58,6 +58,12 @@ jobs:
             dockerfile: docker/manager-hardened.Dockerfile
             scan_image: teamspeak-managment/manager-hardened:ci
             context: .
+          - name: manager
+            runner: ubuntu-24.04-arm
+            base_image: teamhub/ts6-manager:base
+            dockerfile: docker/manager-hardened.Dockerfile
+            scan_image: teamspeak-managment/manager-hardened:ci
+            context: .
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
       - name: Build customized Manager base image
@@ -75,8 +81,19 @@ jobs:
         run: |
           docker build \
             --build-arg "BASE_IMAGE=${{ matrix.base_image }}" \
+            --build-arg "INSTALL_TTS=${{ matrix.name == 'manager' }}" \
             -f "${{ matrix.dockerfile }}" \
             -t "${{ matrix.scan_image }}" "${{ matrix.context }}"
+      - name: Validate optional TR and EN speech engines
+        if: matrix.name == 'manager'
+        run: |
+          docker run --rm --entrypoint sh "${{ matrix.scan_image }}" -c '
+            set -eu
+            for voice in tr_TR-dfki-medium en_US-lessac-medium; do
+              printf "TeamSpeak test. Merhaba.\n" | /opt/teamhub-tts/bin/python -m piper -m "/opt/teamhub-voices/${voice}.onnx" -f /tmp/speech.wav
+              python3 -c "import wave; w=wave.open(\"/tmp/speech.wav\"); assert w.getnframes() > 1000"
+            done
+          '
       - name: Scan image and create SARIF
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
@@ -90,7 +107,7 @@ jobs:
         uses: github/codeql-action/upload-sarif@ce5e7eeac396d720fe2d802714996c8ce561e311 # v3
         with:
           sarif_file: trivy-${{ matrix.name }}.sarif
-          category: trivy-${{ matrix.name }}
+          category: trivy-${{ matrix.name }}-${{ matrix.runner || 'ubuntu-24.04' }}
       - name: Block fixed high and critical vulnerabilities
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:

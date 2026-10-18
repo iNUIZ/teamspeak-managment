@@ -2,6 +2,9 @@ ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
 USER root
+ARG INSTALL_TTS=false
+COPY docker/install-tts.sh /tmp/install-tts.sh
+RUN if [ "$INSTALL_TTS" = true ]; then sh /tmp/install-tts.sh; fi && rm -f /tmp/install-tts.sh
 
 COPY docker/patch-manager-auth.mjs /tmp/patch-manager-auth.mjs
 COPY docker/manager-nginx.conf /etc/nginx/nginx.conf

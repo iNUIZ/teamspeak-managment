@@ -1,6 +1,6 @@
 {
   "name": "@ts6/frontend",
-  "version": "0.3.8-alpha.1",
+  "version": "0.3.8-alpha.2",
   "private": true,
   "type": "module",
   "scripts": {

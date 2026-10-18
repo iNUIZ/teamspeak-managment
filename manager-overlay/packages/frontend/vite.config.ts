@@ -36,7 +36,7 @@ export default defineConfig({
     },
   })],
   define: {
-    __APP_VERSION__: JSON.stringify('0.3.8-alpha.1'),
+    __APP_VERSION__: JSON.stringify('0.3.8-alpha.2'),
     __GIT_SHA__: JSON.stringify(gitSha),
   },
   resolve: {
