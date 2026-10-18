@@ -1,0 +1,11 @@
+.env
+*.db
+*.sqlite*
+backups/
+data/
+*.key
+*.pem
+!security/release-signing-public.pem
+cookies.txt
+.signing-temp/
+.release-verify/

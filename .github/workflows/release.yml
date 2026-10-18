@@ -1,0 +1,101 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  security:
+    uses: ./.github/workflows/security.yml
+    permissions:
+      contents: read
+      security-events: write
+
+  release:
+    needs: security
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+      - name: Validate tag and version
+        run: |
+          test "${GITHUB_REF_NAME#v}" = "$(tr -d '[:space:]' < VERSION)"
+          git fetch --no-tags origin main
+          test "$GITHUB_SHA" = "$(git rev-parse origin/main)" || {
+            echo "Release tags must point to the current protected main commit." >&2
+            exit 1
+          }
+      - name: Build release archive
+        run: |
+          base="teamspeak-managment-${GITHUB_REF_NAME}"
+          common=(install.sh README.md README.en.md LICENSE SECURITY.md CHANGELOG.md VERSION docs docker manager-overlay)
+          windows=(install.ps1 "${common[@]}")
+          linux=("${common[@]}")
+          zip -r "${base}-windows.zip" "${windows[@]}"
+          tar -czf "${base}-linux.tar.gz" "${linux[@]}"
+          sha256sum "${base}-windows.zip" "${base}-linux.tar.gz" > "${base}-SHA256SUMS.txt"
+      - name: Validate platform archive contents
+        run: |
+          base="teamspeak-managment-${GITHUB_REF_NAME}"
+          unzip -Z1 "${base}-windows.zip" > windows-files.txt
+          tar -tzf "${base}-linux.tar.gz" > linux-files.txt
+          grep -Fxq install.ps1 windows-files.txt
+          grep -Fxq install.sh windows-files.txt
+          grep -Fxq install.sh linux-files.txt
+          grep -Fxq manager-overlay/packages/backend/src/routes/extensions.routes.ts linux-files.txt
+          grep -Fxq manager-overlay/packages/frontend/src/pages/extensions/ExtensionsTab.tsx linux-files.txt
+          ! grep -Eq '(^|/)(install\.ps1|bootstrap\.ps1|package(-lock)?\.json)$' linux-files.txt
+          ! grep -Eq '(^|/)(bootstrap\.ps1|package(-lock)?\.json)$' windows-files.txt
+      - name: Sign and verify checksum manifest
+        env:
+          RELEASE_SIGNING_KEY_B64: ${{ secrets.RELEASE_SIGNING_KEY_B64 }}
+        run: |
+          test -n "$RELEASE_SIGNING_KEY_B64"
+          base="teamspeak-managment-${GITHUB_REF_NAME}"
+          printf '%s' "$RELEASE_SIGNING_KEY_B64" | base64 --decode > release-signing-private.pem
+          chmod 600 release-signing-private.pem
+          openssl pkeyutl -sign -rawin \
+            -inkey release-signing-private.pem \
+            -in "${base}-SHA256SUMS.txt" \
+            -out "${base}-SHA256SUMS.txt.sig"
+          openssl pkeyutl -verify -pubin \
+            -inkey security/release-signing-public.pem \
+            -rawin -in "${base}-SHA256SUMS.txt" \
+            -sigfile "${base}-SHA256SUMS.txt.sig"
+          rm -f release-signing-private.pem
+      - name: Publish GitHub npm package
+        env:
+          NODE_AUTH_TOKEN: ${{ github.token }}
+        run: |
+          npm config set //npm.pkg.github.com/:_authToken "$NODE_AUTH_TOKEN"
+          if npm view "@inuiz/teamspeak-managment@${GITHUB_REF_NAME#v}" version --registry=https://npm.pkg.github.com >/dev/null 2>&1; then
+            echo "Package version already exists; keeping the published package."
+          else
+            npm publish
+          fi
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          assets=(
+            "teamspeak-managment-${GITHUB_REF_NAME}-windows.zip"
+            "teamspeak-managment-${GITHUB_REF_NAME}-linux.tar.gz"
+            "teamspeak-managment-${GITHUB_REF_NAME}-SHA256SUMS.txt"
+            "teamspeak-managment-${GITHUB_REF_NAME}-SHA256SUMS.txt.sig"
+          )
+          ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || {
+            echo "Release already exists; refusing to replace immutable assets." >&2
+            exit 1
+          }
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+            --verify-tag \
+            --generate-notes \
+            --title "Teamspeak Managment ${GITHUB_REF_NAME}"

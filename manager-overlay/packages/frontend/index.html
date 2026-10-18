@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <meta name="theme-color" content="#0b0e13" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Teamspeak Managment" />
+    <title>TeamSpeak 6 Manager</title>
+    <script>
+      // Apply persisted appearance before React renders to prevent a theme flash.
+      try {
+        var stored = JSON.parse(localStorage.getItem('ts6-ui') || '{}');
+        var state = stored && stored.state && typeof stored.state === 'object' ? stored.state : {};
+        var themes = ['light', 'dark', 'black'];
+        var accents = ['cyan', 'violet', 'red', 'blue', 'emerald', 'amber'];
+        var candidateTheme = themes.indexOf(state.baseTheme) >= 0 ? state.baseTheme : state.theme;
+        var theme = themes.indexOf(candidateTheme) >= 0 ? candidateTheme : 'dark';
+        var accent = accents.indexOf(state.accent) >= 0 ? state.accent : 'cyan';
+        var root = document.documentElement;
+        root.dataset.theme = theme;
+        root.dataset.accent = accent;
+        root.classList.toggle('dark', theme !== 'light');
+        root.classList.toggle('black', theme === 'black');
+        root.style.colorScheme = theme === 'light' ? 'light' : 'dark';
+        document.querySelector('meta[name="theme-color"]').content = theme === 'light' ? '#f8fafc' : theme === 'black' ? '#000000' : '#0b0e13';
+      } catch(e) {
+        document.documentElement.dataset.theme = 'dark';
+        document.documentElement.dataset.accent = 'cyan';
+        document.documentElement.classList.add('dark');
+        document.documentElement.style.colorScheme = 'dark';
+      }
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  bash:
+    name: Bash validation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Parse script
+        run: bash -n install.sh
+      - name: Run ShellCheck
+        run: shellcheck install.sh
+      - name: Reject generated secrets and data
+        run: |
+          forbidden=$(find . -type f \( -name '.env' -o -name '*.db' -o -name '*.sqlite' -o -name '*.pem' -o -name '*.key' -o -name 'cookies.txt' \) ! -path './security/release-signing-public.pem' -print)
+          test -z "$forbidden" || { printf '%s\n' "$forbidden"; exit 1; }
+
+  powershell:
+    name: PowerShell validation
+    runs-on: windows-2025
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Parse script
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $installErrors = $null
+          $bootstrapErrors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path .\install.ps1), [ref]$tokens, [ref]$installErrors
+          ) | Out-Null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path .\bootstrap.ps1), [ref]$tokens, [ref]$bootstrapErrors
+          ) | Out-Null
+          $errors = @($installErrors) + @($bootstrapErrors)
+          if ($errors.Count) {
+            $errors | Format-List
+            exit 1
+          }
+
+  package:
+    name: Package validation
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Validate npm package contents
+        run: |
+          npm audit --omit=dev --audit-level=high
+          npm pack --dry-run
+
+  teaspeak-runtime:
+    name: TeaSpeak runtime smoke test
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Build TeaSpeak image
+        run: docker build -f docker/teaspeak-hardened.Dockerfile -t teamspeak-managment/teaspeak-smoke docker
+      - name: Verify TeaSpeak reaches healthy state
+        run: |
+          docker run -d --name teaspeak-smoke \
+            --cap-drop ALL --security-opt no-new-privileges:true \
+            teamspeak-managment/teaspeak-smoke
+          for attempt in $(seq 1 24); do
+            status=$(docker inspect --format '{{.State.Status}}' teaspeak-smoke)
+            test "$status" = running || { docker logs teaspeak-smoke; exit 1; }
+            query_ok=0
+            voice_ok=0
+            docker exec teaspeak-smoke timeout 3 bash -c '</dev/tcp/127.0.0.1/10101' && query_ok=1
+            docker exec teaspeak-smoke awk '$2 ~ /:2703$/ && $4 == "07" { found=1 } END { exit !found }' /proc/net/udp /proc/net/udp6 && voice_ok=1
+            test "$query_ok" = 1 && test "$voice_ok" = 1 && exit 0
+            sleep 5
+          done
+          docker logs teaspeak-smoke
+          exit 1

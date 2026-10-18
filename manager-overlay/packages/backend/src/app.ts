@@ -1,0 +1,190 @@
+import express, { type Express, type ErrorRequestHandler } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { config } from './config.js';
+import { errorHandler } from './middleware/error-handler.js';
+import { authMiddleware } from './middleware/auth.js';
+import { authRoutes } from './routes/auth.routes.js';
+import { serverRoutes } from './routes/servers.routes.js';
+import { virtualServerRoutes } from './routes/virtual-servers.routes.js';
+import { channelRoutes } from './routes/channels.routes.js';
+import { clientRoutes } from './routes/clients.routes.js';
+import { serverGroupRoutes } from './routes/server-groups.routes.js';
+import { channelGroupRoutes } from './routes/channel-groups.routes.js';
+import { permissionRoutes } from './routes/permissions.routes.js';
+import { banRoutes } from './routes/bans.routes.js';
+import { tokenRoutes } from './routes/tokens.routes.js';
+import { fileRoutes } from './routes/files.routes.js';
+import { iconRoutes } from './routes/icons.routes.js';
+import { complaintRoutes } from './routes/complaints.routes.js';
+import { messageRoutes } from './routes/messages.routes.js';
+import { logRoutes } from './routes/logs.routes.js';
+import { instanceRoutes } from './routes/instance.routes.js';
+import { dashboardRoutes } from './routes/dashboard.routes.js';
+import { botRoutes } from './routes/bots.routes.js';
+import { userRoutes } from './routes/users.routes.js';
+import { musicBotRoutes } from './routes/music-bots.routes.js';
+import { iptvRoutes } from './routes/iptv.routes.js';
+import { musicLibraryRoutes } from './routes/music-library.routes.js';
+import { playlistRoutes } from './routes/playlists.routes.js';
+import { radioStationRoutes } from './routes/radio-stations.routes.js';
+import { chatCommandRoutes } from './routes/chat-commands.routes.js';
+import { extensionRoutes } from './routes/extensions.routes.js';
+import { musicRequestRoutes } from './routes/music-requests.routes.js';
+import { widgetPublicRoutes } from './routes/widget-public.routes.js';
+import { widgetRoutes } from './routes/widget.routes.js';
+import { channelBannerRoutes, channelBannerPublicRoutes } from './routes/channel-banners.routes.js';
+import { setupRoutes } from './routes/setup.routes.js';
+import { settingsRoutes } from './routes/settings.routes.js';
+import { auditRoutes } from './routes/audit.routes.js';
+import { activityJournalRoutes } from './routes/activity-journal.routes.js';
+import { listenerRemoteRoutes, listenerRemoteAdminRoutes, listenerRemoteIpGuard, listenerRemoteListenerKey, recordRefusal } from './routes/listener-remote.routes.js';
+import { ListenerRemoteError } from './voice/listener-remote.js';
+import { clientRateKey } from './utils/client-address.js';
+import { BoundedRateLimitStore } from './utils/rate-windows.js';
+
+import { applyTrustProxy, forwardedHeaderWarning } from './trust-proxy.js';
+import { requireServerAccess } from './middleware/server-access.js';
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const backendPkg = require('../package.json') as { version?: string };
+
+export function createApp(): Express {
+  const app = express();
+
+  // Explicit addresses/subnets prevent direct clients spoofing rate-limit IPs.
+  applyTrustProxy(app, config.trustProxy);
+  app.use(forwardedHeaderWarning(config.trustProxy));
+
+  app.use(helmet());
+  app.use(cors({ origin: config.frontendUrl, credentials: true }));
+  // Parse remote requests separately so body-parser errors cannot echo token material.
+  // Bounded stores: a flood of new addresses cannot grow limiter memory without limit.
+  // Live listeners have their own store, which only verified sessions can fill,
+  // so address traffic can never crowd out a signed-in listener.
+  const remoteAddressStore = new BoundedRateLimitStore();
+  const remoteListenerStore = new BoundedRateLimitStore();
+  const remoteLimit = {
+    windowMs: 60_000,
+    max: 120,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many remote requests', code: 'rate_limited' },
+    // Counted in the bounded listener remote audit totals; the response is unchanged.
+    handler: (req: express.Request, res: express.Response, _next: express.NextFunction, options: { statusCode: number; message: unknown }) => {
+      recordRefusal(req, res, new ListenerRemoteError(429, 'rate_limited', 'Too many remote requests'), 'limiter');
+      res.status(options.statusCode).send(options.message);
+    },
+  } as const;
+  const remoteAddressLimiter = rateLimit({
+    ...remoteLimit,
+    store: remoteAddressStore,
+    skip: (_req, res) => listenerRemoteListenerKey(res) !== undefined,
+    keyGenerator: req => clientRateKey(req),
+  });
+  const remoteListenerLimiter = rateLimit({
+    ...remoteLimit,
+    store: remoteListenerStore,
+    skip: (_req, res) => listenerRemoteListenerKey(res) === undefined,
+    keyGenerator: (_req, res) => listenerRemoteListenerKey(res) ?? '',
+  });
+  // Keep the bounded guard first; it also enforces the stricter exchange quota.
+  app.use('/api/listener-remote', listenerRemoteIpGuard, remoteAddressLimiter, remoteListenerLimiter, listenerRemoteRoutes);
+  const remoteParseError: ErrorRequestHandler = (_err, _req, res, _next) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.status(400).json({ error: 'Invalid listener request.', code: 'invalid_request' });
+  };
+  app.use('/api/listener-remote', remoteParseError);
+  app.use(express.json({ limit: '10mb' }));
+
+  // Health check (includes version so deploys can verify backend image matches UI)
+  app.get('/api/health', (_req, res) => {
+    res.json({
+      status: 'ok',
+      version: backendPkg.version || 'unknown',
+      gitSha: (process.env.GIT_SHA || '').slice(0, 7) || undefined,
+      timestamp: new Date().toISOString(),
+    });
+  });
+
+  // H1: Rate limiting on auth endpoints
+  // Entries are small, so the sign-in store is large; when full it makes room and never refuses.
+  const authStore = new BoundedRateLimitStore({ capacity: 100_000 });
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutes
+    max: 15,
+    store: authStore,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: 'Too many attempts, please try again later' },
+    keyGenerator: req => clientRateKey(req),
+  });
+  app.use('/api/auth/login', authLimiter);
+  app.use('/api/auth/refresh', authLimiter);
+  app.use('/api/auth/password', authLimiter);
+  // Exposed so tests can check the stores stay bounded.
+  app.locals.rateLimitStores = { remoteAddress: remoteAddressStore, remoteListener: remoteListenerStore, auth: authStore };
+
+  // Public routes
+  app.use('/api/setup', setupRoutes);
+  app.use('/api/auth', authRoutes);
+
+  // Bot webhook route (unauthenticated — called by external systems)
+  app.all('/api/bots/webhook/:path(*)', (req, res) => {
+    const engine = req.app.locals.botEngine;
+    if (!engine) return res.status(503).json({ error: 'Bot engine not running' });
+    engine.handleWebhookRequest(req, res);
+  });
+
+  // Public widget routes (unauthenticated — embeddable on external sites)
+  app.use('/api/widget', widgetPublicRoutes);
+
+  // Public hosted channel banners (unauthenticated — fetched by TeamSpeak clients)
+  app.use('/api/banners', channelBannerPublicRoutes);
+
+  // Protected routes
+  app.use('/api', authMiddleware);
+  app.use('/api/listener-remote-admin', listenerRemoteAdminRoutes);
+  app.use('/api/servers', serverRoutes);
+
+  // H9: Server access control on all :configId routes
+  const serverAccess = requireServerAccess();
+  app.use('/api/servers/:configId/virtual-servers', serverAccess, virtualServerRoutes);
+  app.use('/api/servers/:configId/vs/:sid/channels', serverAccess, channelRoutes);
+  app.use('/api/servers/:configId/vs/:sid/clients', serverAccess, clientRoutes);
+  app.use('/api/servers/:configId/vs/:sid/server-groups', serverAccess, serverGroupRoutes);
+  app.use('/api/servers/:configId/vs/:sid/channel-groups', serverAccess, channelGroupRoutes);
+  app.use('/api/servers/:configId/vs/:sid/permissions', serverAccess, permissionRoutes);
+  app.use('/api/servers/:configId/vs/:sid/bans', serverAccess, banRoutes);
+  app.use('/api/servers/:configId/vs/:sid/tokens', serverAccess, tokenRoutes);
+  app.use('/api/servers/:configId/vs/:sid/files', serverAccess, fileRoutes);
+  app.use('/api/servers/:configId/vs/:sid/icons', serverAccess, iconRoutes);
+  app.use('/api/servers/:configId/vs/:sid/complaints', serverAccess, complaintRoutes);
+  app.use('/api/servers/:configId/vs/:sid/messages', serverAccess, messageRoutes);
+  app.use('/api/servers/:configId/vs/:sid/logs', serverAccess, logRoutes);
+  app.use('/api/servers/:configId/instance', serverAccess, instanceRoutes);
+  app.use('/api/servers/:configId/vs/:sid/dashboard', serverAccess, dashboardRoutes);
+  app.use('/api/bots', botRoutes);
+  app.use('/api/users', userRoutes);
+  app.use('/api/music-bots', musicBotRoutes);
+  app.use('/api/iptv', iptvRoutes);
+  app.use('/api/servers/:configId/music-library', serverAccess, musicLibraryRoutes);
+  app.use('/api/playlists', playlistRoutes);
+  app.use('/api/servers/:configId/radio-stations', serverAccess, radioStationRoutes);
+  app.use('/api/servers/:configId/chat-commands', serverAccess, chatCommandRoutes);
+  app.use('/api/servers/:configId/extensions', serverAccess, extensionRoutes);
+  app.use('/api/servers/:configId/music-requests', serverAccess, musicRequestRoutes);
+  app.use('/api/widgets', widgetRoutes);
+  app.use('/api/channel-banners', channelBannerRoutes);
+  app.use('/api/settings', settingsRoutes);
+  app.use('/api/audit', auditRoutes);
+  app.use('/api/activity-journal', activityJournalRoutes);
+
+
+  // Error handler (must be last)
+  app.use(errorHandler);
+
+  return app;
+}
