@@ -4,10 +4,11 @@ set -eu
 apt-get update
 apt-get install -y --no-install-recommends python3-venv
 python3 -m venv /opt/teamhub-tts
-# Debian's venv seed carries setuptools 66; replace it before shipping the image
-# (CVE-2024-6345 and CVE-2025-47273). Keep the remediation reproducible.
-/opt/teamhub-tts/bin/pip install --no-cache-dir --upgrade 'setuptools==80.9.0'
 /opt/teamhub-tts/bin/pip install --no-cache-dir 'piper-tts==1.8.0'
+# Build/install tools are not speech runtime dependencies. Do not ship the venv
+# seed or its vulnerable vendored archive helpers. CI synthesizes both voices
+# after removal to verify that the installed runtime remains self-contained.
+/opt/teamhub-tts/bin/pip uninstall -y setuptools wheel pip
 mkdir -p /opt/teamhub-voices
 base=https://huggingface.co/rhasspy/piper-voices/resolve/375a0fe641dea077c2a47b4e9a056d6da521eed3
 download() {
