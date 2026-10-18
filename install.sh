@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 readonly APP_NAME="Teamspeak Managment"
-readonly APP_VERSION="0.3.7"
+readonly APP_VERSION="0.3.8-alpha.1"
 KERNEL_NAME="$(uname -s)"
 readonly KERNEL_NAME
 case "$KERNEL_NAME" in
@@ -19,7 +19,7 @@ readonly DEFAULT_TS3_IMAGE="teamspeak:3.13.8@sha256:6dfdfb22869adf50e1b66d024b36
 readonly DEFAULT_TS6_IMAGE="teamspeaksystems/teamspeak6-server:6.0.0-beta13.1@sha256:d845f803aecf842c2df034c959c23ff2462357bacafb3807500885c5ec170fa1"
 readonly HARDENED_TEASPEAK_IMAGE="teamspeak-managment/teaspeak-hardened:1.5.6"
 readonly DEFAULT_MANAGER_IMAGE="ghcr.io/uniskela/ts6-manager/all-in-one:1.11.1@sha256:f5323c743865a157293eb9028548a68941b6e8743a97597825e19fab339fc83d"
-readonly HARDENED_MANAGER_IMAGE="teamspeak-managment/manager-hardened:0.3.7"
+readonly HARDENED_MANAGER_IMAGE="teamspeak-managment/manager-hardened:0.3.8-alpha.1"
 readonly DEFAULT_MANAGER_SOURCE_REF="789a40d0eb2e66ae419ceb01d01d7243fc7b3072"
 readonly DEFAULT_MANAGER_SOURCE_SHA256="1dd4841ee2b70c2256b52f8cb431dddc097901e15f0ae2e69ec853e243a45ed5"
 readonly ALPINE_IMAGE="alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc"

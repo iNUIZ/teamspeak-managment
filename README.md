@@ -7,9 +7,11 @@
 TeamSpeak 3, TeaSpeak, TeamSpeak 6, TS6 Manager ve müzik botu bileşenlerini Docker
 Compose ile kuran ve yöneten etkileşimli dağıtım aracı.
 
+**Alpha önizleme:** Uygulama henüz ilk kararlı sürümüne ulaşmadı. Özellikler ve kurulum akışı değişebilir.
+
 | Bilgi | Değer |
 |---|---|
-| Sürüm | **0.3.7** |
+| Sürüm | **0.3.8-alpha.1** |
 | Geliştirici | **Berat Akar** |
 | Kaynak | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -92,10 +94,10 @@ En son Release paketini indirip önce Ed25519 imzasını, ardından SHA-256 değ
 doğrulayan tek satırlık alternatif:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.7/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.8-alpha.1/bootstrap.ps1 | iex
 ```
 
-Komut değiştirilemeyen `v0.3.7` sürüm etiketine sabitlenmiştir. Üretim ortamında
+Komut değiştirilemeyen `v0.3.8-alpha.1` sürüm etiketine sabitlenmiştir. Üretim ortamında
 çalıştırmadan önce `bootstrap.ps1` içeriğinin incelenmesi yine de önerilir.
 
 ### WSL2 terminali

@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 $repository = 'iNUIZ/teamspeak-managment'
+$releaseTag = 'v0.3.8-alpha.1'
 $apiHeaders = @{ Accept = 'application/vnd.github+json'; 'User-Agent' = 'Teamspeak-Managment-Installer' }
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("teamspeak-managment-" + [guid]::NewGuid().ToString('N'))
 $releaseSigningPublicKey = @'
@@ -12,7 +13,7 @@ MCowBQYDK2VwAyEASPwsjRuEXYxMgbrwFPKFcouJaqd2lZZmhw+7nOwNzQE=
 
 try {
     New-Item -ItemType Directory -Path $temporaryRoot | Out-Null
-    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repository/releases/latest" -Headers $apiHeaders
+    $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$repository/releases/tags/$releaseTag" -Headers $apiHeaders
     $zipAsset = $release.assets | Where-Object { $_.name -match '-windows\.zip$' } | Select-Object -First 1
     $checksumAsset = $release.assets | Where-Object { $_.name -match 'SHA256SUMS\.txt$' } | Select-Object -First 1
     $signatureAsset = $release.assets | Where-Object { $_.name -match 'SHA256SUMS\.txt\.sig$' } | Select-Object -First 1

@@ -7,9 +7,11 @@ English · [Türkçe](README.md)
 An interactive Docker Compose deployment and management tool for TeamSpeak 3, TeaSpeak,
 TeamSpeak 6, TS6 Manager, and the Manager music bot.
 
+**Alpha preview:** The application has not reached its first stable release. Features and installation flows may change.
+
 | Metadata | Value |
 |---|---|
-| Version | **0.3.7** |
+| Version | **0.3.8-alpha.1** |
 | Developer | **Berat Akar** |
 | Source | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -87,14 +89,14 @@ npm run setup
 `npm run setup` starts the PowerShell launcher and executes the shared installer
 engine through WSL2. Git Bash is not required.
 
-One-line alternative that downloads the latest Release, verifies its Ed25519
+One-line alternative that downloads this alpha release, verifies its Ed25519
 signature, and only then verifies the archive SHA-256:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.7/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.8-alpha.1/bootstrap.ps1 | iex
 ```
 
-The command is pinned to the immutable `v0.3.7` release tag. Review
+The command is pinned to the immutable `v0.3.8-alpha.1` release tag. Review
 `bootstrap.ps1` before running it in a production environment.
 
 ### WSL2 terminal
