@@ -36,7 +36,7 @@ export default defineConfig({
     },
   })],
   define: {
-    __APP_VERSION__: JSON.stringify('0.3.7'),
+    __APP_VERSION__: JSON.stringify('0.3.8-alpha.1'),
     __GIT_SHA__: JSON.stringify(gitSha),
   },
   resolve: {
@@ -48,7 +48,7 @@ export default defineConfig({
     port: 5173,
     proxy: {
       '/api': {
-        target: 'http://localhost:3001',
+        target: process.env.TEAMHUB_PREVIEW_API || 'http://localhost:3001',
         changeOrigin: true,
       },
       '/ws': {

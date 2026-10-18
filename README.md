@@ -7,9 +7,11 @@
 TeamSpeak 3, TeaSpeak, TeamSpeak 6, TS6 Manager ve müzik botu bileşenlerini Docker
 Compose ile kuran ve yöneten etkileşimli dağıtım aracı.
 
+**Alpha önizleme:** Uygulama henüz ilk kararlı sürümüne ulaşmadı. Özellikler ve kurulum akışı değişebilir.
+
 | Bilgi | Değer |
 |---|---|
-| Sürüm | **0.3.7** |
+| Sürüm | **0.3.8-alpha.1** |
 | Geliştirici | **Berat Akar** |
 | Kaynak | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -92,10 +94,10 @@ En son Release paketini indirip önce Ed25519 imzasını, ardından SHA-256 değ
 doğrulayan tek satırlık alternatif:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.7/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.8-alpha.1/bootstrap.ps1 | iex
 ```
 
-Komut değiştirilemeyen `v0.3.7` sürüm etiketine sabitlenmiştir. Üretim ortamında
+Komut değiştirilemeyen `v0.3.8-alpha.1` sürüm etiketine sabitlenmiştir. Üretim ortamında
 çalıştırmadan önce `bootstrap.ps1` içeriğinin incelenmesi yine de önerilir.
 
 ### WSL2 terminali
@@ -151,10 +153,21 @@ ayrıca salt okunur kök dosya sistemiyle çalışır.
 
 ## İlk Manager bağlantısı
 
-1. Kurucunun gösterdiği `/setup` adresinde ilk yönetici hesabını oluşturun.
-2. Aynı Compose paketi içindeki TS6 için host `ts6`, port `10080` kullanın.
-3. TS3 için host `ts3`, port `10080` kullanın.
-4. İlgili API anahtarını `/opt/teamhub/.env` dosyasından alın.
+1. Manager kurulurken terminalde yönetici kullanıcı adı ve parolasını belirleyin.
+   Parola gizli alınır; ilk açılıştan önce bcrypt özeti hazırlanır. Mevcut hesaplar korunur.
+2. Kurucunun gösterdiği `/login` adresinden doğrudan giriş yapın.
+3. Kurucunun yönettiği TS3 ve TS6 sunucuları Manager'a otomatik eklenir. Önce sunucu,
+   önce Manager veya 7 numaralı tam paket kurulabilir; API anahtarlarını elle taşımanız gerekmez.
+4. Aynı makinedeki `teamhub` ve `teamhub2` kurulumları mevcut Manager üzerinden yönetilebilir.
+   Kurucu gerekli özel Docker ağını bağlar; Query portunu internete açmaz. Bağlantılar
+   aynı kayıt üzerinde güncellenir; kullanıcı tarafından verilen adlar ve botlar korunur.
+   Yeni kayıtlar için Manager kısa süre yeniden başlatılır; çalışan botların bağlantısı kesilebilir.
+5. Uzak sunucuları **Ayarlar → Bağlantılar** bölümünden ekleyin. Sunucu seçicisinden TS3/TS6
+   bağlantıları ve sanal sunucular arasında geçiş yapın; her bağlantıda ayrı botlar ve komutlar yönetilebilir.
+
+Otomatik eşleştirme yalnız bu kurucunun oluşturduğu, API anahtarı mevcut TS3/TS6
+kurulumlarını kapsar. TeaSpeak ve başka makinelerdeki sunucular otomatik keşfedilmez.
+Eksik API anahtarı veya hazır olmayan Manager açık bir uyarı üretir; sahte bağlantı oluşturulmaz.
 
 ## Lisans ve bağımlılıklar
 

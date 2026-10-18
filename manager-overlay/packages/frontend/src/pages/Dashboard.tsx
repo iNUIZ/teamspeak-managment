@@ -1,0 +1,433 @@
+import { useEffect, useMemo, useState, type ElementType, type ReactNode } from 'react';
+import { Link } from 'react-router-dom';
+import {
+  AlertTriangle,
+  ArrowDownToLine,
+  ArrowUpFromLine,
+  Clock,
+  Gauge,
+  Hash,
+  LayoutGrid,
+  Radio,
+  Server,
+  Wifi,
+  X,
+} from 'lucide-react';
+import { Area, AreaChart, ResponsiveContainer, Tooltip as ReTooltip, XAxis, YAxis } from 'recharts';
+import { useDashboard } from '@/hooks/use-dashboard';
+import { useServers, useVirtualServers } from '@/hooks/use-servers';
+import { useServerStore } from '@/stores/server.store';
+import { useAuthStore } from '@/stores/auth.store';
+import { NUDGE_DISMISS_STORAGE_KEY } from '@/content/connection-setup';
+import { classifyPacketLoss, classifyPing, METRIC_HEALTH_LABEL, type MetricHealth } from '@/lib/connection-health';
+import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { DataPanel } from '@/components/shared/DataPanel';
+import { PageLoader } from '@/components/shared/LoadingSpinner';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { CONNECTION_SETUP_PATH } from '@/components/shared/NoServerSelectedState';
+import { PageHeader } from '@/components/shared/PageHeader';
+import { RefreshStatus, StaleDataNotice } from '@/components/shared/RefreshStatus';
+import { WidgetManagerModal } from '@/components/widget/WidgetManagerModal';
+import { dashboardSourceHint, dashboardSourceLabel } from '@/lib/dashboard-source';
+import { formatBytes, formatUptime } from '@/lib/utils';
+import { formatLocalTime, formatNumber } from '@/lib/formatting';
+import { apiErrorMessage, isTeamSpeakStarting, teamSpeakConnectionTitle, teamSpeakRefreshTone } from '@/lib/api-error';
+import { useTranslation } from '@/lib/i18n';
+
+interface DashboardData {
+  serverName: string;
+  platform: string;
+  version: string;
+  onlineUsers: number;
+  maxClients: number;
+  uptime: number;
+  channelCount: number;
+  bandwidth: { incoming: number; outgoing: number };
+  packetloss: number;
+  ping: number;
+  dataSource?: {
+    webquery: { status: 'current' | 'unavailable'; fetchedAt?: string };
+    metrics: {
+      status: 'disabled' | 'current' | 'unavailable';
+      fetchedAt?: string;
+      reason?: 'timeout' | 'unreachable' | 'invalid' | 'unscoped';
+    };
+  };
+}
+
+interface BandwidthSample {
+  context: string;
+  time: string;
+  incoming: number;
+  outgoing: number;
+}
+
+const chartColours = {
+  incoming: 'hsl(var(--chart-1))',
+  outgoing: 'hsl(var(--chart-3))',
+  muted: 'hsl(var(--muted-foreground))',
+  popover: 'hsl(var(--popover))',
+  popoverForeground: 'hsl(var(--popover-foreground))',
+  border: 'hsl(var(--border))',
+};
+
+function Metric({ label, value, icon: Icon, health = 'normal' }: { label: string; value: string | number; icon: ElementType; health?: MetricHealth }) {
+  return (
+    <div
+      data-health={health}
+      className={cn(
+        'min-w-0 rounded-lg border bg-muted/30 p-3 transition-colors',
+        health === 'normal' && 'border-border/70',
+        health === 'elevated' && 'border-warning/40 bg-warning/5',
+        health === 'high' && 'border-destructive/40 bg-destructive/5',
+      )}
+    >
+      <div className="mb-2 flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs font-medium text-muted-foreground">
+        <Icon className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
+        <span>{label}</span>
+        {health !== 'normal' && (
+          <Badge variant={health === 'high' ? 'destructive' : 'warning'} className="ml-auto shrink-0 px-1.5 text-[10px]">
+            <AlertTriangle className="mr-1 h-3 w-3" aria-hidden="true" />
+            {METRIC_HEALTH_LABEL[health]}
+          </Badge>
+        )}
+      </div>
+      <p
+        className={cn(
+          'break-words font-mono-data text-lg font-semibold',
+          health === 'normal' && 'text-foreground',
+          health === 'elevated' && 'text-warning',
+          health === 'high' && 'text-destructive',
+        )}
+      >
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="grid min-w-0 gap-1 border-b border-border/70 py-3 last:border-0 sm:grid-cols-[minmax(7rem,0.4fr)_minmax(0,1fr)] sm:gap-4">
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="min-w-0 break-words [overflow-wrap:anywhere] font-mono-data text-sm text-foreground sm:text-right">{children}</dd>
+    </div>
+  );
+}
+
+export default function Dashboard() {
+  const { t, language } = useTranslation();
+  const { selectedConfigId, selectedSid } = useServerStore();
+  const { data: servers } = useServers();
+  const {
+    data: virtualServers,
+    error: virtualServersError,
+    isLoading: virtualServersLoading,
+    isFetching: virtualServersFetching,
+    refetch: refetchVirtualServers,
+  } = useVirtualServers();
+  const query = useDashboard();
+  const data = query.data as DashboardData | undefined;
+  const isAdmin = useAuthStore((state) => state.isAdmin());
+  const [bandwidthHistory, setBandwidthHistory] = useState<BandwidthSample[]>([]);
+  const [showWidgets, setShowWidgets] = useState(false);
+  const [nudgeDismissed, setNudgeDismissed] = useState(() => {
+    try {
+      return localStorage.getItem(NUDGE_DISMISS_STORAGE_KEY) === '1';
+    } catch {
+      return false;
+    }
+  });
+
+  const context = `${selectedConfigId ?? 'none'}:${selectedSid ?? 'none'}`;
+  const visibleHistory = useMemo(
+    () => bandwidthHistory.filter((sample) => sample.context === context),
+    [bandwidthHistory, context],
+  );
+  const hasNoConnections = isAdmin && Array.isArray(servers) && servers.length === 0;
+  const showConnectionNudge = hasNoConnections && !nudgeDismissed;
+  const contextIsValid = !!virtualServers?.some((server: any) => Number(server.virtualserver_id) === selectedSid);
+  // Prefer dashboard errors when present; otherwise surface VS Query warming/failures that gate the dashboard query.
+  const gateError = query.error || virtualServersError;
+  const isFetchingGate = query.isFetching || virtualServersFetching;
+  const retryGate = () => {
+    void refetchVirtualServers();
+    void query.refetch();
+  };
+
+  useEffect(() => {
+    setBandwidthHistory([]);
+  }, [context]);
+
+  useEffect(() => {
+    if (!data) return;
+    setBandwidthHistory((previous) => [
+      ...previous.filter((sample) => sample.context === context),
+      {
+        context,
+        time: formatLocalTime(Date.now()),
+        incoming: data.bandwidth.incoming,
+        outgoing: data.bandwidth.outgoing,
+      },
+    ].slice(-30));
+  }, [context, data]);
+
+  const dismissNudge = () => {
+    setNudgeDismissed(true);
+    try {
+      localStorage.setItem(NUDGE_DISMISS_STORAGE_KEY, '1');
+    } catch {
+      // Browser privacy modes may reject local storage; dismissal still works for this session.
+    }
+  };
+
+  if (!selectedConfigId || !selectedSid) {
+    return (
+      <div className="space-y-4">
+        {showConnectionNudge && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardContent className="flex flex-col items-start gap-3 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="text-sm">
+                <p className="font-medium">{t('Connect your TeamSpeak server to get started')}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {t('Add a connection under Settings to manage channels, clients, bots, and more.')}
+                </p>
+              </div>
+              <div className="flex w-full flex-wrap items-center gap-2 sm:w-auto sm:shrink-0">
+                <Button size="sm" asChild>
+                  <Link to={CONNECTION_SETUP_PATH}>{t('Go to Connections')}</Link>
+                </Button>
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={dismissNudge} aria-label="Dismiss connection setup suggestion">
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        <EmptyState
+          icon={Server}
+          title={t(hasNoConnections ? 'No server connection configured' : 'No server selected')}
+          description={t(hasNoConnections
+            ? 'Use the setup wizard in Settings → Connections to add your TeamSpeak server.'
+            : 'Select a server connection from the header to view the dashboard.')}
+        >
+          {hasNoConnections && !showConnectionNudge && (
+            <Button size="sm" asChild>
+              <Link to={CONNECTION_SETUP_PATH}>{t('Open connection setup')}</Link>
+            </Button>
+          )}
+        </EmptyState>
+      </div>
+    );
+  }
+
+  if (query.isLoading || virtualServersLoading) {
+    if (!data) return <PageLoader />;
+  }
+
+  if (!data) {
+    if (gateError) {
+      const detail = apiErrorMessage(
+        gateError,
+        isTeamSpeakStarting(gateError)
+          ? 'TeamSpeak Query is still coming up after startup. Wait a moment and retry.'
+          : 'Could not connect to the TeamSpeak server. Check your connection settings.',
+      );
+      return (
+        <div className="space-y-4">
+          <EmptyState icon={Wifi} title={teamSpeakConnectionTitle(gateError)} description={detail} />
+          <div className="flex justify-center">
+            <Button size="sm" variant="outline" onClick={retryGate} disabled={isFetchingGate}>
+              {isFetchingGate ? 'Retrying…' : 'Retry connection'}
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    if (!contextIsValid) return <PageLoader />;
+    return (
+      <div className="space-y-4">
+        <EmptyState
+          icon={Wifi}
+          title="Connection failed"
+          description="Could not connect to the TeamSpeak server. Check your connection settings."
+        />
+        <div className="flex justify-center">
+          <Button size="sm" variant="outline" onClick={retryGate} disabled={isFetchingGate}>
+            {isFetchingGate ? 'Retrying…' : 'Retry connection'}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const utilisation = data.maxClients > 0
+    ? Math.min(Math.max((data.onlineUsers / data.maxClients) * 100, 0), 100)
+    : 0;
+  const roundedUtilisation = Math.round(utilisation);
+  // Classify the same rounded values that are displayed so badges never contradict the numbers.
+  const pingMs = Math.round(Number(data.ping || 0) * 10) / 10;
+  const packetLossPercent = Math.round(Number(data.packetloss || 0) * 10_000) / 100;
+  const availableSlots = Math.max(data.maxClients - data.onlineUsers, 0);
+  const backgroundError = gateError
+    ? apiErrorMessage(
+      gateError,
+      isTeamSpeakStarting(gateError)
+        ? 'TeamSpeak Query is still starting. Live data may be incomplete until it comes online.'
+        : 'Live data refresh failed. The last successful snapshot is still displayed.',
+    )
+    : null;
+  // Cached snapshot + Query still warming (or selected sid not in VS list yet) must not claim Live.
+  const refreshTone = !contextIsValid && !gateError
+    ? 'starting'
+    : teamSpeakRefreshTone(gateError);
+
+  return (
+    <div className="min-w-0 space-y-5">
+      <PageHeader
+        title={data.serverName}
+        description={t('Live TeamSpeak server overview')}
+        badge={<Badge variant="success" className="font-mono-data text-[10px]">ONLINE</Badge>}
+        actions={isAdmin ? (
+          <Button size="sm" variant="outline" onClick={() => setShowWidgets(true)}>
+            <LayoutGrid className="mr-1.5 h-3.5 w-3.5" /> {t('Widgets')}
+          </Button>
+        ) : undefined}
+        metadata={(
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <Badge
+              variant="outline"
+              className="font-mono-data text-[10px]"
+              title={dashboardSourceHint(data.dataSource)}
+            >
+              {dashboardSourceLabel(data.dataSource)}
+            </Badge>
+            <RefreshStatus
+              isRefreshing={isFetchingGate}
+              tone={refreshTone}
+              idleLabel={t('Live monitoring active')}
+              refreshingLabel={t('Refreshing live data…')}
+              degradedLabel={t('Live updates interrupted')}
+              startingLabel={t('Waiting for TeamSpeak Query…')}
+            />
+          </div>
+        )}
+      />
+
+      {backgroundError && (
+        <StaleDataNotice
+          message={backgroundError}
+          onRetry={retryGate}
+          isRetrying={isFetchingGate}
+        />
+      )}
+
+      <DataPanel
+        title={t('Server Status')}
+        description={t('Availability, utilisation, and connection health')}
+        status={<Badge variant="success">{t('Online')}</Badge>}
+      >
+        <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">
+          <div className="min-w-0 rounded-lg border border-primary/20 bg-primary/5 p-4 sm:p-5">
+            <div className="flex min-w-0 flex-wrap items-end justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t('Online users')}</p>
+                <p className="mt-1 font-mono-data text-3xl font-bold text-primary">{formatNumber(data.onlineUsers)} / {formatNumber(data.maxClients)}</p>
+              </div>
+              <p className="font-mono-data text-sm text-muted-foreground">{roundedUtilisation}% {language === 'tr' ? 'kullanım' : 'utilised'}</p>
+            </div>
+            <div
+              role="progressbar"
+              aria-label="User slot utilisation"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={roundedUtilisation}
+              className="mt-4 h-2.5 overflow-hidden rounded-full bg-muted"
+            >
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-500"
+                style={{ width: `${utilisation}%` }}
+              />
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">
+              {formatNumber(availableSlots)} {language === 'tr' ? 'kişilik boş kapasite' : `${availableSlots === 1 ? 'slot' : 'slots'} available`}
+            </p>
+          </div>
+
+          <div className="grid min-w-0 grid-cols-2 gap-3">
+            <Metric icon={Hash} label={t('Channels')} value={formatNumber(data.channelCount)} />
+            <Metric icon={Clock} label={t('Uptime')} value={formatUptime(data.uptime)} />
+            <Metric icon={Gauge} label="Ping" value={`${pingMs.toFixed(1)} ms`} health={classifyPing(pingMs)} />
+            <Metric icon={Radio} label={t('Packet loss')} value={`${packetLossPercent.toFixed(2)}%`} health={classifyPacketLoss(packetLossPercent / 100)} />
+          </div>
+        </div>
+      </DataPanel>
+
+      <div className="grid min-w-0 gap-4 lg:grid-cols-3">
+        <DataPanel
+          title={t('Traffic')}
+          description={t('Incoming and outgoing bandwidth over the latest local samples')}
+          className="lg:col-span-2"
+        >
+          <div className="h-[240px] min-w-0">
+            {visibleHistory.length > 1 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={visibleHistory} margin={{ left: 0, right: 8, top: 8, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="dashboard-incoming" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={chartColours.incoming} stopOpacity={0.3} />
+                      <stop offset="100%" stopColor={chartColours.incoming} stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="dashboard-outgoing" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor={chartColours.outgoing} stopOpacity={0.28} />
+                      <stop offset="100%" stopColor={chartColours.outgoing} stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="time" tick={{ fontSize: 10, fill: chartColours.muted }} axisLine={false} tickLine={false} minTickGap={24} />
+                  <YAxis tick={{ fontSize: 10, fill: chartColours.muted }} axisLine={false} tickLine={false} tickFormatter={formatBytes} width={56} />
+                  <ReTooltip
+                    contentStyle={{ background: chartColours.popover, border: `1px solid ${chartColours.border}`, borderRadius: '6px', fontSize: '12px' }}
+                    labelStyle={{ color: chartColours.popoverForeground }}
+                    formatter={(value: number, name: string) => [`${formatBytes(value)}/s`, name === 'incoming' ? 'Incoming' : 'Outgoing']}
+                  />
+                  <Area type="monotone" dataKey="incoming" stroke={chartColours.incoming} fill="url(#dashboard-incoming)" strokeWidth={2} isAnimationActive={false} />
+                  <Area type="monotone" dataKey="outgoing" stroke={chartColours.outgoing} fill="url(#dashboard-outgoing)" strokeWidth={2} isAnimationActive={false} />
+                </AreaChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="flex h-full items-center justify-center text-center text-sm text-muted-foreground">
+                {t('Collecting bandwidth samples…')}
+              </div>
+            )}
+          </div>
+          <div className="mt-3 grid gap-2 border-t border-border pt-3 sm:grid-cols-2">
+            <div data-traffic-series="incoming" className="flex min-w-0 items-center gap-2 text-primary">
+              <ArrowDownToLine className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="text-xs text-muted-foreground">{t('Incoming')}</span>
+              <span className="ml-auto font-mono-data text-sm">{formatBytes(data.bandwidth.incoming)}/s</span>
+            </div>
+            <div data-traffic-series="outgoing" className="flex min-w-0 items-center gap-2 [color:hsl(var(--chart-3))]">
+              <ArrowUpFromLine className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="text-xs text-muted-foreground">{t('Outgoing')}</span>
+              <span className="ml-auto font-mono-data text-sm">{formatBytes(data.bandwidth.outgoing)}/s</span>
+            </div>
+          </div>
+        </DataPanel>
+
+        <DataPanel title={t('Runtime & Capacity')} description={t('Runtime identity and available capacity')}>
+          <dl className="min-w-0">
+            <DetailRow label={t('Server version')}>{data.version || 'Unknown'}</DetailRow>
+            <DetailRow label={t('Platform')}>{data.platform || 'Unknown'}</DetailRow>
+            <DetailRow label={t('Total slots')}>{formatNumber(data.maxClients)}</DetailRow>
+            <DetailRow label={t('Available slots')}>{formatNumber(availableSlots)}</DetailRow>
+          </dl>
+        </DataPanel>
+      </div>
+
+      <WidgetManagerModal open={showWidgets} onOpenChange={setShowWidgets} />
+    </div>
+  );
+}

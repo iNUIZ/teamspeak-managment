@@ -7,9 +7,11 @@ English · [Türkçe](README.md)
 An interactive Docker Compose deployment and management tool for TeamSpeak 3, TeaSpeak,
 TeamSpeak 6, TS6 Manager, and the Manager music bot.
 
+**Alpha preview:** The application has not reached its first stable release. Features and installation flows may change.
+
 | Metadata | Value |
 |---|---|
-| Version | **0.3.7** |
+| Version | **0.3.8-alpha.1** |
 | Developer | **Berat Akar** |
 | Source | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -87,14 +89,14 @@ npm run setup
 `npm run setup` starts the PowerShell launcher and executes the shared installer
 engine through WSL2. Git Bash is not required.
 
-One-line alternative that downloads the latest Release, verifies its Ed25519
+One-line alternative that downloads this alpha release, verifies its Ed25519
 signature, and only then verifies the archive SHA-256:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.7/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.8-alpha.1/bootstrap.ps1 | iex
 ```
 
-The command is pinned to the immutable `v0.3.7` release tag. Review
+The command is pinned to the immutable `v0.3.8-alpha.1` release tag. Review
 `bootstrap.ps1` before running it in a production environment.
 
 ### WSL2 terminal
@@ -148,10 +150,21 @@ root filesystem.
 
 ## Initial Manager connection
 
-1. Create the first administrator at the `/setup` URL printed by the installer.
-2. For an in-stack TS6 server, use host `ts6` and port `10080`.
-3. For TS3, use host `ts3` and port `10080`.
-4. Read the corresponding API key from `/opt/teamhub/.env`.
+1. Choose the Manager administrator username and password in the terminal. Password entry
+   is hidden and only a bcrypt hash is staged before startup. Existing accounts are preserved.
+2. Sign in directly at the `/login` URL printed by the installer.
+3. Installer-managed TS3 and TS6 connections are registered automatically, whether you install
+   the server first, Manager first, or choose full-stack option 7. No manual API key transfer is needed.
+4. The `teamhub` and `teamhub2` stacks on the same host can share an existing Manager.
+   The installer joins their private Docker networks without exposing Query publicly.
+   Repeated synchronization updates the same connection and preserves custom names and bots.
+   Manager briefly restarts after connection changes, which may interrupt active bots.
+5. Add remote hosts under **Settings → Connections**. Use the server selector to switch
+   between TS3/TS6 connections and virtual servers, with separate bots and commands per connection.
+
+Automatic registration covers only installer-managed TS3/TS6 servers with an available API key.
+TeaSpeak and servers on other machines require manual configuration. Missing keys or an unready
+Manager produce a warning instead of creating an unusable connection.
 
 ## License and dependencies
 

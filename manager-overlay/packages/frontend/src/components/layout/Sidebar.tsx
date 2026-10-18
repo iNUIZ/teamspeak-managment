@@ -19,6 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { BrandMark } from '@/components/shared/BrandMark';
 import { APP_DOCUMENTATION_URL, APP_REPOSITORY_URL, APP_VERSION, APP_VERSION_LABEL } from '@/lib/app-version';
+import { useTranslation } from '@/lib/i18n';
 
 interface NavSection {
   id: SidebarSectionId;
@@ -104,6 +105,7 @@ interface NavigationContentProps {
 }
 
 function NavigationContent({ collapsed = false, mobile = false, onNavigate }: NavigationContentProps) {
+  const { t } = useTranslation();
   const isAdmin = useAuthStore((s) => s.isAdmin());
   const location = useLocation();
   const sidebarSections = useUiStore((s) => s.sidebarSections);
@@ -125,7 +127,7 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
       )}
     >
       <Settings className="h-4 w-4" />
-      {!collapsed && <span>Settings</span>}
+      {!collapsed && <span>{t('Settings')}</span>}
     </NavLink>
   );
 
@@ -149,7 +151,7 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
                       key={item.to}
                       to={item.to}
                       onClick={onNavigate}
-                      aria-label={collapsed ? item.label : undefined}
+                      aria-label={collapsed ? t(item.label) : undefined}
                       aria-current={isActive ? 'page' : undefined}
                       className={cn(
                         'flex items-center gap-2.5 rounded-md text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -161,7 +163,7 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
                       )}
                     >
                       <item.icon className={cn('h-4 w-4 shrink-0', isActive && 'text-primary')} />
-                      {!collapsed && <span>{item.label}</span>}
+                      {!collapsed && <span>{t(item.label)}</span>}
                     </NavLink>
                   );
 
@@ -170,7 +172,7 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
                       <Tooltip key={item.to}>
                         <TooltipTrigger asChild>{link}</TooltipTrigger>
                         <TooltipContent side="right" className="font-medium">
-                          {item.label}
+                          {t(item.label)}
                         </TooltipContent>
                       </Tooltip>
                     );
@@ -193,7 +195,7 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
                           mobile && 'min-h-9',
                         )}
                       >
-                        <span>{section.label}</span>
+                        <span>{t(section.label)}</span>
                         <span className="flex items-center gap-1.5">
                           {!expanded && (
                             <span aria-hidden="true" data-section-count className="rounded bg-sidebar-accent px-1.5 font-mono-data text-[10px] font-medium tracking-normal text-sidebar-foreground/75">
@@ -287,6 +289,7 @@ function ExternalNavLinks({ compact = false }: { compact?: boolean }) {
 }
 
 function DesktopSidebarFooter({ collapsed }: { collapsed: boolean }) {
+  const { t } = useTranslation();
   const { toggleSidebar } = useUiStore();
   return (
     <>
@@ -299,7 +302,7 @@ function DesktopSidebarFooter({ collapsed }: { collapsed: boolean }) {
         )}
       >
         {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
-        {!collapsed && <span>Collapse</span>}
+        {!collapsed && <span>{t('Collapse')}</span>}
       </button>
       <VersionLinks collapsed={collapsed} />
     </>

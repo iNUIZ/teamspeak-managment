@@ -52,8 +52,8 @@ jobs:
           grep -Fxq install.sh linux-files.txt
           grep -Fxq manager-overlay/packages/backend/src/routes/extensions.routes.ts linux-files.txt
           grep -Fxq manager-overlay/packages/frontend/src/pages/extensions/ExtensionsTab.tsx linux-files.txt
-          ! grep -Eq '(^|/)(install\.ps1|bootstrap\.ps1|package(-lock)?\.json)$' linux-files.txt
-          ! grep -Eq '(^|/)(bootstrap\.ps1|package(-lock)?\.json)$' windows-files.txt
+          ! grep -Eq '^(install\.ps1|bootstrap\.ps1|package(-lock)?\.json)$' linux-files.txt
+          ! grep -Eq '^(bootstrap\.ps1|package(-lock)?\.json)$' windows-files.txt
       - name: Sign and verify checksum manifest
         env:
           RELEASE_SIGNING_KEY_B64: ${{ secrets.RELEASE_SIGNING_KEY_B64 }}
@@ -79,7 +79,11 @@ jobs:
           if npm view "@inuiz/teamspeak-managment@${GITHUB_REF_NAME#v}" version --registry=https://npm.pkg.github.com >/dev/null 2>&1; then
             echo "Package version already exists; keeping the published package."
           else
-            npm publish
+            if [[ "${GITHUB_REF_NAME#v}" == *-* ]]; then
+              npm publish --tag alpha
+            else
+              npm publish
+            fi
           fi
       - name: Create GitHub release
         env:
@@ -95,7 +99,20 @@ jobs:
             echo "Release already exists; refusing to replace immutable assets." >&2
             exit 1
           }
-          gh release create "$GITHUB_REF_NAME" "${assets[@]}" \
+          release_flags=()
+          if [[ "${GITHUB_REF_NAME#v}" == *-* ]]; then release_flags+=(--prerelease --latest=false); fi
+          gh release create "$GITHUB_REF_NAME" "${assets[@]}" "${release_flags[@]}" \
             --verify-tag \
             --generate-notes \
             --title "Teamspeak Managment ${GITHUB_REF_NAME}"
+      - name: Retire legacy pre-alpha npm versions
+        if: github.ref_name == 'v0.3.8-alpha.1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # This repository's package grants its publishing workflow package administration.
+          gh api --paginate users/iNUIZ/packages/npm/teamspeak-managment/versions \
+            --jq '.[] | select(.name | test("^[0-9]+\\.[0-9]+\\.[0-9]+$")) | select((.name | split(".") | map(tonumber)) < [0,3,8]) | .id' > legacy-package-ids.txt
+          while IFS= read -r version_id; do
+            test -z "$version_id" || gh api --method DELETE "users/iNUIZ/packages/npm/teamspeak-managment/versions/${version_id}"
+          done < legacy-package-ids.txt
