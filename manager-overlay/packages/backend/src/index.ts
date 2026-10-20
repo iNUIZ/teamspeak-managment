@@ -9,7 +9,8 @@ import { MusicCommandHandler } from './voice/music-command-handler.js';
 import { ListenerRemoteService } from './voice/listener-remote.js';
 import { config } from './config.js';
 import { describeTrustProxy } from './trust-proxy.js';
-import { setYtCookieFile } from './voice/audio/youtube.js';
+import { setYtCookieFile, setYouTubeAuthMode } from './voice/audio/youtube.js';
+import { YOUTUBE_AUTH_MODE_KEY } from './voice/audio/youtube-pot.js';
 import { logYtDlpVersionInBackground } from './voice/audio/yt-dlp-diagnostics.js';
 import jwt from 'jsonwebtoken';
 import { setWsSession } from './ws/ws-session.js';
@@ -23,6 +24,7 @@ import { ActivityJournalService } from './activity-journal/activity-journal-serv
 import { startMediaEgress } from './voice/egress/media-egress.js';
 import { runInOrderWithin } from './utils/ordered-shutdown.js';
 import { applyInstallerAdmin } from './bootstrap/installer.js';
+import { seedRadioDefaults } from './bootstrap/radio-presets.js';
 
 async function main() {
   // C1: JWT secret startup guard
@@ -46,15 +48,16 @@ async function main() {
     process.exit(1);
   }
 
-  // Configure yt-dlp cookie file: env var takes priority, then saved file from data dir
+  // An admin's saved upload takes priority, then the optional deployment file.
+  // Finding a file does not opt the installation into account-cookie access.
   const cookiePath = process.env.YT_COOKIE_FILE;
   const savedCookiePath = path.resolve('data', 'yt-cookies.txt');
-  if (cookiePath && fs.existsSync(cookiePath)) {
-    setYtCookieFile(cookiePath);
-    console.log(`[yt-dlp] Using cookie file (env): ${cookiePath}`);
-  } else if (fs.existsSync(savedCookiePath)) {
+  if (fs.existsSync(savedCookiePath)) {
     setYtCookieFile(savedCookiePath);
-    console.log(`[yt-dlp] Using saved cookie file: ${savedCookiePath}`);
+    console.log('[yt-dlp] Optional saved cookie file found');
+  } else if (cookiePath && fs.existsSync(cookiePath)) {
+    setYtCookieFile(cookiePath);
+    console.log('[yt-dlp] Optional cookie file found (environment)');
   } else if (cookiePath) {
     console.warn(`[yt-dlp] Cookie file not found: ${cookiePath}`);
   }
@@ -63,6 +66,8 @@ async function main() {
   logYtDlpVersionInBackground();
 
   const prisma = new PrismaClient();
+  const youtubeMode = await prisma.appSetting.findUnique({ where: { key: YOUTUBE_AUTH_MODE_KEY } });
+  setYouTubeAuthMode(youtubeMode?.value === 'cookies' ? 'cookies' : 'po-token');
   await applyInstallerAdmin(prisma);
   const app = createApp();
   const server = createServer(app);
@@ -122,6 +127,9 @@ async function main() {
   // Initialize TS connection pool
   const connectionPool = new ConnectionPool(prisma);
   await connectionPool.initialize();
+  for (const server of await prisma.tsServerConfig.findMany({ where: { isDemo: false }, select: { id: true } })) {
+    await seedRadioDefaults(prisma, server.id);
+  }
 
   // Optional local-only seed (pr-test compose). Gated; never crashes boot.
   await bootstrapLocalDevConnection(prisma, connectionPool);

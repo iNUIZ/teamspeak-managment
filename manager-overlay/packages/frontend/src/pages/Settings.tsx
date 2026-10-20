@@ -43,7 +43,6 @@ import { apiErrorMessage } from '@/lib/api-error';
 import { toast } from 'sonner';
 import type { ConnectionDiagnosticReport } from '@ts6/common';
 import { useTranslation } from '@/lib/i18n';
-import { TtsSettings } from '@/components/settings/TtsSettings';
 
 export default function Settings() {
   const { t } = useTranslation();
@@ -52,7 +51,7 @@ export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const availableTabs = isAdmin
-    ? ['connections', 'account', 'appearance', 'users', 'youtube', 'tts', 'about']
+    ? ['connections', 'account', 'appearance', 'users', 'youtube', 'about']
     : ['account', 'appearance', 'about'];
   const activeTab = tabParam && availableTabs.includes(tabParam) ? tabParam : 'account';
 
@@ -75,7 +74,6 @@ export default function Settings() {
           {isAdmin && <TabsTrigger value="users"><Users className="h-3.5 w-3.5 mr-1" /> {t('Users')}</TabsTrigger>}
           {isAdmin && <TabsTrigger value="youtube"><Youtube className="h-3.5 w-3.5 mr-1" /> YouTube</TabsTrigger>}
           <TabsTrigger value="about"><Info className="h-3.5 w-3.5 mr-1" /> {t('About')}</TabsTrigger>
-          {isAdmin && <TabsTrigger value="tts">TTS</TabsTrigger>}
         </TabsList>
 
         {isAdmin && (
@@ -104,7 +102,6 @@ export default function Settings() {
           </TabsContent>
         )}
 
-        {isAdmin && <TabsContent value="tts" className="mt-4"><TtsSettings /></TabsContent>}
         <TabsContent value="about" className="mt-4">
           <AboutTab />
         </TabsContent>
@@ -213,7 +210,7 @@ function AppearanceTab() {
                   <button
                     key={value}
                     type="button"
-                    aria-label={`${t(option.label)} ${t('Base theme')}`}
+                    aria-label={`${t(option.label)} ${t('base theme')}`}
                     aria-pressed={selected}
                     onClick={() => setBaseTheme(value)}
                     className={`min-w-0 rounded-md border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:bg-accent'}`}
@@ -239,7 +236,7 @@ function AppearanceTab() {
                   <button
                     key={value}
                     type="button"
-                    aria-label={`${t(label)} ${t('Accent')}`}
+                    aria-label={`${t(label)} ${t('accent')}`}
                     aria-pressed={selected}
                     onClick={() => setAccent(value)}
                     className={`flex min-w-0 items-center gap-2 rounded-md border p-3 text-left text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:bg-accent'}`}
@@ -268,7 +265,7 @@ function AppearanceTab() {
                   <button
                     key={value}
                     type="button"
-                    aria-label={`${t(option.label)} ${t('Motion')}`}
+                    aria-label={`${t(option.label)} ${t('motion')}`}
                     aria-pressed={selected}
                     onClick={() => setBackgroundMotion(value)}
                     className={`min-w-0 rounded-md border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:bg-accent'}`}
@@ -302,7 +299,7 @@ function AppearanceTab() {
                   <button
                     key={value}
                     type="button"
-                    aria-label={`${t(option.label)} ${t('Background')}`}
+                    aria-label={`${t(option.label)} ${t('background')}`}
                     aria-pressed={selected}
                     onClick={() => setBackground(value)}
                     className={`min-w-0 rounded-md border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:bg-accent'}`}
@@ -924,6 +921,7 @@ function UsersTab() {
 }
 
 function YouTubeTab() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const [pasteMode, setPasteMode] = useState(false);
   const [cookieText, setCookieText] = useState('');
@@ -933,33 +931,39 @@ function YouTubeTab() {
     queryFn: settingsApi.getYtCookieStatus,
   });
 
+  const authMode = useMutation({
+    mutationFn: settingsApi.setYouTubeAuthMode,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['yt-cookie-status'] }),
+    onError: () => toast.error(t('Failed to change YouTube playback mode')),
+  });
+
   const uploadFile = useMutation({
     mutationFn: (file: File) => settingsApi.uploadYtCookieFile(file),
     onSuccess: () => {
-      toast.success('Cookie file uploaded');
+      toast.success(t('Cookie file uploaded'));
       qc.invalidateQueries({ queryKey: ['yt-cookie-status'] });
     },
-    onError: () => toast.error('Failed to upload cookie file'),
+    onError: () => toast.error(t('Failed to upload cookie file')),
   });
 
   const uploadText = useMutation({
     mutationFn: (text: string) => settingsApi.uploadYtCookieText(text),
     onSuccess: () => {
-      toast.success('Cookies saved');
+      toast.success(t('Cookies saved'));
       setCookieText('');
       setPasteMode(false);
       qc.invalidateQueries({ queryKey: ['yt-cookie-status'] });
     },
-    onError: () => toast.error('Failed to save cookies'),
+    onError: () => toast.error(t('Failed to save cookies')),
   });
 
   const deleteCookies = useMutation({
     mutationFn: () => settingsApi.deleteYtCookies(),
     onSuccess: () => {
-      toast.success('Cookie file removed');
+      toast.success(t('Cookie file removed'));
       qc.invalidateQueries({ queryKey: ['yt-cookie-status'] });
     },
-    onError: () => toast.error('Failed to remove cookies'),
+    onError: () => toast.error(t('Failed to remove cookies')),
   });
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -978,23 +982,42 @@ function YouTubeTab() {
       <div className="min-w-0 space-y-4" data-testid="youtube-column-sources">
       <RuntimeMediaDiagnostics focus={['yt-dlp', 'ffmpeg', 'ffprobe']} />
       <Card>
+        <CardHeader><CardTitle className="text-sm font-medium">{t('YouTube playback method')}</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-xs text-muted-foreground">{t('PO Token is the default, without account cookies. Network or account restrictions can still prevent playback. Cookies are an optional fallback, not a guaranteed network fix.')}</p>
+          <label className="block space-y-2 text-sm">
+            <span>{t('Playback method')}</span>
+            <select aria-label={t('Playback method')} className="w-full rounded-md border border-border bg-background p-2" value={status?.mode ?? 'po-token'}
+              disabled={isLoading || !status || authMode.isPending}
+              onChange={(e) => authMode.mutate(e.target.value as 'po-token' | 'cookies')}>
+              <option value="po-token">{t('PO Token — cookieless (recommended)')}</option>
+              <option value="cookies" disabled={!status?.exists}>{t('Optional account cookies')}</option>
+            </select>
+          </label>
+          <p role="status" className="text-xs text-muted-foreground">
+            {t(status?.provider?.ready ? 'PO Token provider ready' : status?.provider?.configured
+              ? 'PO Token provider unavailable — check the local service' : 'PO Token provider is not installed in this runtime')}
+          </p>
+          <Button size="sm" variant="outline" disabled={isLoading} onClick={() => qc.invalidateQueries({ queryKey: ['yt-cookie-status'] })}>{t('Refresh')}</Button>
+        </CardContent>
+      </Card>
+      <Card>
         <CardHeader>
-          <CardTitle className="text-sm font-medium">YouTube Cookies</CardTitle>
+          <CardTitle className="text-sm font-medium">{t('YouTube Cookies')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            Upload a cookies.txt file to access age-restricted or member-only YouTube content.
-            You can export cookies from your browser using extensions like
-            {' '}<span className="font-medium">Get cookies.txt LOCALLY</span> (Chrome/Firefox).
+            {t('Upload your own YouTube cookies.txt file. Cookies may expire and do not guarantee playback. Never share this file or commit it to GitHub.')}
+            {' '}{t('Uploading only stores the file. Select optional account cookies above to use it.')}
           </p>
 
           {/* Status */}
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${status?.active ? 'bg-green-500' : 'bg-zinc-500'}`} />
             <span className="text-sm">
-              {isLoading ? 'Loading...' : status?.active
-                ? `Cookies active (${formatSize(status.size)})`
-                : 'No cookies configured'}
+              {isLoading ? t('Loading...') : status?.active
+                ? `${t('Cookie file configured')} (${formatSize(status.size)})`
+                : status?.exists ? t('Cookie file stored — not in use') : t('No cookies configured')}
             </span>
           </div>
 
@@ -1014,7 +1037,7 @@ function YouTubeTab() {
               disabled={uploadFile.isPending}
             >
               <Upload className="h-3.5 w-3.5 mr-1" />
-              {uploadFile.isPending ? 'Uploading...' : 'Upload cookies.txt'}
+              {t(uploadFile.isPending ? 'Uploading...' : 'Upload cookies.txt')}
             </Button>
             <Button
               variant="outline"
@@ -1022,9 +1045,9 @@ function YouTubeTab() {
               onClick={() => setPasteMode(!pasteMode)}
             >
               <FileText className="h-3.5 w-3.5 mr-1" />
-              Paste cookies
+              {t('Paste cookies')}
             </Button>
-            {status?.active && (
+            {(status?.removable ?? status?.exists) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -1033,7 +1056,7 @@ function YouTubeTab() {
                 disabled={deleteCookies.isPending}
               >
                 <Trash2 className="h-3.5 w-3.5 mr-1" />
-                Remove
+                {t('Remove')}
               </Button>
             )}
           </div>
@@ -1053,10 +1076,10 @@ function YouTubeTab() {
                   onClick={() => uploadText.mutate(cookieText)}
                   disabled={!cookieText.trim() || uploadText.isPending}
                 >
-                  {uploadText.isPending ? 'Saving...' : 'Save'}
+                  {t(uploadText.isPending ? 'Saving...' : 'Save')}
                 </Button>
                 <Button variant="outline" size="sm" onClick={() => { setPasteMode(false); setCookieText(''); }}>
-                  Cancel
+                  {t('Cancel')}
                 </Button>
               </div>
             </div>
@@ -1073,6 +1096,7 @@ function YouTubeTab() {
 }
 
 function LimitsCard() {
+  const { t } = useTranslation();
   const qc = useQueryClient();
   const { data: limits, isLoading } = useQuery({
     queryKey: ['settings-limits'],
@@ -1097,33 +1121,30 @@ function LimitsCard() {
       youtubeDirectStream,
     }),
     onSuccess: () => {
-      toast.success('Limits saved');
+      toast.success(t('Limits saved'));
       qc.invalidateQueries({ queryKey: ['settings-limits'] });
     },
-    onError: () => toast.error('Failed to save limits'),
+    onError: () => toast.error(t('Failed to save limits')),
   });
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-sm font-medium">Download &amp; Stream Limits</CardTitle>
+        <CardTitle className="text-sm font-medium">{t('Download & Stream Limits')}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <p className="text-xs text-muted-foreground">
-          Cap YouTube and Apple Music playlist imports (stream register or download). For large
-          playlists (e.g. 250+ tracks), raise the import cap below (max 500).
+          {t('Limit playlist imports to at most 500 tracks per import.')}
         </p>
         {isLoading ? (
-          <p className="text-xs text-muted-foreground">Loading...</p>
+          <p className="text-xs text-muted-foreground">{t('Loading...')}</p>
         ) : (
           <>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <Label htmlFor="youtube-direct-stream" className="text-xs">Stream YouTube videos directly</Label>
+                <Label htmlFor="youtube-direct-stream" className="text-xs">{t('Stream YouTube videos directly')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  Video streams play straight from YouTube instead of being downloaded first: they start at
-                  once whatever their length, and live broadcasts work. Leave off if streams fail to start
-                  with this on; YouTube refuses direct playback from some networks.
+                  {t('Play video directly instead of downloading first. Some networks block direct playback; disable this if video does not start.')}
                 </p>
               </div>
               <Switch
@@ -1133,7 +1154,7 @@ function LimitsCard() {
               />
             </div>
             <div>
-              <Label className="text-xs">Max video duration (seconds, 0 = unlimited)</Label>
+              <Label className="text-xs">{t('Max video duration (seconds, 0 = unlimited)')}</Label>
               <Input
                 type="number"
                 min={0}
@@ -1141,11 +1162,11 @@ function LimitsCard() {
                 onChange={(e) => setMaxVideoDuration(e.target.value)}
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Applies to downloaded videos; not used when YouTube videos are streamed directly.
+                {t('Applies to downloaded videos; not used when YouTube videos are streamed directly.')}
               </p>
             </div>
             <div>
-              <Label className="text-xs">Max playlist import tracks (1–500)</Label>
+              <Label className="text-xs">{t('Max playlist import tracks (1–500)')}</Label>
               <Input
                 type="number"
                 min={1}
@@ -1159,7 +1180,7 @@ function LimitsCard() {
               onClick={() => saveLimits.mutate()}
               disabled={saveLimits.isPending}
             >
-              {saveLimits.isPending ? 'Saving...' : 'Save Limits'}
+              {t(saveLimits.isPending ? 'Saving...' : 'Save Limits')}
             </Button>
           </>
         )}

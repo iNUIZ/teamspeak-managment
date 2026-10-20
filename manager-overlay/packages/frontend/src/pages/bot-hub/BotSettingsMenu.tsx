@@ -6,7 +6,7 @@ import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n'
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Link2, MoreHorizontal, Pencil, Power, PowerOff, Radio, Trash2 } from 'lucide-react';
+import { Link2, MoreHorizontal, Pencil, Power, PowerOff, Radio, Trash2, Puzzle } from 'lucide-react';
 import type { MusicBotSummary } from '@ts6/common';
 import { Button } from '@/components/ui/button';
 import {
@@ -20,6 +20,7 @@ import { apiErrorMessage } from '@/lib/api-error';
 import { BotFormDialog } from './BotFormDialog';
 import { WidgetLinkDialog } from './WidgetLinkDialog';
 import { BotAutomationDialog } from './BotAutomationDialog';
+import { BotExtensionsDialog } from './BotExtensionsDialog';
 
 /** A bot counts as running unless it is stopped or failed. */
 export function isBotRunning(status: string): boolean {
@@ -33,9 +34,10 @@ export function BotSettingsMenu({ botId, botName, status, onDeleted, size = 'sm'
   onDeleted?: () => void;
   size?: 'sm' | 'default';
 }) {
-  useUiTranslation();
+  const { language } = useUiTranslation();
   const [editOpen, setEditOpen] = useState(false);
   const [automationOpen, setAutomationOpen] = useState(false);
+  const [ttsOpen, setTtsOpen] = useState(false);
   // Full settings are only needed for Edit; no extra polling on the hub.
   const bots = useQuery({ queryKey: ['music-bots'], queryFn: musicBotsApi.list, enabled: editOpen });
   const summary = (Array.isArray(bots.data) ? bots.data as MusicBotSummary[] : []).find((b) => b.id === botId) ?? null;
@@ -45,7 +47,7 @@ export function BotSettingsMenu({ botId, botName, status, onDeleted, size = 'sm'
   const homeBot = useMutation({
     mutationFn: () => musicBotsApi.home(botId),
     onSuccess: () => {
-      toast.success('Bot returned home; automation suspended until Start bot');
+      toast.success(tr('Bot returned home; automation suspended until Start bot'));
       void queryClient.invalidateQueries({ queryKey: ['bot-media'] });
       void queryClient.invalidateQueries({ queryKey: ['music-bots'] });
     },
@@ -74,7 +76,7 @@ export function BotSettingsMenu({ botId, botName, status, onDeleted, size = 'sm'
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size={size === 'sm' ? 'icon' : 'default'} className={size === 'sm' ? 'h-9 w-9' : 'h-10'}
-            aria-label={`Settings for ${botName}`}>
+            aria-label={language === 'tr' ? `${botName} ayarları` : `Settings for ${botName}`}>
             <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
             {size !== 'sm' && <span className="ml-1.5"> {tr("Bot settings")}</span>}
           </Button>
@@ -85,10 +87,13 @@ export function BotSettingsMenu({ botId, botName, status, onDeleted, size = 'sm'
           <DropdownMenuItem onSelect={() => setAutomationOpen(true)}>
             <Radio className="mr-2 h-4 w-4" aria-hidden="true" /> Auto-DJ &amp; 24/7
           </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => setTtsOpen(true)}>
+            <Puzzle className="mr-2 h-4 w-4" aria-hidden="true" />{language === 'tr' ? 'Eklentiler ve komutlar' : 'Extensions and commands'}
+          </DropdownMenuItem>
           {running ? (
             <DropdownMenuItem disabled={stopBot.isPending} onSelect={() => stopBot.mutate(botId, {
-              onSuccess: () => toast.success('Bot stopped'),
-              onError: (err) => toast.error(apiErrorMessage(err, 'Failed to stop bot')),
+              onSuccess: () => toast.success(tr('Bot stopped')),
+              onError: (err) => toast.error(apiErrorMessage(err, tr('Failed to stop bot'))),
             })}>
               <PowerOff className="mr-2 h-4 w-4" aria-hidden="true" /> {tr("Stop bot")}</DropdownMenuItem>
           ) : (
@@ -99,36 +104,37 @@ export function BotSettingsMenu({ botId, botName, status, onDeleted, size = 'sm'
               <Power className="mr-2 h-4 w-4" aria-hidden="true" /> {tr("Start bot")}</DropdownMenuItem>
           )}
           <DropdownMenuItem onSelect={() => setWidgetOpen(true)}>
-            <Link2 className="mr-2 h-4 w-4" aria-hidden="true" /> Widget link
+            <Link2 className="mr-2 h-4 w-4" aria-hidden="true" /> {tr('Widget link')}
           </DropdownMenuItem>
           {running && <DropdownMenuItem disabled={homeBot.isPending} onSelect={() => homeBot.mutate()}>
-            Return home (suspend automation)
+            {tr('Return home (suspend automation)')}
           </DropdownMenuItem>}
           <DropdownMenuSeparator />
           <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={() => setDeleteOpen(true)}>
-            <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" /> Delete bot
+            <Trash2 className="mr-2 h-4 w-4" aria-hidden="true" /> {tr('Delete bot')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
       <BotFormDialog open={editOpen && !!summary} bot={summary} onClose={() => setEditOpen(false)} />
       {automationOpen && <BotAutomationDialog botId={botId} botName={botName} onClose={() => setAutomationOpen(false)} />}
+      {ttsOpen && <BotExtensionsDialog key={botId} botId={botId} botName={botName} onClose={() => setTtsOpen(false)} />}
       <WidgetLinkDialog botId={botId} botName={botName} open={widgetOpen} onOpenChange={setWidgetOpen} />
       <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title={`Delete ${botName}?`}
-        description="This will permanently delete this media bot and disconnect it from the server."
-        confirmLabel="Delete"
+        title={language === 'tr' ? `${botName} silinsin mi?` : `Delete ${botName}?`}
+        description={tr('This will permanently delete this media bot and disconnect it from the server.')}
+        confirmLabel={tr('Delete')}
         loading={deleteBot.isPending}
         onConfirm={() => {
           deleteBot.mutate(botId, {
             onSuccess: () => {
-              toast.success('Bot deleted');
+              toast.success(tr('Bot deleted'));
               setDeleteOpen(false);
               onDeleted?.();
             },
-            onError: (err) => toast.error(apiErrorMessage(err, 'Failed to delete bot')),
+            onError: (err) => toast.error(apiErrorMessage(err, tr('Failed to delete bot'))),
           });
         }}
         destructive

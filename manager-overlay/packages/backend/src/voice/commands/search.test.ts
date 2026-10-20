@@ -33,4 +33,11 @@ describe('mixed !ara ranking', () => {
         > qualityScore(item('b', 'Song slowed reverb reaction'), 'song', 'YouTube'),
     );
   });
+  it('shows duration and does not claim a YouTube match is Spotify audio', () => {
+    const results = searchInternals.mergeAndRank('song', [{ sourceLabel: 'Spotify match', items: [item('1', 'Song')] }]);
+    const text = searchInternals.formatResults('song', results);
+    assert.match(text, /3:30/);
+    assert.match(text, /\[YouTube\]/);
+    assert.ok(!text.includes('Spotify'));
+  });
 });

@@ -14,12 +14,21 @@ export function parseTtsSettings(value: unknown): TtsSettings {
     || typeof v.volume !== 'number' || !Number.isFinite(v.volume) || v.volume < 0.1 || v.volume > 1.5) {
     throw new Error('Invalid TTS settings');
   }
-  return v as TtsSettings;
+  return { enabled: v.enabled, language: v.language!, maxCharacters: v.maxCharacters!, cooldownSeconds: v.cooldownSeconds!, volume: v.volume };
 }
 export async function ttsInstalled(): Promise<boolean> {
   return fs.access('/opt/teamhub-tts/bin/python').then(() => true, () => false);
 }
-export async function loadTtsSettings(prisma: PrismaClient): Promise<TtsSettings> {
+export function botTtsSettingsKey(botId: number): string {
+  if (!Number.isSafeInteger(botId) || botId <= 0) throw new Error('Invalid bot ID');
+  return `tts_settings:bot:${botId}`;
+}
+export async function loadTtsSettings(prisma: PrismaClient, botId?: number): Promise<TtsSettings> {
+  if (botId !== undefined) {
+    const scoped = await prisma.appSetting.findUnique({ where: { key: botTtsSettingsKey(botId) } });
+    if (scoped) return parseTtsSettings(JSON.parse(scoped.value));
+  }
+  // Read-only legacy defaults preserve existing behaviour until each bot is saved.
   const row = await prisma.appSetting.findUnique({ where: { key: 'tts_settings' } });
   if (row) return parseTtsSettings(JSON.parse(row.value));
   return { enabled: await ttsInstalled(), language: 'tr', maxCharacters: 250, cooldownSeconds: 10, volume: 1 };

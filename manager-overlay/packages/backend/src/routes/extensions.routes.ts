@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { requireRole } from '../middleware/rbac.js';
 import { AppError } from '../middleware/error-handler.js';
 import { isReservedChatCommandName, normalizeChatCommandName } from '../voice/chat-commands.js';
-import { loadTtsSettings, ttsInstalled } from '../voice/audio/tts.js';
+import { ttsInstalled } from '../voice/audio/tts.js';
 
 export const extensionRoutes: Router = Router({ mergeParams: true });
 extensionRoutes.use(requireRole('admin'));
@@ -42,12 +42,11 @@ async function readPacks(prisma: any, id: number): Promise<StoredPack[]> {
 extensionRoutes.get('/', async (req: Request, res: Response, next) => {
   try {
     const id = configId(req);
-    const speech = await loadTtsSettings(req.app.locals.prisma);
     const speechInstalled = await ttsInstalled();
     res.json({
       bundled: [
-        { id: 'tts', name: 'TR/EN Speech', version: '1.0.0', description: 'Optional local !say. Install from terminal menu 14; configure in Settings > TTS.', installed: speechInstalled, enabled: speechInstalled && speech.enabled, bundled: true },
-        { id: 'search', name: 'Smart Search', version: '1.0.0', description: 'Mixed quality-ranked !ara results from YouTube Music, YouTube and Spotify matches.', enabled: true, bundled: true },
+        { id: 'tts', name: 'TR/EN Speech', version: '1.0.0', description: 'Local !say. Install from terminal menu 14; configure in Bot settings > Extensions and commands > Text to speech.', installed: speechInstalled, bundled: true },
+        { id: 'search', name: 'Smart Search', version: '1.0.0', description: 'Search YouTube Music and YouTube with Spotify title matches. Playback availability depends on the source.', bundled: true },
         { id: 'custom-commands', name: 'Custom Commands', version: '1.0.0', description: 'Safe server-scoped ! commands managed from the panel.', enabled: true, bundled: true },
       ],
       installed: await readPacks(req.app.locals.prisma, id),

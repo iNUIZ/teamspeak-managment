@@ -1,6 +1,6 @@
 // === Music / Voice Bot Types ===
 
-export type BotAvatarMode = 'none' | 'default' | 'custom';
+export type BotAvatarMode = 'none' | 'default' | 'custom' | 'now-playing';
 
 export type VoiceBotStatus = 'stopped' | 'starting' | 'connected' | 'playing' | 'paused' | 'error';
 

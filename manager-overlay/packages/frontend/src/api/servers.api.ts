@@ -1,0 +1,61 @@
+import api from './client';
+import type { ConnectionDiagnosticReport } from '@ts6/common';
+
+export type { ConnectionDiagnosticReport, DiagnosticStageResult, DiagnosticStageId } from '@ts6/common';
+
+/**
+ * Staged WebQuery diagnostics (`diagnoseConnection`) use a 20s overall backend
+ * budget across four probes. Per-call axios timeouts must exceed that so a slow
+ * TS host still returns the staged report instead of a generic client timeout
+ * (shared axios default is 15s).
+ */
+export const CONNECTION_DIAGNOSTICS_TIMEOUT_MS = 30_000;
+
+export const serversApi = {
+  list: () => api.get('/servers').then((r) => r.data),
+  get: (id: number) => api.get(`/servers/${id}`).then((r) => r.data),
+  create: (data: any) => api.post('/servers', data).then((r) => r.data),
+  createDemo: () => api.post('/servers/demo').then((r) => r.data),
+  update: (id: number, data: any) => api.put(`/servers/${id}`, data).then((r) => r.data),
+  delete: (id: number) => api.delete(`/servers/${id}`),
+  test: (id: number) =>
+    api
+      .post(`/servers/${id}/test`, undefined, { timeout: CONNECTION_DIAGNOSTICS_TIMEOUT_MS })
+      .then((r) => r.data as ConnectionDiagnosticReport),
+  testSsh: (id: number) => api.post(`/servers/${id}/test-ssh`).then((r) => r.data),
+  testWebqueryDraft: (data: { host: string; webqueryPort: number; apiKey: string; useHttps?: boolean }) =>
+    api
+      .post('/servers/test-webquery', data, { timeout: CONNECTION_DIAGNOSTICS_TIMEOUT_MS })
+      .then((r) => r.data as ConnectionDiagnosticReport),
+  testSshDraft: (data: { host: string; sshPort: number; sshUsername: string; sshPassword: string }) =>
+    api.post('/servers/test-ssh', data).then((r) => r.data),
+  detectDeployment: () => api.get('/servers/deployment-check').then((r) => r.data),
+
+  // Virtual servers
+  listVirtual: (configId: number) =>
+    api.get(`/servers/${configId}/virtual-servers`).then((r) => r.data),
+  getVirtualInfo: (configId: number, sid: number) =>
+    api.get(`/servers/${configId}/virtual-servers/${sid}/info`).then((r) => r.data),
+  editVirtual: (configId: number, sid: number, data: any) =>
+    api.put(`/servers/${configId}/virtual-servers/${sid}`, data).then((r) => r.data),
+  createVirtual: (configId: number, data: any) =>
+    api.post(`/servers/${configId}/virtual-servers`, data).then((r) => r.data),
+  startVirtual: (configId: number, sid: number) =>
+    api.post(`/servers/${configId}/virtual-servers/${sid}/start`).then((r) => r.data),
+  stopVirtual: (configId: number, sid: number) =>
+    api.post(`/servers/${configId}/virtual-servers/${sid}/stop`).then((r) => r.data),
+  deleteVirtual: (configId: number, sid: number) =>
+    api.delete(`/servers/${configId}/virtual-servers/${sid}`),
+  createSnapshot: (configId: number, sid: number, password: string) =>
+    api.post(`/servers/${configId}/virtual-servers/${sid}/snapshot`, { password }).then((r) => r.data),
+
+  // Instance
+  instanceInfo: (configId: number) =>
+    api.get(`/servers/${configId}/instance`).then((r) => r.data),
+  instanceEdit: (configId: number, data: any) =>
+    api.put(`/servers/${configId}/instance`, data).then((r) => r.data),
+  hostInfo: (configId: number) =>
+    api.get(`/servers/${configId}/instance/host`).then((r) => r.data),
+  version: (configId: number) =>
+    api.get(`/servers/${configId}/instance/version`).then((r) => r.data),
+};

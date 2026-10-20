@@ -38,17 +38,20 @@ export async function applyInstallerAdmin(prisma: PrismaClient): Promise<void> {
   await fs.unlink(adminFile);
 }
 
-export async function syncInstallerConnection(prisma: PrismaClient, name: string, host: string, apiKey: string): Promise<boolean> {
+export async function syncInstallerConnection(prisma: PrismaClient, name: string, host: string, apiKey: string, queryPassword?: string): Promise<boolean> {
   if (!name || name.length > 150 || !/^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,252}$/.test(host) || !apiKey || apiKey.length > 4096) {
     throw new Error('Invalid installer connection');
   }
   return prisma.$transaction(async (tx) => {
     const existing = await tx.tsServerConfig.findFirst({ where: { host, webqueryPort: 10080, isDemo: false } });
     if (existing) {
-      if (decrypt(existing.apiKey) === apiKey) return false;
-      await tx.tsServerConfig.update({ where: { id: existing.id }, data: { apiKey: encrypt(apiKey) } });
+      const needsSsh = !!queryPassword && !existing.sshUsername && !existing.sshPassword;
+      if (decrypt(existing.apiKey) === apiKey && !needsSsh) return false;
+      await tx.tsServerConfig.update({ where: { id: existing.id }, data: { apiKey: encrypt(apiKey),
+        ...(needsSsh && { sshUsername: 'serveradmin', sshPassword: encrypt(queryPassword!), sshPort: 10022 }) } });
     } else {
-      await tx.tsServerConfig.create({ data: { name, host, webqueryPort: 10080, apiKey: encrypt(apiKey), useHttps: false } });
+      await tx.tsServerConfig.create({ data: { name, host, webqueryPort: 10080, apiKey: encrypt(apiKey), useHttps: false,
+        ...(queryPassword && { sshUsername: 'serveradmin', sshPassword: encrypt(queryPassword), sshPort: 10022 }) } });
     }
     return true;
   });

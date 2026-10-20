@@ -11,7 +11,7 @@ Compose ile kuran ve yöneten etkileşimli dağıtım aracı.
 
 | Bilgi | Değer |
 |---|---|
-| Sürüm | **0.3.8-alpha.2** |
+| Sürüm | **0.3.8-alpha.3** |
 | Geliştirici | **Berat Akar** |
 | Kaynak | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -26,6 +26,9 @@ WSL2 içinde gereken ortak `install.sh` ve Docker tanımlarını içerir; Linux 
 PowerShell ve npm geliştirme dosyalarını içermez.
 
 ## Bileşenler
+
+YouTube için varsayılan çerezsiz PO Token yöntemi ve isteğe bağlı çerez kullanımı:
+[oynatma kılavuzu](docs/cookieless-youtube.md).
 
 Panelin yeni logosu, TR/EN arayüzü, otomatik bot portu ve isteğe bağlı
 `!say` konuşma sentezi için [panel ve TTS kılavuzunu](docs/panel-and-tts.md) okuyun.
@@ -97,10 +100,10 @@ En son Release paketini indirip önce Ed25519 imzasını, ardından SHA-256 değ
 doğrulayan tek satırlık alternatif:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.8-alpha.2/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.8-alpha.3/bootstrap.ps1 | iex
 ```
 
-Komut değiştirilemeyen `v0.3.8-alpha.2` sürüm etiketine sabitlenmiştir. Üretim ortamında
+Komut değiştirilemeyen `v0.3.8-alpha.3` sürüm etiketine sabitlenmiştir. Üretim ortamında
 çalıştırmadan önce `bootstrap.ps1` içeriğinin incelenmesi yine de önerilir.
 
 ### WSL2 terminali

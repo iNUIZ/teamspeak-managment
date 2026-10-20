@@ -31,7 +31,7 @@ async function main() {
     await prepareInstallerAdmin(fields[0], fields[1]);
     console.log('prepared');
   } else if (action === 'sync-connection') {
-    const changed = await syncInstallerConnection(prisma, fields[0], fields[1], fields[2]);
+    const changed = await syncInstallerConnection(prisma, fields[0], fields[1], fields[2], fields[3] || undefined);
     console.log(changed ? 'changed' : 'unchanged');
   } else if (action === 'server-access') {
     for (const line of await serverAccessSummary(fields[0], fields[1], fields[2] || undefined)) console.log(line);

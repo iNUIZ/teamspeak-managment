@@ -18,7 +18,7 @@ test('TR widget form and permissions tabs switch to EN and back with persistent 
   await page.getByRole('button', { name: 'Yeni bileşen', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText('Bileşen oluştur', { exact: true })).toBeVisible();
-  await expect(dialog.getByText('Sanal sunucu kimliği', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('TeamSpeak sunucu kimliği', { exact: true })).toBeVisible();
   await expect(dialog.getByText('Kanal ağacını göster', { exact: true })).toBeVisible();
   await dialog.getByPlaceholder('Sunucu bileşenim').fill('Test value');
   await page.keyboard.press('Escape');

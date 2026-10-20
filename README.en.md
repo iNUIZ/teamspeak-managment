@@ -15,7 +15,7 @@ TeamSpeak 6, TS6 Manager, and the Manager music bot.
 
 | Metadata | Value |
 |---|---|
-| Version | **0.3.8-alpha.2** |
+| Version | **0.3.8-alpha.3** |
 | Developer | **Berat Akar** |
 | Source | [GitHub @iNUIZ](https://github.com/iNUIZ) |
 
@@ -30,6 +30,9 @@ Debian x86_64 and ARM64. The Windows ZIP includes `install.ps1` plus the shared
 not include PowerShell or npm development files.
 
 ## Components
+
+See [cookieless YouTube playback](docs/cookieless-youtube.md) for the default
+PO Token service, optional cookies, deployment requirements and limitations.
 
 - TeamSpeak 3 Server with HTTP WebQuery
 - TeaSpeak Server
@@ -97,10 +100,10 @@ One-line alternative that downloads this alpha release, verifies its Ed25519
 signature, and only then verifies the archive SHA-256:
 
 ```powershell
-irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.8-alpha.2/bootstrap.ps1 | iex
+irm https://raw.githubusercontent.com/iNUIZ/teamspeak-managment/v0.3.8-alpha.3/bootstrap.ps1 | iex
 ```
 
-The command is pinned to the immutable `v0.3.8-alpha.2` release tag. Review
+The command is pinned to the immutable `v0.3.8-alpha.3` release tag. Review
 `bootstrap.ps1` before running it in a production environment.
 
 ### WSL2 terminal

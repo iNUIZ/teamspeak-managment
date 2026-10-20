@@ -21,8 +21,8 @@ function CopyRow({ label, value }: { label: string; value: string }) {
         <Button variant="outline" size="sm" className="h-9 text-xs shrink-0"
           onClick={() => {
             copyText(value).then(
-              () => toast.success('Copied!'),
-              () => toast.error('Could not copy. Select the text and copy it by hand.'),
+              () => toast.success(tr('Copied!')),
+              () => toast.error(tr('Could not copy. Select the text and copy it by hand.')),
             );
           }}
         > {tr("Copy")}</Button>
@@ -50,25 +50,25 @@ export function WidgetLinkDialog({ botId, botName, open, onOpenChange }: {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle className="text-sm">Player widget: {botName}</DialogTitle>
+          <DialogTitle className="text-sm">{tr('Player widget')}: {botName}</DialogTitle>
           <DialogDescription className="text-xs">
-            Embed these URLs in your TeamSpeak channel description or website.
+            {tr('Embed these URLs in your TeamSpeak channel description or website.')}
           </DialogDescription>
         </DialogHeader>
-        {token.isLoading && <p className="text-xs text-muted-foreground">Loading widget link…</p>}
+        {token.isLoading && <p className="text-xs text-muted-foreground">{tr('Loading widget link…')}</p>}
         {token.isError && (
           <div className="space-y-2">
-            <p role="alert" className="text-xs text-destructive">{apiErrorMessage(token.error, 'Could not load the widget link.')}</p>
-            <Button size="sm" variant="outline" onClick={() => { void token.refetch(); }} disabled={token.isFetching}>Try again</Button>
+            <p role="alert" className="text-xs text-destructive">{tr(apiErrorMessage(token.error, 'Could not load the widget link.'))}</p>
+            <Button size="sm" variant="outline" onClick={() => { void token.refetch(); }} disabled={token.isFetching}>{tr('Try again')}</Button>
           </div>
         )}
         {token.data && (
           <div className="space-y-3">
-            <CopyRow label="BBCode URL (for channel description)" value={token.data.bbcodeUrl} />
-            <CopyRow label="JSON URL (for websites/integrations)" value={token.data.jsonUrl} />
+            <CopyRow label={tr('BBCode URL (for channel description)')} value={token.data.bbcodeUrl} />
+            <CopyRow label={tr('JSON URL (for websites/integrations)')} value={token.data.jsonUrl} />
             <div>
               <Label className="text-[10px] text-muted-foreground"> {tr("Token")}</Label>
-              <Input readOnly aria-label="Widget token" className="h-9 text-[11px] font-mono-data mt-1" value={token.data.token} />
+              <Input readOnly aria-label={tr('Widget token')} className="h-9 text-[11px] font-mono-data mt-1" value={token.data.token} />
             </div>
           </div>
         )}

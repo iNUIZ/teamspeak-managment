@@ -27,6 +27,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host 'Teamspeak Managment kurulumu WSL2 üzerinden başlatılıyor...' -ForegroundColor Cyan
+Write-Host 'Manager imajı çerezsiz YouTube PO Token hizmetini içerir; Windows üzerine ayrıca Python veya token hizmeti kurmanız gerekmez.' -ForegroundColor DarkCyan
 if ($linuxScript.Contains("'")) {
     throw "Proje yolu tek tırnak içeremez: $linuxScript"
 }

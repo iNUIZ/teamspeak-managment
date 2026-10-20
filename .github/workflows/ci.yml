@@ -24,6 +24,36 @@ jobs:
           forbidden=$(find . -type f \( -name '.env' -o -name '*.db' -o -name '*.sqlite' -o -name '*.pem' -o -name '*.key' -o -name 'cookies.txt' \) ! -path './security/release-signing-public.pem' -print)
           test -z "$forbidden" || { printf '%s\n' "$forbidden"; exit 1; }
 
+  youtube-pot-runtime:
+    name: Private PO Token provider (${{ matrix.runner }})
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+      - name: Build pinned provider and native Canvas for the runner architecture
+        run: docker build --target pot-build --build-arg BASE_IMAGE=node:20-slim -f docker/manager-hardened.Dockerfile -t pot-smoke .
+      - name: Check readiness without public ports, root or writable image files
+        run: |
+          docker run -d --name pot-smoke --user 10001:10001 --read-only \
+            --cap-drop ALL --security-opt no-new-privileges:true --network none \
+            --tmpfs /tmp:rw,noexec,nosuid,size=64m \
+            pot-smoke node /opt/teamhub-pot/source/server/build/main.js --host 127.0.0.1 --port 4416
+          for attempt in $(seq 1 30); do
+            if docker exec pot-smoke node -e \
+              'fetch("http://127.0.0.1:4416/ping").then(r=>r.json()).then(b=>process.exit(b.version==="2.0.2"?0:1)).catch(()=>process.exit(1))'; then
+              exit 0
+            fi
+            test "$(docker inspect --format '{{.State.Running}}' pot-smoke)" = true || exit 1
+            sleep 1
+          done
+          exit 1
+      - name: Remove smoke container
+        if: always()
+        run: docker rm -f pot-smoke || true
+
   powershell:
     name: PowerShell validation
     runs-on: windows-2025

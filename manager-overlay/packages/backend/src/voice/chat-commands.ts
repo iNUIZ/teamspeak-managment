@@ -10,7 +10,7 @@ const BUILTIN_SET = new Set<string>(BUILTIN_CHAT_COMMANDS);
 /** Short help lines for built-in commands (shown by !help). */
 export const BUILTIN_COMMAND_HELP: { name: string; usage: string; blurb: string }[] = [
   { name: 'help', usage: '!help', blurb: 'Show this command list' },
-  { name: 'say', usage: '!say [--tr|--en] <text>', blurb: 'Speak using optional local TTS (configure in Settings > TTS)' },
+  { name: 'say', usage: '!say [--tr|--en] <text>', blurb: 'Speak using local TTS (Bot settings > Extensions and commands > Text to speech)' },
   { name: 'commands', usage: '!commands', blurb: 'List enabled custom chat commands' },
   { name: 'ara', usage: '!ara <song or artist>', blurb: 'Search and rank 10 YouTube Music / Spotify matches' },
   { name: 'here', usage: '!here [id]', blurb: 'Summon a music bot here (prefers idle bots; use !here <id> to target one)' },
