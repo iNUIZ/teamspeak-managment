@@ -11,7 +11,8 @@ import rateLimit from 'express-rate-limit';
 import fs from 'fs';
 import path from 'path';
 import { AppError } from '../middleware/error-handler.js';
-import { setYtCookieFile, getYtCookieFile } from '../voice/audio/youtube.js';
+import { setYtCookieFile, getYtCookieFile, getYouTubeAuthMode, setYouTubeAuthMode } from '../voice/audio/youtube.js';
+import { poTokenStatus, YOUTUBE_AUTH_MODE_KEY } from '../voice/audio/youtube-pot.js';
 import {
   MAX_VIDEO_DURATION_KEY,
   MAX_PLAYLIST_IMPORT_KEY,
@@ -36,7 +37,7 @@ import { actorFromRequest, recordLocalSuccess, runRemoteAudited } from '../audit
 import { diagnoseRuntimeMedia } from '../voice/audio/runtime-media-diagnostics.js';
 import { diagnoseMediaAdmin } from '../voice/audio/media-admin-diagnostics.js';
 import { redactDiagnosticValue } from '@ts6/common';
-import { loadTtsSettings, parseTtsSettings, ttsInstalled } from '../voice/audio/tts.js';
+import { loadTtsSettings, ttsInstalled } from '../voice/audio/tts.js';
 
 const settingsRoutes: Router = Router();
 
@@ -44,14 +45,8 @@ settingsRoutes.get('/tts', requireAdmin, async (req, res, next) => {
   try { res.json({ settings: await loadTtsSettings(req.app.locals.prisma), installed: await ttsInstalled() }); }
   catch (error) { next(error); }
 });
-settingsRoutes.put('/tts', requireAdmin, async (req, res, next) => {
-  try {
-    let settings;
-    try { settings = parseTtsSettings(req.body); } catch { throw new AppError(400, 'Invalid TTS settings'); }
-    if (settings.enabled && !await ttsInstalled()) throw new AppError(409, 'Install the optional TTS package from the server installer first.');
-    await req.app.locals.prisma.appSetting.upsert({ where: { key: 'tts_settings' }, create: { key: 'tts_settings', value: JSON.stringify(settings) }, update: { value: JSON.stringify(settings) } });
-    res.json(settings);
-  } catch (error) { next(error); }
+settingsRoutes.put('/tts', requireAdmin, (_req, _res, next) => {
+  next(new AppError(410, 'TTS settings have moved to /music-bots/:id/tts. Update the selected bot instead.'));
 });
 
 // Cookie file stored in the backend data directory (persisted in Docker volume)
@@ -88,15 +83,42 @@ function requireAdmin(req: Request, _res: Response, next: Function) {
 }
 
 // GET /api/settings/yt-cookies — Check cookie file status
-settingsRoutes.get('/yt-cookies', requireAdmin, ytCookiesLimiter, (_req: Request, res: Response) => {
-  const exists = fs.existsSync(COOKIE_PATH);
+settingsRoutes.get('/yt-cookies', requireAdmin, ytCookiesLimiter, async (_req: Request, res: Response, next) => {
+  try {
+  const savedPath = process.env.YT_COOKIE_FILE || COOKIE_PATH;
+  const exists = fs.existsSync(COOKIE_PATH) || fs.existsSync(savedPath);
   const activePath = getYtCookieFile();
   res.json({
     active: !!activePath,
     exists,
-    size: exists ? fs.statSync(COOKIE_PATH).size : 0,
-    path: activePath,
+    removable: fs.existsSync(COOKIE_PATH),
+    size: fs.existsSync(COOKIE_PATH) ? fs.statSync(COOKIE_PATH).size : exists ? fs.statSync(savedPath).size : 0,
+    mode: getYouTubeAuthMode(),
+    provider: await poTokenStatus(),
   });
+  } catch (err) { next(err); }
+});
+
+// Storing a cookie never enables account access implicitly. The admin opts in.
+settingsRoutes.put('/yt-cookies/mode', requireAdmin, ytCookiesLimiter, async (req, res, next) => {
+  try {
+    const mode = req.body?.mode;
+    if (mode !== 'po-token' && mode !== 'cookies') throw new AppError(400, 'Invalid YouTube authentication mode');
+    const savedPath = fs.existsSync(COOKIE_PATH) ? COOKIE_PATH : process.env.YT_COOKIE_FILE;
+    if (mode === 'cookies' && (!savedPath || !fs.existsSync(savedPath))) {
+      throw new AppError(400, 'Upload a cookie file before enabling optional cookies');
+    }
+    await recordLocalSuccess(req.app.locals.prisma, {
+      actor: actorFromRequest(req.user), action: 'settings.youtube_auth_mode_changed',
+      target: { type: 'settings', id: 'youtube-auth-mode' },
+    }, (tx) => tx.appSetting.upsert({
+      where: { key: YOUTUBE_AUTH_MODE_KEY },
+      create: { key: YOUTUBE_AUTH_MODE_KEY, value: mode }, update: { value: mode },
+    }));
+    if (savedPath) setYtCookieFile(savedPath);
+    setYouTubeAuthMode(mode);
+    res.json({ success: true, mode });
+  } catch (err) { next(err); }
 });
 
 // POST /api/settings/yt-cookies — Upload cookie file
@@ -118,11 +140,12 @@ settingsRoutes.post('/yt-cookies', requireAdmin, ytCookiesLimiter, upload.single
             throw new AppError(400, 'No cookie file or text provided');
           }
           fs.mkdirSync(COOKIE_DIR, { recursive: true });
-          fs.writeFileSync(COOKIE_PATH, text, 'utf-8');
+          fs.writeFileSync(COOKIE_PATH, text, { encoding: 'utf-8', mode: 0o600 });
         } else {
           fs.mkdirSync(COOKIE_DIR, { recursive: true });
-          fs.writeFileSync(COOKIE_PATH, req.file.buffer);
+          fs.writeFileSync(COOKIE_PATH, req.file.buffer, { mode: 0o600 });
         }
+        fs.chmodSync(COOKIE_PATH, 0o600);
         setYtCookieFile(COOKIE_PATH);
         return fs.statSync(COOKIE_PATH).size;
       },
@@ -144,10 +167,15 @@ settingsRoutes.delete('/yt-cookies', requireAdmin, ytCookiesLimiter, async (req:
         target: { type: 'settings', id: 'yt-cookies' },
       },
       async () => {
+        await prisma.appSetting.upsert({
+          where: { key: YOUTUBE_AUTH_MODE_KEY }, create: { key: YOUTUBE_AUTH_MODE_KEY, value: 'po-token' },
+          update: { value: 'po-token' },
+        });
         if (fs.existsSync(COOKIE_PATH)) {
           fs.unlinkSync(COOKIE_PATH);
         }
         setYtCookieFile(null);
+        setYouTubeAuthMode('po-token');
       },
     );
     console.log('[yt-dlp] Cookie file removed');

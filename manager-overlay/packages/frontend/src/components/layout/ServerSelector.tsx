@@ -50,7 +50,7 @@ export function ServerSelector() {
   const displaySid = contextLoading ? '' : selectedSid?.toString() || '';
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-1.5 md:flex-none md:gap-2">
+    <div className="col-span-2 row-start-2 flex min-w-0 flex-1 items-center gap-1.5 md:flex-none md:gap-2 lg:col-auto lg:row-auto">
       <Server className="hidden h-4 w-4 shrink-0 text-muted-foreground lg:block" />
       <div className="flex min-w-0 flex-1 items-center gap-1 md:flex-none">
       <span className="sr-only md:not-sr-only text-[10px] uppercase tracking-wide text-muted-foreground">{t('Connection')}</span>

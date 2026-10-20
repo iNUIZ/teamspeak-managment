@@ -38,7 +38,7 @@ export const musicBotsApi = {
       timeout: 90000,
     }).then((r) => r.data);
   },
-  avatarMode: (id: number, mode: 'custom' | 'default' | 'none') =>
+  avatarMode: (id: number, mode: 'custom' | 'default' | 'none' | 'now-playing') =>
     api.put(`/music-bots/${id}/avatar/mode`, { mode }, { timeout: 90000 }).then((r) => r.data),
 
   // Playback

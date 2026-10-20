@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { applyBotAvatar } from './bot-avatar.js';
 import { fitAvatarForTeamSpeak } from './bot-avatar-fit.js';
+import { fetchTrackCover, trackCoverUrl, trackDescription } from './track-profile.js';
 import { readBotAvatar, type BotAvatarMode } from '../utils/bot-avatar-storage.js';
 import fs from 'fs';
 import type { Readable } from 'stream';
@@ -334,8 +335,12 @@ export class VoiceBot extends EventEmitter {
 
     this.client.on('ts3error', (params: Record<string, string>) => {
       const id = parseInt(params.id || '0');
+      // TeamSpeak replies with `error id=0 msg=ok` on success. Do not display
+      // it as an error or overwrite a real failure with this acknowledgement.
+      if (id === 0) return;
       const msg = params.msg || 'unknown error';
-      this._lastError = `TS3 error ${id}: ${msg}`;
+      const permissionId = /^\d+$/.test(params.failed_permid ?? '') ? params.failed_permid : null;
+      this._lastError = `TS3 error ${id}: ${msg}${permissionId ? ` (permission ${permissionId})` : ''}`;
       if (id === FLOOD_ERROR_ID) {
         this.startFloodHold();
       }
@@ -403,13 +408,24 @@ export class VoiceBot extends EventEmitter {
   }
 
   get avatarError(): string | null { return this._avatarError; }
+  private trackProfileManaged = false;
+  private profileTrackStarted: QueueItem | null = null;
+
+  private startTrackProfile(): void {
+    if (this.profileTrackStarted === this._nowPlaying) return;
+    this.profileTrackStarted = this._nowPlaying;
+    if (this.config.avatarMode === 'now-playing') void this.applyAvatar();
+  }
 
   /** Apply the latest saved choice; offline edits are retained for the next connect. */
-  async applyAvatar(partial: Pick<VoiceBotConfig, 'avatarMode' | 'avatarFile' | 'avatarMd5'> = {}): Promise<void> {
+  async applyAvatar(partial: Pick<VoiceBotConfig, 'avatarMode' | 'avatarFile' | 'avatarMd5'> = {}, profileIdle = false): Promise<void> {
     const choiceChanged = (partial.avatarMode !== undefined && partial.avatarMode !== this.config.avatarMode)
       || (partial.avatarFile !== undefined && partial.avatarFile !== this.config.avatarFile)
       || (partial.avatarMd5 !== undefined && partial.avatarMd5 !== this.config.avatarMd5);
     Object.assign(this.config, partial);
+    const playbackTrack = this._nowPlaying;
+    const track = !profileIdle && this.profileTrackStarted === playbackTrack ? playbackTrack : null;
+    this.avatarAbort?.abort();
     if (choiceChanged && this._avatarError) {
       if (this._lastError === this._avatarError) this._lastError = '';
       this._avatarError = null;
@@ -417,10 +433,26 @@ export class VoiceBot extends EventEmitter {
     }
     const next = this.avatarTail.catch(() => {}).then(async () => {
       if (this._manuallyStopped || !['connected', 'playing', 'paused'].includes(this._status)) return;
+      if (!profileIdle && playbackTrack !== this._nowPlaying) return;
       const abort = new AbortController();
       this.avatarAbort = abort;
       try {
-        const image = await fitAvatarForTeamSpeak(await readBotAvatar(this.config, this.config.avatarDataDir));
+        let raw = await readBotAvatar(this.config, this.config.avatarDataDir);
+        if (this.config.avatarMode === 'now-playing') {
+          this.trackProfileManaged = true;
+          this.client.sendCommand(buildCommand('clientupdate', { client_description: trackDescription(track) }));
+          const cover = trackCoverUrl(track);
+          // Artwork must never interrupt audio. A missing cover uses the default.
+          if (cover) {
+            try { raw = await fetchTrackCover(cover, abort.signal); }
+            catch { if (abort.signal.aborted) return; }
+          }
+        } else if (this.trackProfileManaged) {
+          this.client.sendCommand(buildCommand('clientupdate', { client_description: '' }));
+          this.trackProfileManaged = false;
+        }
+        const image = await fitAvatarForTeamSpeak(raw);
+        if (abort.signal.aborted || (!profileIdle && playbackTrack !== this._nowPlaying)) return;
         await applyBotAvatar(this.client, this.config.serverHost, image, abort.signal);
         if (this._lastError === this._avatarError) this._lastError = '';
         this._avatarError = null;
@@ -782,6 +814,8 @@ export class VoiceBot extends EventEmitter {
   /** Reset TS3 nickname to original. */
   private resetNickname(): void {
     if (this._status === 'stopped') return;
+    this.profileTrackStarted = null;
+    if (this.config.avatarMode === 'now-playing') void this.applyAvatar({}, true);
     try {
       this.client.sendCommand(buildCommand('clientupdate', { client_nickname: this._originalNickname }));
     } catch { }
@@ -816,6 +850,7 @@ export class VoiceBot extends EventEmitter {
       }
 
       this.updateNowPlayingNickname(title);
+      if (this.config.avatarMode === 'now-playing' && this.profileTrackStarted === this._nowPlaying) void this.applyAvatar();
       this.emit('metadataChange', this._nowPlaying);
     } catch { }
   }
@@ -985,6 +1020,7 @@ export class VoiceBot extends EventEmitter {
       this._status = 'connected';
       this._nowPlaying = null;
       this.emit('statusChange', this._status);
+      this.resetNickname();
       this.automation?.sourceEnded({ failed: true });
       throw err;
     }
@@ -1144,6 +1180,7 @@ export class VoiceBot extends EventEmitter {
     if (frame) {
       const opusFrame = this.pipeline.encodeFrame(frame, this.config.volume);
       this.sendVoiceFrame(opusFrame);
+      if (this.fileFramesSent === 0) this.startTrackProfile();
       this.fileFramesSent++;
     } else if (this.fileFfmpegEnded) {
       this.finishFileTrack();
@@ -1315,6 +1352,7 @@ export class VoiceBot extends EventEmitter {
       });
 
       let nextDue = performance.now() + 200; // initial buffer delay
+      let profileStarted = false;
 
       const tick = () => {
         if (epoch !== this.loopEpoch) return;
@@ -1338,6 +1376,7 @@ export class VoiceBot extends EventEmitter {
         if (frame) {
           const opusFrame = this.pipeline.encodeFrame(frame, this.config.volume);
           this.sendVoiceFrame(opusFrame);
+          if (!profileStarted) { profileStarted = true; this.startTrackProfile(); }
         }
 
         // Next slot

@@ -86,7 +86,7 @@ function CompactNowPlaying(props: NowPlayingProps): JSX.Element {
             <AutomationBadges bot={bot} />
             <Badge variant={badge.variant} className="shrink-0 gap-1">
               {tone === 'live' && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true" />}
-              {tr(bot.status === 'starting' || bot.session?.state === 'starting' ? 'Starting' : badge.label)}
+              {tr(bot.status === 'starting' || bot.session?.state === 'starting' ? tr("Starting") : badge.label)}
             </Badge>
           </div>
         </div>
@@ -98,7 +98,7 @@ function CompactNowPlaying(props: NowPlayingProps): JSX.Element {
               : <Music className="h-4 w-4 shrink-0 text-primary" aria-hidden="true" />)
               : null}
           <p className={cn('truncate text-sm', tone === 'idle' || tone === 'offline' ? 'text-muted-foreground' : 'font-medium')}>
-            {tr(bot.status === 'starting' ? 'Connecting to TeamSpeak…' : hubHeadline(bot))}
+            {tr(bot.status === 'starting' ? tr("Connecting to TeamSpeak…") : hubHeadline(bot))}
           </p>
         </div>
 
@@ -106,11 +106,16 @@ function CompactNowPlaying(props: NowPlayingProps): JSX.Element {
           <p className="text-xs text-muted-foreground">{facts.join(' · ')}</p>
         )}
         <p className="text-xs text-muted-foreground">
-          {tr(bot.status === 'starting' ? 'Connecting to TeamSpeak…' : bot.clientId && bot.channelId ? 'Connected to TeamSpeak' : 'Bot is not connected to TeamSpeak.')}
+          {tr(bot.status === 'starting' ? tr("Connecting to TeamSpeak…") : bot.clientId && bot.channelId ? tr("Connected to TeamSpeak") : tr("Bot is not connected to TeamSpeak."))}
           {bot.voiceHost ? ` · ${bot.voiceHost}:${bot.voicePort}` : ''}
           {bot.clientId ? ` · CLID ${bot.clientId}` : ''}
         </p>
-        {bot.lastError && <p role="alert" className="break-words text-xs text-destructive">{bot.lastError}</p>}
+        {bot.lastError && <div role="alert" className="break-words text-xs text-destructive">
+          {/^TS3 error 2568:/.test(bot.lastError) ? <>
+            <p>{tr('TeamSpeak denied a bot action because its identity lacks permission. This is separate from YouTube cookies.')}</p>
+            <details className="mt-1"><summary>{tr('Technical details')}</summary><p>{bot.lastError}</p></details>
+          </> : <p>{bot.lastError}</p>}
+        </div>}
         {bot.video?.health?.warning && (
           <p className="flex items-start gap-1.5 text-xs text-warning">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -294,7 +299,7 @@ function FullNowPlaying({ bot, now, footer }: NowPlayingProps): JSX.Element {
     <Card className={cn(tone === 'offline' && 'opacity-70')}>
       <CardContent className="space-y-4 p-4 sm:p-5">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 id="now-playing" className="text-base font-semibold">Now playing</h2>
+          <h2 id="now-playing" className="text-base font-semibold"> {tr("Now playing")}</h2>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => setAutomationOpen(true)}>
               <Radio className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Auto-DJ &amp; 24/7
@@ -354,7 +359,7 @@ function FullNowPlaying({ bot, now, footer }: NowPlayingProps): JSX.Element {
               )}
               <Button variant="outline" className={cn('h-11 min-w-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive', !radio && 'col-span-2 sm:col-span-1')}
                 disabled={stopMusic.isPending} onClick={() => stopMusic.mutate(bot.botId)}>
-                <Square className="mr-1.5 h-4 w-4" aria-hidden="true" /> {radio ? 'Stop radio' : 'Stop'}
+                <Square className="mr-1.5 h-4 w-4" aria-hidden="true" /> {radio ? 'Stop radio' : tr("Stop")}
               </Button>
             </div>
             {volumeControl}
@@ -419,10 +424,10 @@ function FullNowPlaying({ bot, now, footer }: NowPlayingProps): JSX.Element {
         {(tone === 'idle' || tone === 'offline') && (
           <div className="rounded-md border border-dashed px-4 py-6 text-center">
             <p className="text-sm font-medium">
-              {tone === 'idle' ? 'Nothing is playing' : bot.status === 'error' ? 'The bot hit an error' : 'The bot is offline'}
+              {tone === 'idle' ? tr("Nothing is playing") : bot.status === 'error' ? tr("The bot hit an error") : tr("The bot is offline")}
             </p>
             <p className="mt-1 text-sm text-muted-foreground">
-              {tone === 'idle' ? 'Pick something under Play something.' : 'Use Start bot to connect it to TeamSpeak.'}
+              {tone === 'idle' ? tr("Pick something under Play something.") : tr("Use Start bot to connect it to TeamSpeak.")}
             </p>
           </div>
         )}

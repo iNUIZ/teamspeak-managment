@@ -2,7 +2,7 @@
 set -Eeuo pipefail
 
 readonly APP_NAME="Teamspeak Managment"
-readonly APP_VERSION="0.3.8-alpha.2"
+readonly APP_VERSION="0.3.8-alpha.3"
 KERNEL_NAME="$(uname -s)"
 readonly KERNEL_NAME
 case "$KERNEL_NAME" in
@@ -19,7 +19,7 @@ readonly DEFAULT_TS3_IMAGE="teamspeak:3.13.8@sha256:6dfdfb22869adf50e1b66d024b36
 readonly DEFAULT_TS6_IMAGE="teamspeaksystems/teamspeak6-server:6.0.0-beta13.1@sha256:d845f803aecf842c2df034c959c23ff2462357bacafb3807500885c5ec170fa1"
 readonly HARDENED_TEASPEAK_IMAGE="teamspeak-managment/teaspeak-hardened:1.5.6"
 readonly DEFAULT_MANAGER_IMAGE="ghcr.io/uniskela/ts6-manager/all-in-one:1.11.1@sha256:f5323c743865a157293eb9028548a68941b6e8743a97597825e19fab339fc83d"
-readonly HARDENED_MANAGER_IMAGE="teamspeak-managment/manager-hardened:0.3.8-alpha.2"
+readonly HARDENED_MANAGER_IMAGE="teamspeak-managment/manager-hardened:0.3.8-alpha.3"
 readonly DEFAULT_MANAGER_SOURCE_REF="789a40d0eb2e66ae419ceb01d01d7243fc7b3072"
 readonly DEFAULT_MANAGER_SOURCE_SHA256="1dd4841ee2b70c2256b52f8cb431dddc097901e15f0ae2e69ec853e243a45ed5"
 readonly ALPINE_IMAGE="alpine:3.20@sha256:d9e853e87e55526f6b2917df91a2115c36dd7c696a35be12163d44e6e2a4b6bc"
@@ -323,7 +323,7 @@ services:
     restart: ${TS3_RESTART_POLICY:-unless-stopped}
     environment:
       TS3SERVER_LICENSE: accept
-      TS3SERVER_QUERY_PROTOCOLS: raw,http
+      TS3SERVER_QUERY_PROTOCOLS: raw,ssh,http
       TS3SERVER_SERVERADMIN_PASSWORD: "${TS3_ADMIN_PASSWORD}"
       TS3SERVER_DEFAULT_VOICE_PORT: "${TS3_VOICE_PORT}"
       TS3SERVER_FILETRANSFER_PORT: "${TS3_FILE_PORT}"
@@ -653,6 +653,7 @@ prepare_manager_image() {
     -t "$HARDENED_MANAGER_IMAGE" "$SCRIPT_DIR"
   set_env MANAGER_IMAGE "$HARDENED_MANAGER_IMAGE"
   ok "Manager güvenlik yamasıyla ${arch} için hazırlandı."
+  info "Çerezsiz YouTube PO Token hizmeti imaja dahil edildi; çerez kullanımı Ayarlar > YouTube bölümünden isteğe bağlı açılır."
 }
 
 prepare_manager_volume_permissions() {
@@ -713,7 +714,7 @@ wait_manager_ready() {
 }
 
 sync_manager_connections() {
-  local manager_id project env_path kind server_id host key result network changed=0
+  local manager_id project env_path kind server_id host key query_password result network changed=0
   local -a env_paths=("$ENV_FILE" "${DEFAULT_INSTALL_ROOT}/.env")
   if [[ $OS_FAMILY == windows ]]; then
     env_paths+=("${HOME}/.teamhub-2/.env")
@@ -748,7 +749,8 @@ sync_manager_connections() {
       fi
       host=$(docker inspect "$server_id" --format '{{.Name}}')
       host=${host#/}
-      if result=$(printf '%s\0%s\0%s\0' "${kind^^} · ${project}" "$host" "$key" \
+      query_password=$(sed -n "s/^${kind^^}_ADMIN_PASSWORD=//p" "$env_path" | tail -n 1)
+      if result=$(printf '%s\0%s\0%s\0%s\0' "${kind^^} · ${project}" "$host" "$key" "$query_password" \
         | docker exec -i --workdir /app/packages/backend "$manager_id" node dist/bootstrap/installer-cli.js sync-connection); then
         [[ $result != changed ]] || changed=1
         ok "${project}/${kind}: Manager bağlantı kaydı hazır."
@@ -757,7 +759,7 @@ sync_manager_connections() {
       fi
     done
   done
-  unset key
+  unset key query_password
   if (( changed )); then
     info "Yeni bağlantıların yüklenmesi için Manager kısa süre yeniden başlatılıyor."
     docker restart "$manager_id" >/dev/null

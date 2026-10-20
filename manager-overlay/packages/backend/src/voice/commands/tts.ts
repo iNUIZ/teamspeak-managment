@@ -5,7 +5,7 @@ import { loadTtsSettings, synthesizeSpeech } from '../audio/tts.js';
 export async function handleSay(context: CommandContext, botId: number, bot: VoiceBot, userClid: number, args: string): Promise<void> {
   // A public chat command never replaces active media without a confirmed stop.
   if (bot.status !== 'connected' || bot.mediaSession) throw new Error('Stop current media before using !say.');
-  const settings = await loadTtsSettings(context.prisma);
+  const settings = await loadTtsSettings(context.prisma, botId);
   const audio = await synthesizeSpeech(botId, args, settings);
   try {
     if (context.voiceBotManager.getBot(botId) !== bot || bot.status !== 'connected' || bot.mediaSession) { await audio.cleanup(); return; }

@@ -33,8 +33,19 @@ Saklanan ilk yönetici ayrıcalık anahtarını başkalarıyla paylaşmayın.
 
 Manager kurulumu TTS paketini sorar. Sonradan terminal menüsündeki **14**
 seçeneğiyle imajı yeniden oluşturabilirsiniz. Mevcut verileri koruyan güncelleme
-akışı kullanılır. Panel yöneticisi Ayarlar > TTS alanında etkinleştirir;
-dil, ses seviyesi, metin sınırı ve bekleme süresini değiştirir.
+akışı kullanılır. Panel yöneticisi **Bot merkezi → ilgili botun ayarları →
+Eklentiler ve komutlar → Sesli okuma (TTS)** alanında etkinleştirir;
+dil, ses seviyesi, metin sınırı ve bekleme süresini o bot için değiştirir.
+Genel Ayarlar ekranında TTS sekmesi bulunmaz. Eski ortak ayarlar, bot için
+ayrı bir ayar kaydedilene kadar okunur; diğer botların değerleri değiştirilmez.
+
+**Komutlar** sekmesindeki anahtarlar yalnızca seçili botu etkiler ve komut
+işlenirken sunucuda da uygulanır. Takma adlar aynı anahtarı paylaşır.
+**Özel komut kitaplığı** ve **Eklenti paketleri** ise aynı TeamSpeak bağlantısı
+için ortaktır; bu ekranlarda yapılan tanım/kurulum değişiklikleri bağlantıdaki
+diğer botları da etkileyebilir. Bir komutu yalnızca tek botta kapatmak için
+Komutlar sekmesini kullanın. Manifest paketleri metin komutlarıdır; keyfî
+JavaScript/Python çalıştıran üçüncü taraf eklentiler desteklenmez.
 
 ```text
 !say Merhaba, sunucuya hoş geldiniz.
@@ -61,3 +72,24 @@ Hiçbir sürüm için sıfır güvenlik açığı garantisi verilmez.
 Kaynak: https://github.com/iNUIZ/teamspeak-managment
 
 Wiki: https://nuiz.mintlify.site/index
+
+## Panel kullanım kolaylığı ve şarkı profili
+
+YouTube oynatma yöntemi Ayarlar → YouTube bölümünden seçilir. Varsayılan
+çerezsiz PO Token hizmeti Manager imajıyla gelir; çerez yüklemek tek başına
+hesap erişimini açmaz. Kullanmak için ayrıca isteğe bağlı çerez yöntemini seçin.
+Hizmet durumu, platform gereksinimleri ve sınırlamalar:
+[Çerezsiz oynatma](cookieless-youtube.md).
+
+Kontrol panelindeki hızlı işlemlerle kanallara, kullanıcılara, bot merkezine ve
+yöneticiyseniz bağlantılara ulaşabilirsiniz. Yan menüde Türkçe veya İngilizce
+sayfa adıyla arama yapılabilir; Escape aramayı temizler.
+
+Bot merkezi → bot menüsü → Botu düzenle → Avatar → **Çalan şarkının kapağı**,
+TeamSpeak içindeki otomatik şarkı profilini etkinleştirir. Açıklama ve kapak
+ilk ses paketi gönderilince güncellenir. Kapak yoksa varsayılan görsel kullanılır;
+özel yüklediğiniz dosya korunur. Varsayılan veya Yok seçimiyle otomatik modu
+kapatabilirsiniz. Sunucunun bot grubunda avatar yükleme ve açıklama değiştirme
+yetkileri bulunmalıdır. Web panelindeki önizleme dinamik kapağı göstermez.
+
+Ayrıntılı kapsam ve sınırlamalar: [Panel UX raporu](panel-ux-review.md).

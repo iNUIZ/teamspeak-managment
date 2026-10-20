@@ -1,0 +1,337 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { MusicCommandHandler } from './music-command-handler.js';
+import { MAX_QUEUE_ITEMS, PlayQueue } from './playlist/queue.js';
+import { BUILTIN_COMMAND_HELP, isReservedChatCommandName } from './chat-commands.js';
+
+function fixture(status = 'connected') {
+  const replies: string[] = [];
+  const played: any[] = [];
+  const seeks: number[] = [];
+  const playlists = [{ id: 3, name: 'Rock' }, { id: 4, name: 'Rock live' }];
+  const prisma = { appSetting: { findUnique: async () => null }, playlist: {
+    findMany: async ({ where }: any) => {
+      assert.deepEqual(where.OR, [{ serverConfigId: 9 }, { serverConfigId: null }]);
+      return playlists;
+    },
+    findFirst: async ({ where }: any) => {
+      assert.deepEqual(where.OR, [{ serverConfigId: 9 }, { serverConfigId: null }]);
+      return { name: 'Rock', songs: [{ song: { id: 7, title: 'Track', filePath: '', source: 'youtube', sourceUrl: 'https://www.youtube.com/watch?v=abcdefghijk' } }] };
+    },
+  } } as any;
+  // The bot is looked up again after the playlist query; it is the one below.
+  const manager: any = { getBot: () => bot };
+  const handler = new MusicCommandHandler(prisma, manager) as any;
+  handler.botChannelConfig.set(1, { serverConfigId: 9, virtualServerId: 1 });
+  handler.reply = (_bot: unknown, _id: number, message: string) => replies.push(message);
+  handler.saveMusicRequest = () => {};
+  const bot = { currentConfig: { id: 1, serverConfigId: 9 }, ts3ClientId: 42,
+    queue: new PlayQueue(), status, nowPlaying: null, canSeek: true,
+    playbackProgress: { position: 60, duration: 100 },
+    play: async (item: any) => played.push(item), seek: async (n: number) => seeks.push(n),
+    clearPlayback: () => {},
+    isStreaming: false,
+    stopAudio() {
+      if (this.status === 'playing' || this.status === 'paused') this.status = 'connected';
+      this.isStreaming = false;
+    },
+    videoSessionInfo: () => null, musicSessionInfo: () => null,
+  };
+  const command = (msg: string) => handler.onTextMessage(1, bot, { invokerid: '2', msg });
+  return { bot, command, replies, played, seeks, playlists, handler };
+}
+
+test('new commands and aliases are reserved and documented', () => {
+  for (const name of ['playlist', 'pl', 'repeat', 'seek', 'remove']) {
+    assert.ok(isReservedChatCommandName(name.toUpperCase()));
+    assert.ok(BUILTIN_COMMAND_HELP.some(h => h.name === name));
+  }
+});
+
+test('per-bot extension switch blocks command and aliases before playback', async () => {
+  const f = fixture();
+  f.handler.prisma.appSetting.findUnique = async ({ where }: any) => where.key === 'bot_extensions:1' ? { value: JSON.stringify({ disabledCommands: ['playlist'] }) } : null;
+  await f.command('!pl 3');
+  await f.command('!playlist 3');
+  assert.equal(f.played.length, 0);
+  f.handler.prisma.appSetting.findUnique = async () => null;
+  await f.command('!pl 3');
+  assert.equal(f.played.length, 1);
+});
+test('playlist ID/name/alias resolution, bounded lists and ambiguity', async () => {
+  const f = fixture();
+  await f.command('!pl 3');
+  assert.equal(f.played.length, 1);
+  assert.equal(f.played[0].sourceUrl, 'https://www.youtube.com/watch?v=abcdefghijk');
+  await f.command('!playlist ROCK');
+  assert.equal(f.bot.queue.length, 2);
+  await f.command('!playlist roc');
+  assert.match(f.replies.at(-1)!, /Ambiguous/);
+  f.playlists.push({ id: 5, name: 'rock' });
+  await f.command('!playlist rock');
+  assert.match(f.replies.at(-1)!, /Ambiguous/);
+  for (let i = 10; i < 100; i++) f.playlists.push({ id: i, name: 'x'.repeat(200) });
+  await f.command('!playlist');
+  assert.ok(f.replies.at(-1)!.length < 900);
+});
+test('playing and paused playlists append without interrupting', async () => {
+  for (const status of ['playing', 'paused', 'stopped']) {
+    const f = fixture(status);
+    await f.command('!playlist 3');
+    assert.equal(f.bot.queue.length, 1);
+    assert.equal(f.played.length, 0);
+  }
+});
+test('repeat and strict absolute/relative seek parsing, clamping, unseekable sources', async () => {
+  const f = fixture();
+  await f.command('!repeat'); assert.match(f.replies.at(-1)!, /off/);
+  for (const mode of ['track', 'queue', 'off']) {
+    await f.command(`!repeat ${mode}`); assert.equal(f.bot.queue.repeat, mode);
+  }
+  await f.command('!repeat bogus'); assert.match(f.replies.at(-1)!, /Usage/);
+  for (const value of ['90', '+30', '-15', '+999', '-999']) await f.command(`!seek ${value}`);
+  assert.deepEqual(f.seeks, [90, 90, 45, 100, 0]);
+  for (const value of ['1x', 'Infinity', '', '--3']) await f.command(`!seek ${value}`);
+  assert.equal(f.seeks.length, 5);
+  f.bot.canSeek = false; await f.command('!seek 1');
+  assert.match(f.replies.at(-1)!, /cannot be seeked/);
+});
+test('remove searches only upcoming tracks, refuses ambiguity and removes duplicate IDs by position', async () => {
+  const f = fixture();
+  const track = (title: string) => ({ id: 'duplicate', title, artist: 'Artist', filePath: '', source: 'local' as const });
+  f.bot.queue.addMany([track('Current'), track('Unique'), track('Other')]);
+  f.bot.queue.playAt(0);
+  await f.command('!remove current'); assert.equal(f.bot.queue.length, 3);
+  await f.command('!remove artist'); assert.match(f.replies.at(-1)!, /Multiple/);
+  await f.command('!remove UNIQUE');
+  assert.deepEqual(f.bot.queue.getAll().map(x => x.title), ['Current', 'Other']);
+  await f.command('!queue remove 2junk'); assert.equal(f.bot.queue.length, 2);
+  await f.command('!queue play NaN'); assert.equal(f.played.length, 0);
+  await f.command('!queue remove 2'); assert.equal(f.bot.queue.current?.title, 'Current');
+  await f.command('!queue clear'); assert.equal(f.bot.queue.length, 0);
+});
+
+test('!stop clears the queue so a later playlist does not inherit stale track counts', async () => {
+  const f = fixture('playing');
+  f.bot.queue.addMany([
+    { id: '1', title: 'Old A', filePath: '', source: 'local' as const },
+    { id: '2', title: 'Old B', filePath: '', source: 'local' as const },
+    { id: '3', title: 'Old C', filePath: '', source: 'local' as const },
+  ]);
+  f.bot.queue.playAt(1);
+  await f.command('!stop');
+  assert.equal(f.bot.queue.length, 0);
+  assert.equal(f.bot.queue.index, -1);
+  assert.match(f.replies.at(-1)!, /Playback stopped/);
+  await f.command('!playlist 3');
+  assert.equal(f.bot.queue.length, 1);
+  assert.equal(f.bot.queue.index, 0);
+});
+
+test('idle playlist append resumes existing queue order instead of jumping past queued tracks', async () => {
+  const f = fixture();
+  f.bot.queue.add({ id: 'existing', title: 'Already queued', filePath: '/tmp/existing.ogg', source: 'local' });
+  await f.command('!playlist 3');
+  assert.equal(f.bot.queue.length, 2);
+  assert.equal(f.played.length, 1);
+  assert.equal(f.played[0].title, 'Already queued');
+});
+test('!vol shows the shared volume and applies a new level', async () => {
+  const f = fixture();
+  f.bot.currentConfig.volume = 40;
+  const applied: number[] = [];
+  f.bot.applyVolume = async (v: number) => {
+    applied.push(v);
+    f.bot.currentConfig.volume = v;
+  };
+  await f.command('!vol');
+  assert.match(f.replies.at(-1)!, /Volume: 40%/);
+  await f.command('!volume 15');
+  assert.deepEqual(applied, [15]);
+  assert.match(f.replies.at(-1)!, /Volume set to 15%/);
+  await f.command('!vol 101');
+  assert.match(f.replies.at(-1)!, /Usage/);
+  assert.deepEqual(applied, [15]);
+  f.bot.applyVolume = async () => { throw new Error('stream busy'); };
+  await f.command('!vol 10');
+  assert.match(f.replies.at(-1)!, /Could not set volume: stream busy/);
+});
+test('commands during a TeamSpeak flood hold are set aside, not run or answered', async () => {
+  const f = fixture();
+  let ignored = 0;
+  Object.assign(f.bot, { floodHoldActive: true, noteIgnoredCommand: () => { ignored++; } });
+  await f.command('!pl 3');
+  await f.command('!repeat');
+  await f.command('1');
+  assert.equal(f.played.length, 0);
+  assert.equal(f.replies.length, 0);
+  assert.equal(ignored, 3);
+
+  // Plain chat is not a command and is not counted.
+  await f.command('hello');
+  assert.equal(ignored, 3);
+});
+test('!play <song name> searches YouTube Music and enqueues the top match', async () => {
+  const f = fixture();
+  const searched: string[] = [];
+  const enqueued: string[] = [];
+  f.handler.findSong = async (query: string) => {
+    searched.push(query);
+    return { id: 'dQw4w9WgXcQ', title: 'Never Gonna Give You Up', artist: 'Rick Astley', duration: 213,
+      thumbnail: '', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', source: 'youtube-music' };
+  };
+  f.handler.enqueueMediaUrl = async (_botId: number, _bot: unknown, _clid: number, url: string) => { enqueued.push(url); };
+  f.handler.joinChannelForCommand = async () => {};
+  await f.command('!play never gonna give you up');
+  assert.deepEqual(searched, ['never gonna give you up']);
+  assert.deepEqual(enqueued, ['https://www.youtube.com/watch?v=dQw4w9WgXcQ']);
+  assert.match(f.replies[0], /Searching YouTube Music for "never gonna give you up"/);
+
+  await f.command('!play https://youtu.be/dQw4w9WgXcQ');
+  assert.equal(searched.length, 1, 'URLs skip search');
+  assert.equal(enqueued.at(-1), 'https://youtu.be/dQw4w9WgXcQ');
+
+  await f.command('!play HTTPS://youtu.be/dQw4w9WgXcQ');
+  assert.equal(searched.length, 1, 'scheme check ignores case');
+  assert.equal(enqueued.at(-1), 'HTTPS://youtu.be/dQw4w9WgXcQ');
+});
+test('!play <song name> reports no results and search failures without enqueueing', async () => {
+  const f = fixture();
+  let enqueued = 0;
+  f.handler.enqueueMediaUrl = async () => { enqueued++; };
+  f.handler.joinChannelForCommand = async () => {};
+  f.handler.findSong = async () => null;
+  await f.command('!play zzzz nothing');
+  assert.match(f.replies.at(-1)!, /No results for "zzzz nothing"/);
+  f.handler.findSong = async () => { throw new Error('yt-dlp missing'); };
+  await f.command('!play anything');
+  assert.match(f.replies.at(-1)!, /Search failed: yt-dlp missing/);
+  assert.equal(enqueued, 0);
+});
+
+test('a skip past the last track keeps pending requests; !stop and !stopstream cancel them', async () => {
+  const f = fixture('playing');
+  const stops: unknown[] = [];
+  const videoStops: unknown[][] = [];
+  Object.assign(f.bot, {
+    stopAudio(options?: unknown) { stops.push(options); },
+    videoStreaming: false,
+    async stopVideoStream(...args: unknown[]) { videoStops.push(args); },
+  });
+  await f.command('!skip');
+  assert.deepEqual(stops, [{ keepPendingRequests: true }]);
+  await f.command('!stop');
+  assert.deepEqual(stops.slice(1), [undefined]);
+  f.bot.videoStreaming = true;
+  await f.command('!stopstream');
+  assert.deepEqual(videoStops, [['manual', 'Stopped by chat command', { cancelPendingRequests: true }]]);
+});
+
+test('!stop during radio keeps the queued songs', async () => {
+  const f = fixture('playing');
+  f.bot.queue.addMany([
+    { id: '1', title: 'Song A', filePath: '', source: 'local' as const },
+    { id: '2', title: 'Song B', filePath: '', source: 'local' as const },
+  ]);
+  f.bot.isStreaming = true;
+  await f.command('!stop');
+  assert.equal(f.bot.status, 'connected');
+  assert.equal(f.bot.isStreaming, false);
+  assert.deepEqual(f.bot.queue.getAll().map((t) => t.title), ['Song A', 'Song B']);
+  assert.match(f.replies.at(-1)!, /Playback stopped/);
+});
+
+test('!stop and !queue clear cancel a pending song lookup, including late failures', async () => {
+  for (const stop of ['!stop', '!queue clear']) {
+    for (const fails of [false, true]) {
+      const f = fixture();
+      let finish!: () => void;
+      let searchSignal!: AbortSignal;
+      let markStarted!: () => void;
+      const started = new Promise<void>(resolve => { markStarted = resolve; });
+      f.handler.findSong = (_query: string, signal: AbortSignal) => {
+        searchSignal = signal;
+        markStarted();
+        return new Promise((resolve, reject) => {
+          finish = () => fails ? reject(new Error('late failure')) : resolve({ url: 'https://youtu.be/dQw4w9WgXcQ' });
+        });
+      };
+      let enqueued = 0;
+      f.handler.enqueueMediaUrl = async () => { enqueued++; };
+      f.handler.joinChannelForCommand = async () => {};
+      const pending = f.command('!play slow song');
+      await started;
+      await f.command(stop);
+      assert.ok(searchSignal.aborted);
+      const replies = f.replies.length;
+      finish();
+      await pending;
+      assert.equal(enqueued, 0);
+      assert.equal(f.replies.length, replies, 'cancelled lookup does not reply later');
+    }
+  }
+});
+
+test('concurrent commands from the same invoker preserve each request channel', async () => {
+  const f = fixture();
+  let markStarted!: () => void;
+  const started = new Promise<void>(resolve => { markStarted = resolve; });
+  let finish!: (value: unknown) => void;
+  f.handler.findSong = () => {
+    markStarted();
+    return new Promise(resolve => { finish = resolve; });
+  };
+  const channels: Array<[string, number | undefined]> = [];
+  f.handler.reply = (_bot: unknown, _id: number, msg: string) => {
+    channels.push([msg, f.handler.context.activeReplyChannel.get('1:2')]);
+  };
+  f.handler.joinChannelForCommand = async () => {};
+  f.handler.enqueueMediaUrl = async () => {
+    channels.push(['enqueue', f.handler.context.activeReplyChannel.get('1:2')]);
+    f.handler.reply(f.bot, 2, 'finished');
+  };
+  const command = (msg: string, target: string) => f.handler.onTextMessage(1, f.bot, { invokerid: '2', msg, target });
+  const pending = command('!play slow song', '5');
+  await started;
+  await command('!repeat', '6');
+  finish({ url: 'https://youtu.be/dQw4w9WgXcQ' });
+  await pending;
+  assert.deepEqual(channels.map(([, channel]) => channel), [5, 6, 5, 5]);
+  assert.equal(f.handler.activeReplyChannel.size, 0);
+});
+
+test('!playlist that does not fit is refused whole with a message', async () => {
+  const f = fixture();
+  f.bot.queue.addMany(Array.from({ length: MAX_QUEUE_ITEMS }, (_, i) => ({ id: `q${i}`, title: `Q${i}`, filePath: '', source: 'local' as const })));
+  f.bot.queue.playAt(0);
+  await f.command('!playlist 3');
+  assert.equal(f.bot.queue.length, MAX_QUEUE_ITEMS);
+  assert.equal(f.played.length, 0);
+  assert.match(f.replies.at(-1)!, /^The queue is full \(limit 5,000 tracks\)\.$/);
+});
+
+test('chat track numbers stay stable when played tracks are pruned', async () => {
+  const f = fixture('playing');
+  f.bot.queue.addMany(Array.from({ length: 80 }, (_, i) => ({ id: `t${i}`, title: `Song ${i + 1}`, filePath: '', source: 'local' as const })));
+  for (let i = 0; i < 70; i++) f.bot.queue.next(); // "Song 70" (#70) is playing
+  assert.equal(f.bot.queue.pruned, 19);
+  await f.command('!queue');
+  const listing = f.replies.at(-1)!;
+  assert.match(listing, /## Queue \(61 tracks\)/);
+  assert.match(listing, /_… 46 earlier_/); // near the end, the window fills with earlier tracks
+  assert.match(listing, /▶️ \*\*70\.\*\* Song 70/);
+  assert.match(listing, /• \*\*72\.\*\* Song 72/);
+  // One more track ends and prunes #20: the numbers the listing showed still match.
+  f.bot.queue.next();
+  await f.command('!queue remove 72');
+  assert.equal(f.replies.at(-1), 'Removed #72: Song 72');
+  assert.ok(!f.bot.queue.getAll().some(item => item.title === 'Song 72'));
+  await f.command('!queue remove 5');
+  assert.equal(f.replies.at(-1), 'Invalid index. Use a track number from 21 to 79 (see !queue).');
+  // Removing #72 renumbers the tracks after it, as before.
+  await f.command('!queue play 74');
+  assert.equal(f.replies.at(-1), 'Playing #74: Song 75');
+  assert.equal(f.played.at(-1).title, 'Song 75');
+  await f.command('!remove song 7');
+  assert.match(f.replies.at(-1)!, /Multiple matches; use !queue remove <n>: #75 Song 76, #76 Song 77/);
+});

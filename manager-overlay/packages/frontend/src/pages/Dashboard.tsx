@@ -290,7 +290,7 @@ export default function Dashboard() {
       <PageHeader
         title={data.serverName}
         description={t('Live TeamSpeak server overview')}
-        badge={<Badge variant="success" className="font-mono-data text-[10px]">ONLINE</Badge>}
+        badge={<Badge variant="success" className="font-mono-data text-[10px]">{t('ONLINE')}</Badge>}
         actions={isAdmin ? (
           <Button size="sm" variant="outline" onClick={() => setShowWidgets(true)}>
             <LayoutGrid className="mr-1.5 h-3.5 w-3.5" /> {t('Widgets')}
@@ -303,7 +303,7 @@ export default function Dashboard() {
               className="font-mono-data text-[10px]"
               title={dashboardSourceHint(data.dataSource)}
             >
-              {dashboardSourceLabel(data.dataSource)}
+              {t(dashboardSourceLabel(data.dataSource))}
             </Badge>
             <RefreshStatus
               isRefreshing={isFetchingGate}
@@ -316,6 +316,13 @@ export default function Dashboard() {
           </div>
         )}
       />
+
+      <nav aria-label={t('Quick actions')} className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" asChild><Link to="/channels">{t('Channels')}</Link></Button>
+        <Button size="sm" variant="outline" asChild><Link to="/clients">{t('Clients')}</Link></Button>
+        {isAdmin && <Button size="sm" variant="outline" asChild><Link to="/bot-hub">{t('Bot Hub')}</Link></Button>}
+        {isAdmin && <Button size="sm" variant="outline" asChild><Link to="/settings?tab=connections">{t('Connections')}</Link></Button>}
+      </nav>
 
       {backgroundError && (
         <StaleDataNotice

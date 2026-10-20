@@ -1,5 +1,5 @@
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
-import { useMemo } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { tokensApi } from '@/api/bans.api';
 import { useServerStore } from '@/stores/server.store';
@@ -12,11 +12,35 @@ import { type ColumnDef } from '@tanstack/react-table';
 import { toast } from 'sonner';
 import { copyText } from '@/lib/clipboard';
 import { useTranslation } from '@/lib/i18n';
+import { useServerGroups, useChannelGroups } from '@/hooks/use-groups';
+import { useChannels } from '@/hooks/use-channels';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { apiErrorMessage } from '@/lib/api-error';
 
 export default function Tokens() {
   useUiTranslation();
   const { t, language } = useTranslation();
   const { selectedConfigId: c, selectedSid: s } = useServerStore();
+  const [creating, setCreating] = useState(false);
+  const [keyType, setKeyType] = useState('0');
+  const [groupId, setGroupId] = useState('');
+  const [channelId, setChannelId] = useState('');
+  const [description, setDescription] = useState('');
+  const [createdKey, setCreatedKey] = useState('');
+  const sg = useServerGroups(); const cg = useChannelGroups(); const channels = useChannels();
+  useEffect(() => { setCreating(false); setCreatedKey(''); }, [c, s]);
+  const createKey = useMutation({
+    mutationFn: () => tokensApi.add(c!, s!, { tokentype: Number(keyType), tokenid1: Number(groupId),
+      tokenid2: keyType === '1' ? Number(channelId) : 0, tokendescription: description.trim() }),
+    onSuccess: (result) => {
+      const token = (Array.isArray(result) ? result[0] : result)?.token;
+      if (typeof token !== 'string' || !token) { toast.error(t('Could not create key')); return; }
+      setCreatedKey(token); toast.success(t('Key created')); void qc.invalidateQueries({ queryKey: ['tokens', c, s] });
+    },
+  });
+  const groupRows = (keyType === '0' ? sg.data : cg.data) ?? [];
   const { data, isLoading } = useQuery({ queryKey: ['tokens', c, s], queryFn: () => tokensApi.list(c!, s!), enabled: !!c && !!s });
   const qc = useQueryClient();
   const deleteToken = useMutation({ mutationFn: (token: string) => tokensApi.delete(c!, s!, token), onSuccess: () => qc.invalidateQueries({ queryKey: ['tokens'] }) });
@@ -37,7 +61,7 @@ export default function Tokens() {
         </Button>
       </div>
     )},
-    { accessorKey: 'token_type', header: t('Type'), cell: ({ getValue }) => <span className="text-xs">{(getValue() as number) === 0 ? tr("Server Group") : tr("Channel Group")}</span> },
+    { accessorKey: 'token_type', header: t('Type'), cell: ({ getValue }) => <span className="text-xs">{Number(getValue()) === 0 ? tr("Server Group") : tr("Channel Group")}</span> },
     { accessorKey: 'token_id1', header: t('Group ID'), cell: ({ getValue }) => <span className="font-mono-data text-xs">{getValue() as number}</span> },
     { accessorKey: 'token_description', header: t('Description'), cell: ({ getValue }) => <span className="text-xs">{(getValue() as string) || '-'}</span> },
     { id: 'actions', header: () => <span className="sr-only"> {tr("Actions")}</span>, cell: ({ row }) => (
@@ -52,7 +76,35 @@ export default function Tokens() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-xl font-semibold"> {tr("Privilege Keys")}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-semibold"> {tr("Privilege Keys")}</h1>
+        <Button onClick={() => { setKeyType('0'); setGroupId(''); setChannelId(''); setDescription(''); setCreatedKey(''); createKey.reset(); setCreating(true); }}>{t('Create privilege key')}</Button>
+      </div>
+      <Dialog open={creating} onOpenChange={open => { if (!createKey.isPending) setCreating(open); }}>
+        <DialogContent><DialogHeader><DialogTitle>{t('Create privilege key')}</DialogTitle></DialogHeader>
+          {createdKey ? <div className="space-y-3">
+            <Input aria-label={t('Token')} readOnly value={createdKey} onFocus={event => event.target.select()} />
+            <Button onClick={() => { void copyText(createdKey).then(() => toast.success(t('Copied')), () => toast.error(t('Could not copy. Select the text and copy it by hand.'))); }}>{t('Copy')}</Button>
+          </div> : <form className="space-y-3" onSubmit={event => { event.preventDefault(); if (groupId && (keyType === '0' || channelId)) createKey.mutate(); }}>
+            <Label htmlFor="key-type">{t('Type')}</Label>
+            <select id="key-type" className="w-full rounded-md border bg-background p-2" value={keyType} onChange={event => { setKeyType(event.target.value); setGroupId(''); }}>
+              <option value="0">{t('Server Group')}</option><option value="1">{t('Channel Group')}</option>
+            </select>
+            <Label htmlFor="key-group">{t('Group')}</Label>
+            <select id="key-group" className="w-full rounded-md border bg-background p-2" value={groupId} onChange={event => setGroupId(event.target.value)} required>
+              <option value="">{t('Choose group')}</option>{Array.isArray(groupRows) && groupRows.map((group: any) => <option key={group.sgid ?? group.cgid} value={group.sgid ?? group.cgid}>{group.name}</option>)}
+            </select>
+            {keyType === '1' && <><Label htmlFor="key-channel">{t('Target channel')}</Label>
+              <select id="key-channel" className="w-full rounded-md border bg-background p-2" value={channelId} onChange={event => setChannelId(event.target.value)} required>
+                <option value="">{t('Select channel')}</option>{Array.isArray(channels.data) && channels.data.map((channel: any) => <option key={channel.cid} value={channel.cid}>{channel.channel_name}</option>)}
+              </select></>}
+            <Label htmlFor="key-description">{t('Description')}</Label><Input id="key-description" value={description} maxLength={255} onChange={event => setDescription(event.target.value)} />
+            {createKey.isError && <p role="alert" className="text-sm text-destructive">{apiErrorMessage(createKey.error, t('Could not create key'))}</p>}
+            <div className="flex justify-end gap-2"><Button type="button" variant="outline" onClick={() => setCreating(false)} disabled={createKey.isPending}>{t('Cancel')}</Button>
+              <Button type="submit" disabled={createKey.isPending || !groupId || (keyType === '1' && !channelId)}>{t('Create')}</Button></div>
+          </form>}
+        </DialogContent>
+      </Dialog>
       <DataTable
         columns={columns}
         data={tokens}

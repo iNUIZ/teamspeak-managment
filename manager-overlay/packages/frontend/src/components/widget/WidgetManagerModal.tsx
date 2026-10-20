@@ -1,5 +1,5 @@
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -20,6 +20,7 @@ import { Copy, ExternalLink, Plus, Trash2, Pencil, RefreshCw, ArrowLeft, Code2, 
 import { copyText as writeClipboard } from '@/lib/clipboard';
 import { toast } from 'sonner';
 import { translate } from '@/lib/i18n';
+import { apiErrorMessage } from '@/lib/api-error';
 
 interface Props {
   open: boolean;
@@ -51,6 +52,14 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
   const [name, setName] = useState('');
   const [serverConfigId, setServerConfigId] = useState<number>(0);
   const [virtualServerId, setVirtualServerId] = useState(1);
+  const [formError, setFormError] = useState('');
+  const virtualServers = useQuery<any[]>({ queryKey: ['widget-server-options', serverConfigId],
+    queryFn: () => serversApi.listVirtual(serverConfigId), enabled: !!serverConfigId && (view === 'create' || view === 'edit') });
+  const serverOptions = Array.isArray(virtualServers.data) ? virtualServers.data : [];
+  const validTarget = serverOptions.some(server => Number(server.virtualserver_id) === virtualServerId);
+  useEffect(() => {
+    if (view === 'create' && serverOptions.length && !validTarget) setVirtualServerId(Number(serverOptions[0].virtualserver_id));
+  }, [virtualServers.data, view, validTarget]);
   const [theme, setTheme] = useState<WidgetTheme>('dark');
   const [showChannelTree, setShowChannelTree] = useState(true);
   const [showClients, setShowClients] = useState(true);
@@ -58,6 +67,7 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
   const [maxChannelDepth, setMaxChannelDepth] = useState(5);
 
   const resetForm = () => {
+    setFormError('');
     setName('');
     setServerConfigId(servers[0]?.id ?? 0);
     setVirtualServerId(1);
@@ -75,6 +85,9 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
   };
 
   const openEdit = (w: WidgetConfig) => {
+    setFormError('');
+    setServerConfigId(w.serverConfigId);
+    setVirtualServerId(w.virtualServerId);
     setEditTarget(w);
     setName(w.name);
     setTheme(w.theme);
@@ -91,7 +104,9 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
   };
 
   const handleCreate = async () => {
-    if (!name.trim() || !serverConfigId) return;
+    if (!name.trim() || !serverConfigId || !validTarget || createWidget.isPending) return;
+    setFormError('');
+    try {
     await createWidget.mutateAsync({
       name: name.trim(),
       serverConfigId,
@@ -103,15 +118,19 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
       maxChannelDepth,
     });
     setView('list');
+    } catch (error) { setFormError(apiErrorMessage(error, tr('Widget could not be saved'))); }
   };
 
   const handleUpdate = async () => {
-    if (!editTarget || !name.trim()) return;
+    if (!editTarget || !name.trim() || !validTarget || updateWidget.isPending) return;
+    setFormError('');
+    try {
     await updateWidget.mutateAsync({
       id: editTarget.id,
-      data: { name: name.trim(), theme, showChannelTree, showClients, hideEmptyChannels, maxChannelDepth },
+      data: { name: name.trim(), serverConfigId, virtualServerId, theme, showChannelTree, showClients, hideEmptyChannels, maxChannelDepth },
     });
     setView('list');
+    } catch (error) { setFormError(apiErrorMessage(error, tr('Widget could not be saved'))); }
   };
 
   const handleDelete = async (id: number) => {
@@ -119,11 +138,10 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
   };
 
   const handleRegenerate = async (w: WidgetConfig) => {
-    await regenerateToken.mutateAsync(w.id);
+    const updated = await regenerateToken.mutateAsync(w.id);
     if (embedTarget?.id === w.id) {
       // Refresh embed target with new token
-      const updated = widgets.find(x => x.id === w.id);
-      if (updated) setEmbedTarget(updated);
+      setEmbedTarget(updated);
     }
   };
 
@@ -198,11 +216,11 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
                 <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("My Server Widget")} />
               </div>
 
-              {view === 'create' && (
+              {(view === 'create' || view === 'edit') && (
                 <>
                   <div className="space-y-2">
                     <Label> {tr("Server")}</Label>
-                    <Select value={String(serverConfigId)} onValueChange={(v) => setServerConfigId(Number(v))}>
+                    <Select value={String(serverConfigId)} onValueChange={(v) => { setServerConfigId(Number(v)); setVirtualServerId(0); }}>
                       <SelectTrigger><SelectValue placeholder={tr("Select server")} /></SelectTrigger>
                       <SelectContent>
                         {servers.map((s) => (
@@ -213,8 +231,15 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
                   </div>
 
                   <div className="space-y-2">
-                    <Label> {tr("Virtual Server ID")}</Label>
-                    <Input type="number" min={1} value={virtualServerId} onChange={(e) => setVirtualServerId(Number(e.target.value))} />
+                    <Label htmlFor="widget-teamserver">{tr('TeamSpeak server')}</Label>
+                    <Select value={validTarget ? String(virtualServerId) : ''} onValueChange={v => setVirtualServerId(Number(v))} disabled={virtualServers.isFetching}>
+                      <SelectTrigger id="widget-teamserver"><SelectValue placeholder={tr(virtualServers.isFetching ? 'Loading servers…' : 'Select server')} /></SelectTrigger>
+                      <SelectContent>{serverOptions.map(server => <SelectItem key={server.virtualserver_id} value={String(server.virtualserver_id)}>
+                        {server.virtualserver_name} · {server.virtualserver_port}
+                      </SelectItem>)}</SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">{tr('Choose by server name and voice port; the internal ID is managed automatically.')}</p>
+                    {virtualServers.isError && <p role="alert" className="text-sm text-destructive">{tr('Could not load servers')}</p>}
                   </div>
                 </>
               )}
@@ -255,10 +280,11 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
 
               <div className="flex justify-end gap-2 pt-2">
                 <Button variant="outline" onClick={() => setView('list')}> {tr("Cancel")}</Button>
-                <Button onClick={view === 'create' ? handleCreate : handleUpdate} disabled={!name.trim()}>
+                <Button onClick={view === 'create' ? handleCreate : handleUpdate} disabled={!name.trim() || !validTarget || virtualServers.isFetching || createWidget.isPending || updateWidget.isPending}>
                   {view === 'create' ? tr("Create") : tr("Save")}
                 </Button>
               </div>
+              {formError && <p role="alert" className="text-sm text-destructive">{formError}</p>}
             </div>
           )}
 

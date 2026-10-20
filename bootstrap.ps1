@@ -2,7 +2,7 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 $repository = 'iNUIZ/teamspeak-managment'
-$releaseTag = 'v0.3.8-alpha.2'
+$releaseTag = 'v0.3.8-alpha.3'
 $apiHeaders = @{ Accept = 'application/vnd.github+json'; 'User-Agent' = 'Teamspeak-Managment-Installer' }
 $temporaryRoot = Join-Path ([System.IO.Path]::GetTempPath()) ("teamspeak-managment-" + [guid]::NewGuid().ToString('N'))
 $releaseSigningPublicKey = @'

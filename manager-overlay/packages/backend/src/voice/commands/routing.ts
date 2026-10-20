@@ -9,6 +9,7 @@ import { channelCommandKey, claimChannelCommand } from './dedupe.js';
 import { checkMediaCommand, handleVoteSkip } from './media-access.js';
 import { handleSearchChoice } from './search.js';
 import { handleSay } from './tts.js';
+import { canonicalBotCommand, readBotExtensions } from '../bot-extension-settings.js';
 import { handleListenerRemote, revokeDepartedRemote } from './listener-remote.js';
 const CMD_PREFIX = '!';
 const MUSIC_COMMANDS = new Set<string>(BUILTIN_CHAT_COMMANDS);
@@ -326,12 +327,8 @@ export async function onTextMessage(
   if (!userClid) return;
 
   const msg = (data.msg || '').trim();
-  if (!msg.startsWith(CMD_PREFIX)) {
-    if (/^(?:10|[1-9])$/.test(msg)) {
-      await handleSearchChoice(context, botId, bot, userClid, Number(msg));
-    }
-    return;
-  }
+  const searchChoice = /^(?:10|[1-9])$/.test(msg) ? Number(msg) : null;
+  if (!msg.startsWith(CMD_PREFIX) && searchChoice === null) return;
   // During TeamSpeak's anti-flood block every action and reply would be
   // refused and extend the block: set the command aside (the bot says once
   // afterwards that commands were ignored).
@@ -340,7 +337,9 @@ export async function onTextMessage(
     return;
   }
 
-  const parts = msg.substring(CMD_PREFIX.length).split(/\s+/);
+  // Numeric search choices require the same permissions, flood hold and reply
+  // channel scoping as !play. Never dispatch before those checks.
+  const parts = searchChoice === null ? msg.substring(CMD_PREFIX.length).split(/\s+/) : ['play'];
   const command = parts[0].toLowerCase();
   let rawArgs = parts.slice(1).join(' ').trim();
 
@@ -391,6 +390,9 @@ export async function onTextMessage(
   // Ignore messages from ourselves (the bot)
   if (userClid === bot.ts3ClientId) return;
 
+  const extensions = await readBotExtensions(context.prisma, botId);
+  if (extensions.disabledCommands.includes(canonicalBotCommand(command)) || (searchChoice !== null && extensions.disabledCommands.includes('ara'))) return;
+
   // Remote issuance has a private-only failure path, including lookup/service failures.
   if (command === 'remote') {
     await handleListenerRemote(context, botId, bot, userClid, data.invokeruid);
@@ -403,6 +405,10 @@ export async function onTextMessage(
     if (bot.floodHoldActive) { bot.noteIgnoredCommand(); return; }
     console.log(`[MusicCmd] Bot ${botId}: !${command} ${command === 'say' ? '[redacted]' : args} (from clid=${userClid})`);
     try {
+      if (searchChoice !== null) {
+        await handleSearchChoice(context, botId, bot, userClid, searchChoice);
+        return;
+      }
       switch (command) {
         case 'say':
           await handleSay(context, botId, bot, userClid, args);

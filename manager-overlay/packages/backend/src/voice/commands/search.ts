@@ -50,7 +50,12 @@ function mergeAndRank(
 }
 
 function formatResults(query: string, results: RankedResult[]): string {
-  const lines = results.map((item, index) => `${index + 1}. [${item.sourceLabel}] ${item.artist} - ${item.title}`);
+  const lines = results.map((item, index) => {
+    const source = item.sourceLabel === 'Spotify match' ? 'YouTube' : item.sourceLabel;
+    const duration = Number.isFinite(item.duration) && item.duration > 0
+      ? ` (${Math.floor(item.duration / 60)}:${String(Math.floor(item.duration % 60)).padStart(2, '0')})` : '';
+    return `${index + 1}. [${source}] ${item.artist} - ${item.title}${duration}`;
+  });
   return `🔎 ${query}\n${lines.join('\n')}\n\nÇalmak için 1-10 arasında yalnızca numarayı yaz.`;
 }
 
@@ -66,7 +71,7 @@ export async function handleSearch(
     await context.reply(bot, userClid, 'Kullanım: !ara <şarkı veya sanatçı>');
     return;
   }
-  await context.reply(bot, userClid, 'YouTube Music, YouTube ve Spotify eşleşmeleri kaliteye göre aranıyor...');
+  await context.reply(bot, userClid, 'YouTube Music ve YouTube aranıyor; sonuçlar başlık, sanatçı ve sürüm uyumuna göre sıralanıyor...');
   const signal = AbortSignal.timeout(180_000);
   const settled = await Promise.allSettled([
     searchYouTubeMusic(query, 8, signal),
@@ -113,8 +118,16 @@ export async function handleSearchChoice(
     return true;
   }
   sessions.delete(key);
-  await context.reply(bot, userClid, `Seçildi: ${selected.artist} - ${selected.title}`);
-  await context.enqueueMediaUrl(botId, bot, userClid, `https://www.youtube.com/watch?v=${selected.id}`);
+  await context.reply(bot, userClid, `Hazırlanıyor: ${selected.artist} - ${selected.title}`);
+  try {
+    await context.enqueueMediaUrl(botId, bot, userClid, `https://www.youtube.com/watch?v=${selected.id}`);
+  } catch (error) {
+    // Do not leak downloader paths, proxy credentials or cookie locations to chat.
+    const blocked = /sign in to confirm|not a bot|bot.check/i.test(error instanceof Error ? error.message : '');
+    await context.reply(bot, userClid, blocked
+      ? 'Çalınamadı: YouTube sunucu bağlantısında doğrulama istiyor. Arama sonucu bulunması, sesin indirilebildiği anlamına gelmez. Yönetici Medya tanılama bölümünü kontrol etmeli.'
+      : 'Şarkı hazırlanamadı. Yönetici Medya tanılama bölümünü ve bot kayıtlarını kontrol etmeli. Tekrar !ara ile deneyebilirsiniz.');
+  }
   return true;
 }
 

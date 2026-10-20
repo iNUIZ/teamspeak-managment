@@ -22,9 +22,10 @@ const EXAMPLE = JSON.stringify({
   ],
 }, null, 2);
 
-export function ExtensionsTab() {
+export function ExtensionsTab({ fixedConfigId }: { fixedConfigId?: number } = {}) {
   const { t } = useTranslation();
-  const { selectedConfigId } = useServerStore();
+  const headerConfigId = useServerStore(s => s.selectedConfigId);
+  const selectedConfigId = fixedConfigId ?? headerConfigId;
   const qc = useQueryClient();
   const [source, setSource] = useState(EXAMPLE);
   const queryKey = ['extensions', selectedConfigId];
@@ -41,6 +42,7 @@ export function ExtensionsTab() {
   const toggle = useMutation({
     mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => extensionsApi.setEnabled(selectedConfigId!, id, enabled),
     onSuccess: () => qc.invalidateQueries({ queryKey }),
+    onError: () => toast.error(t('Extension settings could not be saved')),
   });
 
   const importManifest = () => {
@@ -59,7 +61,7 @@ export function ExtensionsTab() {
         <CardContent className="grid gap-3 md:grid-cols-2">
           {bundled.map((pack: any) => (
             <div key={pack.id} className="rounded-lg border p-4">
-              <div className="flex items-start justify-between gap-3"><div><div className="font-medium">{pack.name}</div><div className="mt-1 text-xs text-muted-foreground">{pack.description}</div></div><Badge>Bundled</Badge></div>
+              <div className="flex items-start justify-between gap-3"><div><div className="font-medium">{t(pack.name)}</div><div className="mt-1 text-xs text-muted-foreground">{t(pack.description)}</div></div><Badge>{t('Bundled')}</Badge></div>
             </div>
           ))}
         </CardContent>
@@ -72,7 +74,7 @@ export function ExtensionsTab() {
           {installed.map((pack: any) => (
             <div key={pack.id} className="flex items-center justify-between gap-4 rounded-lg border p-4">
               <div><div className="font-medium">{pack.name} <span className="text-xs text-muted-foreground">v{pack.version}</span></div><div className="text-xs text-muted-foreground">{pack.description || `${pack.commands?.length || 0} command(s)`}</div></div>
-              <Switch checked={Boolean(pack.enabled)} onCheckedChange={(enabled) => toggle.mutate({ id: pack.id, enabled })} />
+              <Switch aria-label={pack.name} disabled={toggle.isPending} checked={Boolean(pack.enabled)} onCheckedChange={(enabled) => toggle.mutate({ id: pack.id, enabled })} />
             </div>
           ))}
         </CardContent>
@@ -81,7 +83,7 @@ export function ExtensionsTab() {
       <Card>
         <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Upload className="h-4 w-4" /> {t('Install from manifest')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-muted-foreground"><ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500" /> Manifests use a permission-limited command format. Uploaded packages cannot execute arbitrary Node.js code, read secrets, or access the host filesystem.</div>
+          <div className="flex gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-muted-foreground"><ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500" />{t('Manifests define text commands; they do not run arbitrary code or access host files.')}</div>
           <Label htmlFor="extension-manifest">extension.json</Label>
           <textarea id="extension-manifest" className="min-h-64 w-full rounded-md border bg-background p-3 font-mono text-xs" value={source} onChange={(event) => setSource(event.target.value)} spellCheck={false} />
           <Button onClick={importManifest} disabled={install.isPending}><Upload className="mr-2 h-4 w-4" /> {t('Validate and install')}</Button>

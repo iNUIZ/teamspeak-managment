@@ -20,6 +20,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from 
 import { BrandMark } from '@/components/shared/BrandMark';
 import { APP_DOCUMENTATION_URL, APP_REPOSITORY_URL, APP_VERSION, APP_VERSION_LABEL } from '@/lib/app-version';
 import { useTranslation } from '@/lib/i18n';
+import { Input } from '@/components/ui/input';
 
 interface NavSection {
   id: SidebarSectionId;
@@ -106,6 +107,10 @@ interface NavigationContentProps {
 
 function NavigationContent({ collapsed = false, mobile = false, onNavigate }: NavigationContentProps) {
   const { t } = useTranslation();
+  const [menuSearch, setMenuSearch] = useState('');
+  const query = collapsed ? '' : menuSearch.trim().toLocaleLowerCase('tr-TR');
+  const matches = (label: string) => !query || t(label).toLocaleLowerCase('tr-TR').includes(query)
+    || label.toLocaleLowerCase('en-US').includes(query);
   const isAdmin = useAuthStore((s) => s.isAdmin());
   const location = useLocation();
   const sidebarSections = useUiStore((s) => s.sidebarSections);
@@ -117,11 +122,11 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
     <NavLink
       to="/settings"
       onClick={onNavigate}
-      aria-label={collapsed ? 'Settings' : undefined}
+      aria-label={collapsed ? t('Settings') : undefined}
       aria-current={settingsActive ? 'page' : undefined}
       className={cn(
         'flex items-center gap-2.5 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        mobile ? 'min-h-10 px-2.5 py-2' : 'px-2.5 py-1',
+        mobile ? 'min-h-10 px-2.5 py-2' : 'px-2.5 py-0.5',
         collapsed && 'justify-center px-0 py-2',
         settingsActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
       )}
@@ -134,14 +139,24 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
   return (
     <>
       <div className="relative flex min-h-0 flex-1 flex-col" data-nav-scroll-container>
+        {!collapsed && <div className="px-2 pt-2 relative">
+          <Input value={menuSearch} onChange={(event) => setMenuSearch(event.target.value)}
+            aria-label={t('Search menu')} placeholder={t('Search pages…')} className="h-11 pr-12 sm:h-9 sm:pr-9"
+            onKeyDown={(event) => { if (event.key === 'Escape') setMenuSearch(''); }} />
+          {menuSearch && <button type="button" aria-label={t('Clear search')} onClick={() => setMenuSearch('')}
+            className="absolute right-2 top-2 h-11 w-11 text-muted-foreground hover:text-foreground sm:h-9 sm:w-9">×</button>}
+        </div>}
         <ScrollArea ref={scrollRootRef} type="auto" className="h-full py-2">
           <nav className="space-y-1 px-2" aria-label={mobile ? 'Mobile navigation' : 'Primary navigation'}>
+            {query && !navSections.some(section => (!section.adminOnly || isAdmin)
+              && section.items.some(item => (!item.adminOnly || isAdmin) && matches(item.label)))
+              && <p role="status" className="px-2 py-3 text-sm text-muted-foreground">{t('No matching pages')}</p>}
             {navSections
               .filter((section) => !section.adminOnly || isAdmin)
               .map((section, si) => {
-                const visibleItems = section.items.filter((item) => !item.adminOnly || isAdmin);
+                const visibleItems = section.items.filter((item) => (!item.adminOnly || isAdmin) && matches(item.label));
                 if (visibleItems.length === 0) return null;
-                const expanded = sidebarSections[section.id];
+                const expanded = !!query || sidebarSections[section.id];
                 const activeItem = visibleItems.find(item => location.pathname === item.to || location.pathname.startsWith(item.to + '/'));
                 const contentId = `${mobile ? 'mobile' : 'desktop'}-${section.id}-navigation`;
                 const renderItem = (item: (typeof visibleItems)[number]) => {
@@ -155,7 +170,7 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
                       aria-current={isActive ? 'page' : undefined}
                       className={cn(
                         'flex items-center gap-2.5 rounded-md text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        mobile ? 'min-h-10 px-2.5 py-2' : 'px-2.5 py-1',
+                        mobile ? 'min-h-10 px-2.5 py-2' : 'px-2.5 py-0.5',
                         collapsed && 'justify-center px-0 py-2',
                         isActive
                           ? 'bg-sidebar-accent text-sidebar-accent-foreground'
@@ -181,7 +196,7 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
                 };
 
                 return (
-                  <div key={section.id} className={cn(si > 0 && !collapsed && !mobile && 'pt-1.5')}>
+                  <div key={section.id} className={cn(si > 0 && !collapsed && !mobile && 'pt-1')}>
                     {si > 0 && collapsed && <Separator className="my-2 bg-sidebar-border" />}
                     {!collapsed && (
                       <button
@@ -353,6 +368,7 @@ export function Sidebar() {
 }
 
 export function MobileNavigation() {
+  const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const location = useLocation();
 
@@ -363,7 +379,7 @@ export function MobileNavigation() {
   return (
     <Sheet open={open} onOpenChange={setOpen}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 lg:hidden" aria-label="Open navigation menu" title="Open navigation menu">
+        <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 lg:hidden" aria-label={t('Open navigation menu')} title={t('Open navigation menu')}>
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>

@@ -24,6 +24,9 @@ import { MAX_QUEUE_ITEMS, QueueFullError, type QueueItem, type QueueReservation 
 import { summarizeBotAutomation } from '@ts6/common';
 import type { BotMediaOverview } from '@ts6/common';
 import { parseAutomationSettings, readAutomationSettings } from '../voice/automation-settings.js';
+import { botTtsSettingsKey, loadTtsSettings, parseTtsSettings, ttsInstalled } from '../voice/audio/tts.js';
+import { botExtensionsKey, canonicalBotCommand, parseBotExtensions, readBotExtensions } from '../voice/bot-extension-settings.js';
+import { BUILTIN_COMMAND_HELP } from '../voice/chat-commands.js';
 
 export const musicBotRoutes: Router = Router();
 
@@ -117,6 +120,53 @@ async function avatarBot(req: Request) {
   return bot;
 }
 
+musicBotRoutes.get('/:id/tts', async (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  try {
+    const bot = await avatarBot(req);
+    res.json({ settings: await loadTtsSettings(req.app.locals.prisma, bot.id), installed: await ttsInstalled() });
+  } catch (error) { next(error); }
+});
+
+musicBotRoutes.get('/:id/extensions', async (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store');
+  try {
+    const bot = await avatarBot(req);
+    const settings = await readBotExtensions(req.app.locals.prisma, bot.id);
+    const custom = await req.app.locals.prisma.chatCommand.findMany({ where: { serverConfigId: bot.serverConfigId }, select: { name: true, description: true, enabled: true } });
+    res.json({ ...settings, serverConfigId: bot.serverConfigId, builtin: BUILTIN_COMMAND_HELP.map(c => ({ ...c, canonical: canonicalBotCommand(c.name) })), custom });
+  } catch (error) { next(error); }
+});
+musicBotRoutes.put('/:id/extensions', async (req, res, next) => {
+  try {
+    const bot = await avatarBot(req);
+    let settings;
+    try { settings = parseBotExtensions(req.body); } catch { throw new AppError(400, 'Invalid bot command settings'); }
+    await serializeBotSettings(bot.id, async () => {
+      await avatarBot(req);
+      const key = botExtensionsKey(bot.id), value = JSON.stringify(settings);
+      await req.app.locals.prisma.appSetting.upsert({ where: { key }, create: { key, value }, update: { value } });
+    });
+    res.json(settings);
+  } catch (error) { next(error); }
+});
+
+musicBotRoutes.put('/:id/tts', async (req, res, next) => {
+  try {
+    const bot = await avatarBot(req);
+    let settings;
+    try { settings = parseTtsSettings(req.body); } catch { throw new AppError(400, 'Invalid TTS settings'); }
+    if (settings.enabled && !await ttsInstalled()) throw new AppError(409, 'Install the optional TTS package from the server installer first.');
+    await serializeBotSettings(bot.id, async () => {
+      await avatarBot(req);
+      const key = botTtsSettingsKey(bot.id);
+      const value = JSON.stringify(settings);
+      await req.app.locals.prisma.appSetting.upsert({ where: { key }, create: { key, value }, update: { value } });
+    });
+    res.json(settings);
+  } catch (error) { next(error); }
+});
+
 musicBotRoutes.get('/:id/avatar', async (req, res, next) => {
   res.setHeader('Cache-Control', 'no-store');
   try {
@@ -163,7 +213,7 @@ musicBotRoutes.put('/:id/avatar', (req, res, next) => {
 musicBotRoutes.put('/:id/avatar/mode', async (req, res, next) => {
   try {
     const mode = req.body.mode as BotAvatarMode;
-    if (!['custom', 'default', 'none'].includes(mode)) throw new AppError(400, 'mode must be custom, default or none');
+    if (!['custom', 'default', 'none', 'now-playing'].includes(mode)) throw new AppError(400, 'mode must be custom, default, none or now-playing');
     const existing = await avatarBot(req);
     await serializeBotSettings(existing.id, async () => {
       const current = await avatarBot(req);

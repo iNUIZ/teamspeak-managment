@@ -15,17 +15,17 @@ export function Header() {
   const logout = useLogout();
 
   return (
-    <header className="grid min-h-14 shrink-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-1.5 border-b border-border bg-card/50 px-2 py-2 backdrop-blur-sm sm:gap-3 sm:px-4 md:flex md:h-14 md:justify-between md:px-5 md:py-0 md:pt-0">
+    <header className="grid min-h-14 shrink-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-1.5 border-b border-border bg-card/50 px-2 py-2 backdrop-blur-sm sm:gap-3 sm:px-4 lg:flex lg:h-14 lg:justify-between lg:px-5 lg:py-0">
       <MobileNavigation />
       <ServerSelector />
 
-      <div className="flex shrink-0 items-center gap-0.5 sm:gap-2">
+      <div className="col-start-2 row-start-1 flex shrink-0 items-center justify-self-end gap-0.5 sm:gap-2">
         <LanguageSwitch />
         <ThemeToggle />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="sm" className="h-10 gap-2 px-2 sm:h-8 sm:px-3" aria-label="Open account menu" title="Account menu">
+            <Button variant="ghost" size="sm" className="h-10 gap-2 px-2 sm:h-8 sm:px-3" aria-label={t('Open account menu')} title={t('Account menu')}>
               <div className="h-6 w-6 rounded-full bg-primary/20 flex items-center justify-center">
                 <User className="h-3 w-3 text-primary" />
               </div>

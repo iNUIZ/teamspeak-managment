@@ -2,10 +2,35 @@ import { useEffect } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { extraTurkish } from './tr-extra';
+import { operationsTurkish } from './tr-operations';
 
 export type Language = 'tr' | 'en';
 const turkish: Record<string, string> = {
+  'YouTube playback method': 'YouTube oynatma yöntemi',
+  'Change YouTube playback method': 'YouTube oynatma yöntemini değiştir',
+  'Playback method': 'Oynatma yöntemi',
+  'PO Token — cookieless (recommended)': 'PO Token — çerezsiz (önerilen)',
+  'Optional account cookies': 'İsteğe bağlı hesap çerezleri',
+  'Failed to change YouTube playback mode': 'YouTube oynatma yöntemi değiştirilemedi',
+  'PO Token is the default, without account cookies. Network or account restrictions can still prevent playback. Cookies are an optional fallback, not a guaranteed network fix.': 'Varsayılan yöntem, hesap çerezi gerektirmeyen PO Token’dır. Ağ veya hesap kısıtlamaları yine de oynatmayı engelleyebilir. Çerezler isteğe bağlı alternatif olup ağ sorunlarını kesin olarak çözmez.',
+  'PO Token provider ready': 'PO Token hizmeti hazır',
+  'PO Token provider unavailable — check the local service': 'PO Token hizmetine ulaşılamıyor — yerel hizmeti kontrol edin',
+  'PO Token provider is not installed in this runtime': 'Bu çalışma ortamında PO Token hizmeti kurulu değil',
+  'Uploading only stores the file. Select optional account cookies above to use it.': 'Yükleme yalnızca dosyayı kaydeder. Kullanmak için yukarıdan isteğe bağlı hesap çerezlerini seçin.',
+  'Cookie file stored — not in use': 'Çerez dosyası kayıtlı — kullanımda değil',
+  'Remove': 'Kaldır',
+  'Limits saved': 'Sınırlar kaydedildi',
+  'Failed to save limits': 'Sınırlar kaydedilemedi',
+  'Download & Stream Limits': 'İndirme ve yayın sınırları',
+  'Limit playlist imports to at most 500 tracks per import.': 'Her liste içe aktarma işlemini en fazla 500 parçayla sınırlayın.',
+  'Stream YouTube videos directly': 'YouTube videolarını doğrudan oynat',
+  'Play video directly instead of downloading first. Some networks block direct playback; disable this if video does not start.': 'Videoyu indirmek yerine doğrudan oynatın. Bazı ağlar doğrudan oynatmayı engeller; video başlamıyorsa bu seçeneği kapatın.',
+  'Max video duration (seconds, 0 = unlimited)': 'En uzun video süresi (saniye, 0 = sınırsız)',
+  'Applies to downloaded videos; not used when YouTube videos are streamed directly.': 'İndirilen videolar için geçerlidir; doğrudan oynatılan YouTube videolarını etkilemez.',
+  'Max playlist import tracks (1–500)': 'Bir defada içe aktarılacak parça sınırı (1–500)',
+  'Save Limits': 'Sınırları kaydet',
   ...extraTurkish,
+  ...operationsTurkish,
   'Plain theme background': 'Sade tema arka planı', 'Technical grid lines': 'İnce ızgara çizgileri',
   'Subtle dot matrix': 'Hafif noktalı desen', 'Soft accent-coloured glow': 'Vurgu renginde yumuşak ışıltı',
   'Slow-moving accent gradient': 'Yavaş hareket eden renk geçişi', 'Subtle static texture': 'Hafif sabit doku',
@@ -38,7 +63,7 @@ const turkish: Record<string, string> = {
   'From Template': 'Şablondan oluştur', 'New Bot': 'Yeni bot',
   'Change Password': 'Parolayı değiştir', 'Current Password': 'Mevcut parola', 'New Password': 'Yeni parola',
   'Confirm New Password': 'Yeni parolayı doğrula', 'Changing...': 'Değiştiriliyor...',
-  Overview: 'Genel bakış', Dashboard: 'Kontrol paneli', 'Virtual Servers': 'Sanal sunucular',
+  Overview: 'Genel bakış', Dashboard: 'Kontrol paneli', 'Virtual Servers': 'TeamSpeak sunucuları',
   Management: 'Yönetim', Channels: 'Kanallar', Clients: 'Kullanıcılar',
   'Server Groups': 'Sunucu grupları', 'Channel Groups': 'Kanal grupları', Permissions: 'Yetkiler',
   Security: 'Güvenlik', Bans: 'Yasaklar', Tokens: 'Yetki anahtarları', Content: 'İçerik',
@@ -65,8 +90,56 @@ const turkish: Record<string, string> = {
     'Görünüm bu tarayıcıda saklanır. Durum renkleri tüm temalarda anlamını korur.',
   'Decorative motion is never required to understand application state.': 'Görsel hareketler uygulama durumunu anlamak için gerekli değildir.',
   'Sits behind content and never affects readability or interaction.': 'İçeriğin arkasında kalır; okunabilirliği ve etkileşimi etkilemez.',
-  'Select server...': 'Sunucu seçin...', 'Virtual server': 'Sanal sunucu',
-  'Loading virtual servers…': 'Sanal sunucular yükleniyor…', 'No virtual server': 'Sanal sunucu yok',
+  'Select server...': 'Sunucu seçin...', 'Virtual server': 'TeamSpeak sunucusu',
+  'Loading virtual servers…': 'TeamSpeak sunucuları yükleniyor…', 'No virtual server': 'TeamSpeak sunucusu yok',
+  'TeamSpeak servers': 'TeamSpeak sunucuları',
+  'Quick actions': 'Hızlı işlemler',
+  ONLINE: 'Çevrimiçi',
+  'Connection failed': 'Bağlantı kurulamadı', 'Could not load virtual servers.': 'TeamSpeak sunucuları yüklenemedi.',
+  'Virtual server refresh failed. The last successful list is still displayed.':
+    'Sunucu listesi yenilenemedi. Son alınan liste gösteriliyor.',
+  Retry: 'Tekrar dene', 'Retrying…': 'Tekrar deneniyor…',
+  'Bot deleted': 'Bot silindi', 'Failed to delete bot': 'Bot silinemedi',
+  'Open navigation menu': 'Gezinme menüsünü aç', 'Open account menu': 'Hesap menüsünü aç',
+  'Account menu': 'Hesap menüsü', 'Switch to light theme': 'Açık temaya geç', 'Switch to dark theme': 'Koyu temaya geç',
+  'WebQuery only': 'Yalnızca WebQuery', 'WebQuery + native metrics': 'WebQuery + sunucu ölçümleri',
+  'WebQuery · metrics unreachable': 'WebQuery · ölçümlere erişilemiyor',
+  'WebQuery · metrics timed out': 'WebQuery · ölçüm zaman aşımı',
+  'WebQuery · metrics invalid': 'WebQuery · geçersiz ölçümler',
+  'WebQuery · metrics unscoped': 'WebQuery · sunucu eşleşmesi doğrulanamadı',
+  'WebQuery · metrics unavailable': 'WebQuery · ölçümler kullanılamıyor',
+  'Virtual servers unavailable': 'TeamSpeak sunucularına erişilemiyor',
+  'Virtual servers for the selected connection could not be loaded. Open Virtual Servers for details.':
+    'Seçili bağlantıdaki TeamSpeak sunucuları yüklenemedi. Ayrıntılar için TeamSpeak sunucuları sayfasını açın.',
+  'View virtual servers': 'TeamSpeak sunucularını gör', 'No virtual server available': 'Kullanılabilir TeamSpeak sunucusu yok',
+  'The selected connection has no virtual server to manage. Start one or choose another connection in the header.':
+    'Bu bağlantıda yönetilebilecek TeamSpeak sunucusu yok. Bir sunucu başlatın veya üst menüden başka bağlantı seçin.',
+  'Choose a server connection from the selector in the header.': 'Üst menüden bir sunucu bağlantısı seçin.',
+  'No server connection available': 'Erişilebilir sunucu bağlantısı yok',
+  'Ask an administrator to add a TeamSpeak connection or grant you access to one.':
+    'Yöneticiden TeamSpeak bağlantısı eklemesini veya mevcut bir bağlantıya erişim vermesini isteyin.',
+  'This will permanently delete this media bot and disconnect it from the server.':
+    'Bu medya botu kalıcı olarak silinecek ve sunucuyla bağlantısı kesilecek.',
+  'base theme': 'ana tema', accent: 'vurgu rengi', motion: 'hareket', background: 'arka plan',
+  Start: 'Başlat', Stop: 'Durdur', 'Starting…': 'Başlatılıyor…', 'Stopping…': 'Durduruluyor…',
+  'Server management': 'Sunucu yönetimi', 'Advanced tools': 'Gelişmiş araçlar',
+  'Search menu': 'Menüde ara', 'Search pages…': 'Sayfa ara…',
+  'No matching pages': 'Eşleşen sayfa bulunamadı', 'Clear search': 'Aramayı temizle',
+  'Connected users will be disconnected.': 'Bağlı kullanıcıların bağlantısı kesilecek.',
+  'Stop server': 'Sunucuyu durdur', 'Stop TeamSpeak server': 'TeamSpeak sunucusunu durdur',
+  'Server list up to date': 'Sunucu listesi güncel', 'Refreshing servers…': 'Sunucular yenileniyor…',
+  'No TeamSpeak servers found': 'TeamSpeak sunucusu bulunamadı',
+  'These are the TeamSpeak servers in the selected connection. Each has its own voice port and channels.':
+    'Seçili bağlantıdaki TeamSpeak sunucuları burada görünür. Her sunucunun kendi ses portu ve kanalları vardır.',
+  'Use default': 'Varsayılanı kullan', Upload: 'Yükle', 'Upload avatar': 'Avatar yükle',
+  'Now-playing cover': 'Çalan şarkının kapağı',
+  'Uses the YouTube cover while playing; restores the default image when idle. Custom uploads are kept.':
+    'TeamSpeak içinde çalarken YouTube kapağını, boşta varsayılan görseli kullanır. Açıklamaya şarkı, sanatçı ve süre bilgisi yazılır. Yüklediğiniz özel görsel korunur.',
+  'PNG, JPEG or GIF, at most 200 KB.': 'PNG, JPEG veya GIF; en fazla 200 KB.',
+  'Could not update avatar': 'Avatar güncellenemedi',
+  'Bot stopped': 'Bot durduruldu', 'Failed to stop bot': 'Bot durdurulamadı',
+  'Widget link': 'Bileşen bağlantısı', 'Delete bot': 'Botu sil',
+  'Return home (suspend automation)': 'Ana kanala dön (otomasyonu duraklat)',
 };
 
 export const useLanguageStore = create<{ language: Language; setLanguage: (language: Language) => void }>()(
