@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertCircle, type LucideIcon } from 'lucide-react';
@@ -36,6 +37,7 @@ export function NoServerSelectedState({
   icon,
   selectDescription = 'Choose a server connection from the selector in the header.',
 }: NoServerSelectedStateProps) {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const isAdmin = useAuthStore((state) => state.isAdmin());
   const selectedConfigId = useServerStore((state) => state.selectedConfigId);
@@ -85,6 +87,7 @@ export function NoServerSelectedState({
 
 /** Explains disabled create actions on pages that still list existing items. */
 export function ConnectionRequiredNotice({ children }: { children: ReactNode }) {
+  useUiLanguageStore(state => state.language);
   const isAdmin = useAuthStore((state) => state.isAdmin());
   return (
     <div role="status" className="flex flex-col items-start gap-3 rounded-lg border border-warning/40 bg-warning/5 px-4 py-3 text-sm sm:flex-row sm:items-center sm:justify-between">
@@ -94,7 +97,7 @@ export function ConnectionRequiredNotice({ children }: { children: ReactNode }) 
       </p>
       {isAdmin && (
         <Button size="sm" variant="outline" asChild>
-          <Link to={CONNECTION_SETUP_PATH}>Open connection setup</Link>
+          <Link to={CONNECTION_SETUP_PATH}>{uiText("Open connection setup")}</Link>
         </Button>
       )}
     </div>

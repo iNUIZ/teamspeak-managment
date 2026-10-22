@@ -1,0 +1,122 @@
+import { lazy, Suspense } from 'react';
+import { useTranslation } from '@/lib/i18n';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { PageLoader } from '@/components/shared/LoadingSpinner';
+import { useAuthStore } from '@/stores/auth.store';
+import { PwaStatus } from '@/components/shared/PwaStatus';
+import { MediaSwitchDialog } from '@/components/media/MediaSwitchDialog';
+
+function AdminRoute({ children }: { children: React.ReactNode }) {
+  const isAdmin = useAuthStore((s) => s.isAdmin());
+  if (!isAdmin) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+}
+
+/** Preserve query string when renaming /music-bots → /media-bots. */
+function MusicBotsRedirect() {
+  const { search } = useLocation();
+  return <Navigate to={`/media-bots${search}`} replace />;
+}
+
+/** System Music Request History moved into Media Library → Requests. */
+function MusicRequestsRedirect() {
+  return <Navigate to="/media-bots?tab=requests" replace />;
+}
+function ReportRedirect({ view }: { view: string }) {
+  const { search } = useLocation(); const params = new URLSearchParams(search); params.set('view', view);
+  return <Navigate to={`/reports?${params}`} replace />;
+}
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      staleTime: 30_000,
+    },
+    // Administrative actions must fail offline, never pause and replay later.
+    mutations: { networkMode: 'always', retry: false },
+  },
+});
+
+// Lazy-loaded pages
+const Login = lazy(() => import('@/pages/Login'));
+const Dashboard = lazy(() => import('@/pages/Dashboard'));
+const VirtualServers = lazy(() => import('@/pages/VirtualServers'));
+const Channels = lazy(() => import('@/pages/Channels'));
+const Clients = lazy(() => import('@/pages/Clients'));
+const ServerGroups = lazy(() => import('@/pages/ServerGroups'));
+const ChannelGroups = lazy(() => import('@/pages/ChannelGroups'));
+const Permissions = lazy(() => import('@/pages/Permissions'));
+const Bans = lazy(() => import('@/pages/Bans'));
+const Tokens = lazy(() => import('@/pages/Tokens'));
+const Files = lazy(() => import('@/pages/Files'));
+const Complaints = lazy(() => import('@/pages/Complaints'));
+const Messages = lazy(() => import('@/pages/Messages'));
+const Reports = lazy(() => import('@/pages/Reports'));
+const BotList = lazy(() => import('@/pages/BotList'));
+const BotEditor = lazy(() => import('@/pages/BotEditor'));
+const MusicBots = lazy(() => import('@/pages/media-bots/MusicBots'));
+const BotHub = lazy(() => import('@/pages/BotHub'));
+const BotConsole = lazy(() => import('@/pages/bot-hub/BotConsole'));
+const Iptv = lazy(() => import('@/pages/Iptv'));
+const Settings = lazy(() => import('@/pages/Settings'));
+const NotFound = lazy(() => import('@/pages/NotFound'));
+const WidgetPage = lazy(() => import('@/pages/WidgetPage'));
+const SetupPage = lazy(() => import('@/pages/SetupPage'));
+const ListenerRemote = lazy(() => import('@/pages/ListenerRemote'));
+
+export function App() {
+  useTranslation();
+  return (
+    <QueryClientProvider client={queryClient}>
+      <PwaStatus />
+      <MediaSwitchDialog />
+      <BrowserRouter>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/setup" element={<SetupPage />} />
+            <Route path="/widget/:token" element={<WidgetPage />} />
+            <Route path="/remote" element={<ListenerRemote />} />
+
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<Navigate to="/dashboard" replace />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/servers" element={<AdminRoute><VirtualServers /></AdminRoute>} />
+              <Route path="/channels" element={<Channels />} />
+              <Route path="/clients" element={<Clients />} />
+              <Route path="/server-groups" element={<AdminRoute><ServerGroups /></AdminRoute>} />
+              <Route path="/channel-groups" element={<AdminRoute><ChannelGroups /></AdminRoute>} />
+              <Route path="/permissions" element={<AdminRoute><Permissions /></AdminRoute>} />
+              <Route path="/bans" element={<AdminRoute><Bans /></AdminRoute>} />
+              <Route path="/tokens" element={<AdminRoute><Tokens /></AdminRoute>} />
+              <Route path="/files" element={<AdminRoute><Files /></AdminRoute>} />
+              <Route path="/complaints" element={<AdminRoute><Complaints /></AdminRoute>} />
+              <Route path="/messages" element={<AdminRoute><Messages /></AdminRoute>} />
+              <Route path="/reports" element={<AdminRoute><Reports /></AdminRoute>} />
+              <Route path="/logs" element={<AdminRoute><ReportRedirect view="server" /></AdminRoute>} />
+              <Route path="/audit" element={<AdminRoute><ReportRedirect view="audit" /></AdminRoute>} />
+              <Route path="/activity-journal" element={<AdminRoute><ReportRedirect view="activity" /></AdminRoute>} />
+
+              <Route path="/instance" element={<AdminRoute><Navigate to="/servers?tab=service" replace /></AdminRoute>} />
+              <Route path="/diagnostics" element={<AdminRoute><ReportRedirect view="media" /></AdminRoute>} />
+              <Route path="/music-requests" element={<AdminRoute><MusicRequestsRedirect /></AdminRoute>} />
+              <Route path="/bots" element={<AdminRoute><BotList /></AdminRoute>} />
+              <Route path="/bots/:botId" element={<AdminRoute><BotEditor /></AdminRoute>} />
+              <Route path="/bot-hub" element={<AdminRoute><BotHub /></AdminRoute>} />
+              <Route path="/bot-hub/:botId" element={<AdminRoute><BotConsole /></AdminRoute>} />
+              <Route path="/media-bots" element={<AdminRoute><MusicBots /></AdminRoute>} />
+              <Route path="/music-bots" element={<MusicBotsRedirect />} />
+              <Route path="/iptv" element={<AdminRoute><Iptv /></AdminRoute>} />
+              <Route path="/settings" element={<Settings />} />
+              <Route path="*" element={<NotFound />} />
+            </Route>
+          </Routes>
+        </Suspense>
+      </BrowserRouter>
+    </QueryClientProvider>
+  );
+}

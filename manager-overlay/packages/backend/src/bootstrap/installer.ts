@@ -45,7 +45,7 @@ export async function syncInstallerConnection(prisma: PrismaClient, name: string
   return prisma.$transaction(async (tx) => {
     const existing = await tx.tsServerConfig.findFirst({ where: { host, webqueryPort: 10080, isDemo: false } });
     if (existing) {
-      const needsSsh = !!queryPassword && !existing.sshUsername && !existing.sshPassword;
+      const needsSsh = !!queryPassword && (!existing.sshUsername || existing.sshUsername === 'serveradmin') && !existing.sshPassword;
       if (decrypt(existing.apiKey) === apiKey && !needsSsh) return false;
       await tx.tsServerConfig.update({ where: { id: existing.id }, data: { apiKey: encrypt(apiKey),
         ...(needsSsh && { sshUsername: 'serveradmin', sshPassword: encrypt(queryPassword!), sshPort: 10022 }) } });

@@ -1,0 +1,243 @@
+import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
+import {
+  sanitizeCustomCssEnabled,
+  sanitizeCustomCssText,
+} from '@/lib/custom-css';
+
+export const BASE_THEMES = ['light', 'dark', 'black'] as const;
+export const ACCENTS = ['cyan', 'violet', 'red', 'blue', 'emerald', 'amber'] as const;
+export const SIDEBAR_SECTION_IDS = ['overview', 'management', 'security', 'content', 'system', 'automation'] as const;
+export const BACKGROUNDS = ['none', 'grid', 'dots', 'glow', 'aurora', 'noise'] as const;
+export const BACKGROUND_MOTIONS = ['system', 'off', 'on'] as const;
+export const BACKGROUND_INTENSITIES = ['subtle', 'normal', 'strong'] as const;
+
+export type BaseTheme = (typeof BASE_THEMES)[number];
+export type Accent = (typeof ACCENTS)[number];
+export type PermissionLabelMode = 'simple' | 'technical';
+export type SidebarSectionId = (typeof SIDEBAR_SECTION_IDS)[number];
+export type SidebarSections = Record<SidebarSectionId, boolean>;
+export type Background = (typeof BACKGROUNDS)[number];
+export type BackgroundMotion = (typeof BACKGROUND_MOTIONS)[number];
+export type BackgroundIntensity = (typeof BACKGROUND_INTENSITIES)[number];
+export type ResolvedMotion = 'on' | 'off';
+
+export const DEFAULT_BASE_THEME: BaseTheme = 'dark';
+export const DEFAULT_ACCENT: Accent = 'cyan';
+// 'grid' preserves the background treatment every existing user already sees.
+export const DEFAULT_BACKGROUND: Background = 'grid';
+export const DEFAULT_BACKGROUND_MOTION: BackgroundMotion = 'system';
+export const DEFAULT_BACKGROUND_INTENSITY: BackgroundIntensity = 'normal';
+export const DEFAULT_CUSTOM_CSS_TEXT = '';
+export const DEFAULT_CUSTOM_CSS_ENABLED = false;
+// System and Automation start collapsed so every section heading fits the
+// desktop sidebar at 1366×768 and above; a collapsed section still shows its
+// active destination.
+export const DEFAULT_SIDEBAR_SECTIONS: SidebarSections = {
+  overview: true,
+  management: true,
+  security: true,
+  content: true,
+  system: false,
+  automation: false,
+};
+const COMPACT_SIDEBAR_DEFAULTS_VERSION = 7;
+
+function isBaseTheme(value: unknown): value is BaseTheme {
+  return typeof value === 'string' && BASE_THEMES.includes(value as BaseTheme);
+}
+
+function isAccent(value: unknown): value is Accent {
+  return typeof value === 'string' && ACCENTS.includes(value as Accent);
+}
+
+function isBackground(value: unknown): value is Background {
+  return typeof value === 'string' && BACKGROUNDS.includes(value as Background);
+}
+
+function isBackgroundMotion(value: unknown): value is BackgroundMotion {
+  return typeof value === 'string' && BACKGROUND_MOTIONS.includes(value as BackgroundMotion);
+}
+
+function isBackgroundIntensity(value: unknown): value is BackgroundIntensity {
+  return typeof value === 'string' && BACKGROUND_INTENSITIES.includes(value as BackgroundIntensity);
+}
+
+/**
+ * Resolves whether decorative background motion should actually run, given the
+ * user's preference and (when following System) the OS-level reduced-motion setting.
+ */
+export function resolveBackgroundMotion(motion: BackgroundMotion, systemPrefersReducedMotion: boolean): ResolvedMotion {
+  if (motion === 'off') return 'off';
+  if (motion === 'on') return 'on';
+  return systemPrefersReducedMotion ? 'off' : 'on';
+}
+
+function isPermissionLabelMode(value: unknown): value is PermissionLabelMode {
+  return value === 'simple' || value === 'technical';
+}
+
+function migrateSidebarSections(value: unknown, fromVersion?: number): SidebarSections {
+  const sections = value && typeof value === 'object' ? value as Record<string, unknown> : {};
+  const migrated = Object.fromEntries(
+    SIDEBAR_SECTION_IDS.map(id => [id, typeof sections[id] === 'boolean' ? sections[id] : DEFAULT_SIDEBAR_SECTIONS[id]]),
+  ) as SidebarSections;
+  if (fromVersion !== undefined && fromVersion < COMPACT_SIDEBAR_DEFAULTS_VERSION) {
+    migrated.system = false;
+    migrated.automation = false;
+  }
+  return migrated;
+}
+
+export function applyAppearance(baseTheme: BaseTheme, accent: Accent) {
+  const root = document.documentElement;
+  root.dataset.theme = baseTheme;
+  root.dataset.accent = accent;
+  root.classList.toggle('dark', baseTheme !== 'light');
+  root.classList.toggle('black', baseTheme === 'black');
+  root.style.colorScheme = baseTheme === 'light' ? 'light' : 'dark';
+
+  const themeColour = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
+  if (themeColour) {
+    themeColour.content = baseTheme === 'light' ? '#f8fafc' : baseTheme === 'black' ? '#000000' : '#0b0e13';
+  }
+}
+
+function migrateUiState(persisted: unknown, fromVersion?: number) {
+  const state = persisted && typeof persisted === 'object' ? persisted as Record<string, unknown> : {};
+  const legacyTheme = isBaseTheme(state.theme) ? state.theme : undefined;
+  const customCssText = sanitizeCustomCssText(state.customCssText);
+  return {
+    sidebarCollapsed: state.sidebarCollapsed === true,
+    sidebarSections: migrateSidebarSections(state.sidebarSections, fromVersion),
+    baseTheme: isBaseTheme(state.baseTheme) ? state.baseTheme : legacyTheme ?? DEFAULT_BASE_THEME,
+    accent: isAccent(state.accent) ? state.accent : DEFAULT_ACCENT,
+    background: isBackground(state.background) ? state.background : DEFAULT_BACKGROUND,
+    backgroundMotion: isBackgroundMotion(state.backgroundMotion) ? state.backgroundMotion : DEFAULT_BACKGROUND_MOTION,
+    backgroundIntensity: isBackgroundIntensity(state.backgroundIntensity) ? state.backgroundIntensity : DEFAULT_BACKGROUND_INTENSITY,
+    customCssText,
+    customCssEnabled: sanitizeCustomCssEnabled(state.customCssEnabled, customCssText),
+    permissionLabelMode: isPermissionLabelMode(state.permissionLabelMode) ? state.permissionLabelMode : 'simple',
+    showQueryClients: state.showQueryClients === true,
+  };
+}
+
+interface UiStore {
+  sidebarCollapsed: boolean;
+  sidebarSections: SidebarSections;
+  baseTheme: BaseTheme;
+  accent: Accent;
+  background: Background;
+  backgroundMotion: BackgroundMotion;
+  backgroundIntensity: BackgroundIntensity;
+  customCssText: string;
+  customCssEnabled: boolean;
+  permissionLabelMode: PermissionLabelMode;
+  showQueryClients: boolean;
+  toggleSidebar: () => void;
+  setSidebarCollapsed: (collapsed: boolean) => void;
+  toggleSidebarSection: (sectionId: SidebarSectionId) => void;
+  toggleTheme: () => void;
+  setBaseTheme: (theme: BaseTheme) => void;
+  setAccent: (accent: Accent) => void;
+  setBackground: (background: Background) => void;
+  setBackgroundMotion: (motion: BackgroundMotion) => void;
+  setBackgroundIntensity: (intensity: BackgroundIntensity) => void;
+  /** Commit saved CSS text. Rejects oversized values (caller should surface the error). */
+  setCustomCssText: (text: string) => { ok: true } | { ok: false; reason: 'too-large' };
+  setCustomCssEnabled: (enabled: boolean) => void;
+  /** Clears text and disables; leaves Part A appearance prefs untouched. */
+  resetCustomCss: () => void;
+  setPermissionLabelMode: (mode: PermissionLabelMode) => void;
+  setShowQueryClients: (show: boolean) => void;
+}
+
+export const useUiStore = create<UiStore>()(
+  persist(
+    (set, get) => ({
+      sidebarCollapsed: false,
+      sidebarSections: { ...DEFAULT_SIDEBAR_SECTIONS },
+      baseTheme: DEFAULT_BASE_THEME,
+      accent: DEFAULT_ACCENT,
+      background: DEFAULT_BACKGROUND,
+      backgroundMotion: DEFAULT_BACKGROUND_MOTION,
+      backgroundIntensity: DEFAULT_BACKGROUND_INTENSITY,
+      customCssText: DEFAULT_CUSTOM_CSS_TEXT,
+      customCssEnabled: DEFAULT_CUSTOM_CSS_ENABLED,
+      permissionLabelMode: 'simple',
+      showQueryClients: false,
+      toggleSidebar: () => set({ sidebarCollapsed: !get().sidebarCollapsed }),
+      setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
+      toggleSidebarSection: (sectionId) => set(state => ({
+        sidebarSections: {
+          ...state.sidebarSections,
+          [sectionId]: !state.sidebarSections[sectionId],
+        },
+      })),
+      toggleTheme: () => {
+        const next = get().baseTheme === 'light' ? 'dark' : 'light';
+        set({ baseTheme: next });
+        applyAppearance(next, get().accent);
+      },
+      setBaseTheme: (baseTheme) => {
+        set({ baseTheme });
+        applyAppearance(baseTheme, get().accent);
+      },
+      setAccent: (accent) => {
+        set({ accent });
+        applyAppearance(get().baseTheme, accent);
+      },
+      setBackground: (background) => set({ background }),
+      setBackgroundMotion: (backgroundMotion) => set({ backgroundMotion }),
+      setBackgroundIntensity: (backgroundIntensity) => set({ backgroundIntensity }),
+      setCustomCssText: (text) => {
+        const sanitized = sanitizeCustomCssText(text);
+        if (text.length > 0 && sanitized.length === 0) {
+          return { ok: false, reason: 'too-large' };
+        }
+        const enabled = get().customCssEnabled && sanitized.length > 0;
+        set({ customCssText: sanitized, customCssEnabled: enabled });
+        return { ok: true };
+      },
+      setCustomCssEnabled: (enabled) => {
+        const text = get().customCssText;
+        if (enabled && text.length === 0) {
+          set({ customCssEnabled: false });
+          return;
+        }
+        set({ customCssEnabled: enabled && text.length > 0 });
+      },
+      resetCustomCss: () => set({
+        customCssText: DEFAULT_CUSTOM_CSS_TEXT,
+        customCssEnabled: DEFAULT_CUSTOM_CSS_ENABLED,
+      }),
+      setPermissionLabelMode: (permissionLabelMode) => set({ permissionLabelMode }),
+      setShowQueryClients: (showQueryClients) => set({ showQueryClients }),
+    }),
+    {
+      name: 'ts6-ui',
+      version: COMPACT_SIDEBAR_DEFAULTS_VERSION,
+      migrate: (persisted, fromVersion) => migrateUiState(persisted, fromVersion),
+      merge: (persisted, current) => ({ ...current, ...migrateUiState(persisted) }),
+      partialize: ({
+        sidebarCollapsed, sidebarSections, baseTheme, accent, background, backgroundMotion, backgroundIntensity,
+        customCssText, customCssEnabled, permissionLabelMode, showQueryClients,
+      }) => ({
+        sidebarCollapsed,
+        sidebarSections,
+        baseTheme,
+        accent,
+        background,
+        backgroundMotion,
+        backgroundIntensity,
+        customCssText,
+        customCssEnabled,
+        permissionLabelMode,
+        showQueryClients,
+      }),
+      onRehydrateStorage: () => (state) => {
+        applyAppearance(state?.baseTheme ?? DEFAULT_BASE_THEME, state?.accent ?? DEFAULT_ACCENT);
+      },
+    },
+  ),
+);

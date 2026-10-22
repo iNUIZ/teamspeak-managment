@@ -11,6 +11,8 @@ import {
 } from '@ts6/common';
 import { ClipboardList, Filter, RefreshCw } from 'lucide-react';
 import { auditApi } from '@/api/audit.api';
+import { usersApi } from '@/api/bots.api';
+import { serversApi } from '@/api/servers.api';
 import { PageLoader } from '@/components/shared/LoadingSpinner';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { RefreshStatus, StaleDataNotice } from '@/components/shared/RefreshStatus';
@@ -98,6 +100,10 @@ const ACTION_LABELS: Record<AdminAuditAction, string> = {
   'channel_banner.upload': 'Upload channel banner',
   'channel_banner.delete': 'Delete channel banner',
   'server_icon.upload': 'Upload server icon',
+  'channel_file.mkdir': 'Create channel folder',
+  'channel_file.upload': 'Upload channel file',
+  'channel_file.download': 'Download channel file',
+  'channel_file.delete': 'Delete channel file',
   'server_icon.delete': 'Delete server icon',
   'settings.public_url_update': 'Update public URL',
 };
@@ -181,23 +187,23 @@ function formatDurationMs(startedIso: string, completedIso: string | null): stri
   return `${Math.round(ms / 1000)}s`;
 }
 
-function EventRow({ event }: { event: AdminAuditEventDto }) {
+function EventRow({ event, connections = [] }: { event: AdminAuditEventDto; connections?: { id: number; name: string }[] }) {
   useUiTranslation();
-  const label = ACTION_LABELS[event.action] ?? event.action;
+  const label = tr(ACTION_LABELS[event.action] ?? event.action);
   const actor = event.actorUsername ?? `user #${event.actorUserId}`;
   const targetType = event.targetType
-    ? (TARGET_TYPE_LABELS[event.targetType] ?? event.targetType)
+    ? tr(TARGET_TYPE_LABELS[event.targetType] ?? event.targetType)
     : null;
   const target = targetType
     ? `${targetType}${event.targetId ? ` ${event.targetId}` : ''}`
     : '—';
   const contextBits = [
-    event.connectionId != null ? `conn ${event.connectionId}` : null,
-    event.virtualServerId != null ? `sid ${event.virtualServerId}` : null,
+    event.connectionId != null ? `${connections.find(row => row.id === event.connectionId)?.name || tr('Connection')} (#${event.connectionId})` : null,
+    event.virtualServerId != null ? `${tr('TeamSpeak server')} #${event.virtualServerId}` : null,
   ].filter(Boolean);
   const context = contextBits.join(' · ') || '—';
   const resultLabel = event.resultCode
-    ? (RESULT_CODE_LABELS[event.resultCode] ?? event.resultCode)
+    ? tr(RESULT_CODE_LABELS[event.resultCode] ?? event.resultCode)
     : null;
   const duration = formatDurationMs(event.createdAt, event.completedAt);
   const title = [
@@ -236,7 +242,7 @@ function EventRow({ event }: { event: AdminAuditEventDto }) {
       </p>
       <div className="min-w-0 space-y-0.5">
         <p className={cn('text-xs font-medium uppercase tracking-wide', outcomeClass(event.outcome))}>
-          {event.outcome}
+          {tr(event.outcome)}
         </p>
         {resultLabel && (
           <p className="text-[10px] text-muted-foreground truncate" title={resultLabel}>
@@ -249,6 +255,8 @@ function EventRow({ event }: { event: AdminAuditEventDto }) {
 }
 
 export default function AuditHistory() {
+  const actorsQuery = useQuery({ queryKey: ['audit-actors'], queryFn: usersApi.list });
+  const connectionsQuery = useQuery({ queryKey: ['audit-connections'], queryFn: serversApi.list });
   useUiTranslation();
   const [action, setAction] = useState<string>('');
   const [outcome, setOutcome] = useState<string>('');
@@ -328,9 +336,8 @@ export default function AuditHistory() {
           <h1 className="flex items-center gap-2 text-xl font-semibold">
             <ClipboardList className="h-5 w-5 text-primary" /> {tr("Administrative Audit")}</h1>
           <p className="text-sm text-muted-foreground max-w-2xl">
-            Manager-initiated admin actions only — separate from TeamSpeak client activity and Server Logs.
-            Retention: {data?.retention.maxAgeDays ?? 30} days or {data?.retention.maxRows?.toLocaleString() ?? '100,000'} rows
-            (whichever first). Records cannot be deleted from this UI.
+            {tr('Manager-initiated admin actions only — separate from TeamSpeak client activity and Server Logs.')}{' '}
+            {tr('Retention:')}{' '}{data?.retention?.maxAgeDays ?? 30}{' '}{tr('days or')}{' '}{data?.retention?.maxRows?.toLocaleString() ?? '100.000'}{' '}{tr('rows (whichever first). Records cannot be deleted from this UI.')}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
@@ -342,7 +349,7 @@ export default function AuditHistory() {
             degradedLabel={refreshPresentation.degradedLabel}
           />
           {refreshPresentation.showLiveBadge && (
-            <span className="text-xs font-medium text-emerald-600" title="Newest page refreshes automatically" data-testid="audit-live-badge"> {tr("Live")}</span>
+            <span className="text-xs font-medium text-emerald-600" title={tr("Newest page refreshes automatically")} data-testid="audit-live-badge"> {tr("Live")}</span>
           )}
           <Button
             size="sm"
@@ -364,7 +371,7 @@ export default function AuditHistory() {
       )}
 
       <div className="flex shrink-0 flex-wrap items-end gap-3 rounded-lg border border-border bg-card p-3">
-        <label className="space-y-1 text-xs text-muted-foreground">
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
           <span className="flex items-center gap-1"><Filter className="h-3 w-3" /> {tr("Action")}</span>
           <select
             className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
@@ -373,11 +380,11 @@ export default function AuditHistory() {
           >
             <option value=""> {tr("All")}</option>
             {ADMIN_AUDIT_ACTIONS.map((a) => (
-              <option key={a} value={a}>{ACTION_LABELS[a] ?? a}</option>
+              <option key={a} value={a}>{tr(ACTION_LABELS[a] ?? a)}</option>
             ))}
           </select>
         </label>
-        <label className="space-y-1 text-xs text-muted-foreground">
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
           <span> {tr("Outcome")}</span>
           <select
             className="h-9 rounded-md border border-input bg-background px-2 text-sm text-foreground"
@@ -386,31 +393,25 @@ export default function AuditHistory() {
           >
             <option value=""> {tr("All")}</option>
             {ADMIN_AUDIT_OUTCOMES.map((o) => (
-              <option key={o} value={o}>{o}</option>
+              <option key={o} value={o}>{tr(o)}</option>
             ))}
           </select>
         </label>
-        <label className="space-y-1 text-xs text-muted-foreground">
-          <span> {tr("Actor user ID")}</span>
-          <Input
-            className="h-9 w-28"
-            inputMode="numeric"
-            value={actorUserId}
-            onChange={(e) => { setActorUserId(e.target.value.replace(/\D/g, '')); resetPages(); }}
-            placeholder={tr("Any")}
-          />
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+          <span>{tr('Manager administrator')}</span>
+          <select aria-label={tr('Manager administrator')} className="h-9 max-w-64 rounded-md border bg-background px-2" value={actorUserId} onChange={event => { setActorUserId(event.target.value); resetPages(); }}>
+            <option value="">{tr('All administrators')}</option>
+            {Array.isArray(actorsQuery.data) && actorsQuery.data.map((actor: any) => <option key={actor.id} value={actor.id}>{actor.displayName || actor.username} (@{actor.username}, #{actor.id})</option>)}
+            {Array.from(new Map((data?.items || []).filter(row => row.actorUserId != null).map(row => [row.actorUserId, row])).values()).filter(row => !Array.isArray(actorsQuery.data) || !actorsQuery.data.some((actor: any) => actor.id === row.actorUserId)).map(row => <option key={row.actorUserId} value={row.actorUserId!}>{row.actorUsername || tr('Deleted user')} (#{row.actorUserId})</option>)}
+          </select>
         </label>
-        <label className="space-y-1 text-xs text-muted-foreground">
-          <span> {tr("Connection ID")}</span>
-          <Input
-            className="h-9 w-28"
-            inputMode="numeric"
-            value={connectionId}
-            onChange={(e) => { setConnectionId(e.target.value.replace(/\D/g, '')); resetPages(); }}
-            placeholder={tr("Any")}
-          />
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
+          <span>{tr('Connection')}</span>
+          <select aria-label={tr('Connection')} className="h-9 max-w-64 rounded-md border bg-background px-2" value={connectionId} onChange={event => { setConnectionId(event.target.value); resetPages(); }}>
+            <option value="">{tr('All connections')}</option>{Array.isArray(connectionsQuery.data) && connectionsQuery.data.map((connection: any) => <option key={connection.id} value={connection.id}>{connection.name} (#{connection.id})</option>)}
+          </select>
         </label>
-        <label className="space-y-1 text-xs text-muted-foreground">
+        <label className="flex min-w-0 flex-col gap-1 text-xs text-muted-foreground">
           <span> {tr("Virtual server ID")}</span>
           <Input
             className="h-9 w-28"
@@ -436,8 +437,8 @@ export default function AuditHistory() {
           <div className="flex flex-1 items-center justify-center">
             <EmptyState
               icon={ClipboardList}
-              title="No audit events yet"
-              description="Kick, ban, connection, flow, user, and settings mutations that are instrumented will appear here."
+              title={tr("No audit events yet")}
+              description={tr("Kick, ban, connection, flow, user, and settings mutations that are instrumented will appear here.")}
             />
           </div>
         ) : (
@@ -450,15 +451,15 @@ export default function AuditHistory() {
                 )}
                 role="row"
               >
-                <span>Date / time</span>
+                <span> {tr("Date / time")}{' '}</span>
                 <span> {tr("Action")}</span>
-                <span>Actor</span>
-                <span>Target</span>
-                <span>Context</span>
+                <span> {tr("Actor")}{' '}</span>
+                <span> {tr("Target")}{' '}</span>
+                <span> {tr("Context")}{' '}</span>
                 <span> {tr("Outcome")}</span>
               </div>
               {data.items.map((event) => (
-                <EventRow key={event.id} event={event} />
+                <EventRow key={event.id} event={event} connections={Array.isArray(connectionsQuery.data) ? connectionsQuery.data : []} />
               ))}
             </div>
           </ScrollArea>
@@ -475,9 +476,7 @@ export default function AuditHistory() {
             scopeKey: filterScopeKey,
             cursorStack: prev.scopeKey === filterScopeKey ? prev.cursorStack.slice(0, -1) : [null],
           }))}
-        >
-          Newer
-        </Button>
+        > {tr("Newer")}{' '}</Button>
         <Button
           type="button"
           variant="outline"

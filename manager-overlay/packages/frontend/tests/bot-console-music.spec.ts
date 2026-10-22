@@ -1,0 +1,318 @@
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+
+async function signIn(page: Page, request: APIRequestContext) {
+  await request.post('/__test/reset');
+  await request.post('/__test/docs?on');
+  await request.post('/__test/auth?on');
+  await page.goto('/login');
+  await page.getByLabel('Username').fill('admin');
+  await page.getByLabel('Password', { exact: true }).fill('test-password');
+  await page.getByRole('button', { name: 'Sign In' }).click();
+  await expect(page).toHaveURL('/dashboard');
+}
+
+const noStop = { lastMusicStop: null, lastVideoStop: null };
+
+function media(now: number) {
+  return [
+    {
+      botId: 1, botName: 'Aurora Radio', serverConfigId: 1, serverName: 'Operations Voice', status: 'playing',
+      channelId: 5, channelName: 'Lounge',
+      session: { id: 'a', kind: 'music', state: 'active', botId: 1, botName: 'Aurora Radio', startedAt: now - 90_000, label: 'Neon Skyline' },
+      music: { title: 'Neon Skyline', artist: 'Midnight Transit', live: false, position: 75, duration: 214 },
+      video: null, ...noStop,
+    },
+  ];
+}
+
+const track = (id: string, title: string) => ({ id, title, artist: 'Artist', duration: 200, source: 'local' });
+
+const state = {
+  status: 'playing', position: 75, duration: 214, volume: 60, currentIndex: 0, shuffle: false, repeat: 'off',
+  nowPlaying: track('t1', 'Neon Skyline'),
+  queue: [track('t1', 'Neon Skyline')],
+};
+
+async function mockConsole(page: Page) {
+  const calls: { method: string; url: string; body: unknown }[] = [];
+  await page.route('**/api/music-bots/media', (r) => r.fulfill({ json: media(Date.now()) }));
+  await page.route('**/api/music-bots/1/state', (r) => r.fulfill({ json: state }));
+  await page.route('**/api/servers/1/music-library/songs/search**', (r) =>
+    r.fulfill({
+      json: {
+        total: 1,
+        page: 1,
+        pageSize: 50,
+        songs: [{
+          id: 42, title: 'Neon Skyline', artist: 'Midnight Transit', duration: 214,
+          filePath: '/a.ogg', source: 'local', sourceUrl: null, fileSize: 1,
+          serverConfigId: 1, createdAt: '2026-10-01T00:00:00.000Z',
+        }],
+      },
+    }));
+  await page.route('**/api/playlists**', (r) =>
+    r.fulfill({
+      json: [{
+        id: 7, name: 'Evening Mix', mode: 'local', musicBotId: null, songCount: 3,
+        createdAt: '2026-10-01T00:00:00.000Z', serverConfigId: 1,
+      }],
+    }));
+  await page.route('**/api/servers/1/radio-stations', (r) =>
+    r.fulfill({
+      json: [
+        { id: 1, name: 'Chill FM', url: 'https://example.com/chill', genre: 'Chill', imageUrl: null, serverConfigId: 1 },
+        { id: 2, name: 'Focus Beats', url: 'https://example.com/focus', genre: 'Focus', imageUrl: null, serverConfigId: 1 },
+        { id: 3, name: 'No Genre Station', url: 'https://example.com/other', genre: null, imageUrl: null, serverConfigId: 1 },
+        { id: 4, name: 'Coast Local', url: 'https://example.com/coast', genre: 'local, local news, chill', imageUrl: null, serverConfigId: 1 },
+      ],
+    }));
+  await page.route('**/api/servers/1/music-requests**', (r) => r.fulfill({ json: [] }));
+  await page.route(/\/api\/music-bots\/1\/(play|queue|play-radio|play-url)(\/.*)?$/, async (r) => {
+    const req = r.request();
+    calls.push({ method: req.method(), url: req.url(), body: req.postDataJSON?.() ?? null });
+    await r.fulfill({ json: { success: true } });
+  });
+  return calls;
+}
+
+test('playing a song from the Music tab sends play with the song id', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  const calls = await mockConsole(page);
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+
+  await page.getByRole('tab', { name: 'Music' }).click();
+  await expect(page.getByRole('tab', { name: 'Songs', selected: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Play Neon Skyline' }).click();
+  await expect.poll(() => calls.find((c) => c.url.includes('/play') && !c.url.includes('play-radio') && !c.url.includes('play-url')))
+    .toMatchObject({ method: 'POST', body: { songId: 42 } });
+});
+
+const recentRequest = {
+  id: 81, title: 'Evening recording', source: 'local', status: 'available',
+  artist: 'Evening Ensemble', duration: 185,
+  requestedAt: '2026-10-01T12:30:00.000Z',
+};
+
+test('recent requests are scoped to this bot and queue a local recording by history id', async ({ page, request }) => {
+  const calls = await mockConsole(page);
+  const historyQueries: string[] = [];
+  await page.route('**/api/servers/1/music-requests**', async (r) => {
+    if (r.request().method() === 'POST') {
+      calls.push({ method: 'POST', url: r.request().url(), body: r.request().postDataJSON() });
+      return r.fulfill({ json: { success: true, queued: 1 } });
+    }
+    historyQueries.push(r.request().url());
+    return r.fulfill({ json: [recentRequest] });
+  });
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  await page.getByRole('tab', { name: 'Recent requests' }).click();
+
+  await expect(page.getByText('Evening recording', { exact: true })).toBeVisible();
+  await expect(page.getByText('Local file · Available')).toBeVisible();
+  await expect(page.getByText('Evening Ensemble · 3:05')).toBeVisible();
+  await expect(page.locator('time[datetime="2026-10-01T12:30:00.000Z"]')).toBeVisible();
+  expect(historyQueries.some((url) => new URL(url).searchParams.get('botId') === '1')).toBe(true);
+  await page.getByRole('button', { name: 'Queue again Evening recording' }).click();
+  await expect.poll(() => calls.find((c) => c.url.endsWith('/music-requests/81/replay')))
+    .toMatchObject({ method: 'POST', body: { botId: 1, enqueue: true } });
+  expect(calls.some((c) => c.url.endsWith('/play-url'))).toBe(false);
+});
+
+test('replaying history confirms media replacement and retries with only the confirmed session', async ({ page, request }) => {
+  await mockConsole(page);
+  const bodies: unknown[] = [];
+  await page.route('**/api/servers/1/music-requests**', async (r) => {
+    if (r.request().method() === 'GET') return r.fulfill({ json: [recentRequest] });
+    const body = r.request().postDataJSON();
+    bodies.push(body);
+    if (!body.replaceSessionIds) return r.fulfill({ status: 409, json: {
+      error: 'Video is playing.', reason: 'media_session_conflict', requested: 'music',
+      conflicts: [{ id: 'video-session', kind: 'video', state: 'active', botId: 1,
+        botName: 'Aurora Radio', startedAt: 0, label: 'Live channel' }],
+    } });
+    return r.fulfill({ json: { success: true, queued: 1 } });
+  });
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  await page.getByRole('tab', { name: 'Recent requests' }).click();
+  await page.getByRole('button', { name: 'Play Evening recording' }).click();
+  await expect(page.getByRole('heading', { name: 'Replace what is playing?' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Play Evening recording', includeHidden: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Stop and switch' }).click();
+  await expect.poll(() => bodies).toEqual([
+    { botId: 1, enqueue: false },
+    { botId: 1, enqueue: false, replaceSessionIds: ['video-session'] },
+  ]);
+});
+
+test('unavailable history stays visible and offers no replay actions', async ({ page, request }) => {
+  await mockConsole(page);
+  await page.route('**/api/servers/1/music-requests**', (r) => r.fulfill({
+    json: [{ ...recentRequest, status: 'unavailable' }],
+  }));
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  await page.getByRole('tab', { name: 'Recent requests' }).click();
+  await expect(page.getByText('Local file · Unavailable')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Play Evening recording' })).toBeDisabled();
+  await expect(page.getByRole('button', { name: 'Queue again Evening recording' })).toBeDisabled();
+});
+
+test('a missing recording reports the failure and refreshes its unavailable status', async ({ page, request }) => {
+  await mockConsole(page);
+  let unavailable = false;
+  await page.route('**/api/servers/1/music-requests**', async (r) => {
+    if (r.request().method() === 'GET') return r.fulfill({
+      json: [{ ...recentRequest, status: unavailable ? 'unavailable' : 'available' }],
+    });
+    unavailable = true;
+    return r.fulfill({ status: 410, json: { error: 'This media is no longer available.' } });
+  });
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  await page.getByRole('tab', { name: 'Recent requests' }).click();
+  await page.getByRole('button', { name: 'Play Evening recording' }).click();
+  await expect(page.getByRole('alert')).toContainText('This media is no longer available.');
+  await expect(page.getByText('Local file · Unavailable')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Queue again Evening recording' })).toBeDisabled();
+});
+
+test('the Media Library replays sanitized history through the selected bot', async ({ page, request }) => {
+  const calls = await mockConsole(page);
+  await page.route(/\/api\/music-bots(?:\?.*)?$/, (r) => r.fulfill({ json: [
+    { id: 1, name: 'Aurora Radio', serverConfigId: 1, status: 'playing' },
+  ] }));
+  await page.route('**/api/servers/1/music-requests**', async (r) => {
+    if (r.request().method() === 'GET') return r.fulfill({ json: [recentRequest] });
+    calls.push({ method: 'POST', url: r.request().url(), body: r.request().postDataJSON() });
+    return r.fulfill({ json: { success: true, queued: 1 } });
+  });
+  await signIn(page, request);
+  await request.post('/__test/dashboard?scenario=normal');
+  await page.evaluate(() => localStorage.setItem('ts6-server', JSON.stringify({
+    state: { selectedConfigId: 1, selectedSid: 1 }, version: 0,
+  })));
+  await page.goto('/media-bots?tab=requests');
+  await expect(page.getByText('Evening recording', { exact: true })).toBeVisible();
+  await expect(page.getByText('Evening Ensemble · 3:05')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open URL' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Enqueue', exact: true }).click();
+  await expect.poll(() => calls.find((c) => c.url.endsWith('/music-requests/81/replay')))
+    .toMatchObject({ method: 'POST', body: { botId: 1, enqueue: true } });
+});
+
+
+test('queueing a playlist appends without clearing the queue', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  const calls = await mockConsole(page);
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+
+  await page.getByRole('tab', { name: 'Music' }).click();
+  await page.getByRole('tab', { name: 'Playlists' }).click();
+  await page.getByRole('button', { name: 'Queue Evening Mix' }).click();
+  await expect.poll(() => calls.find((c) => c.url.includes('/queue/playlist')))
+    .toMatchObject({ method: 'POST', body: { playlistId: 7, clearFirst: false } });
+});
+
+test('a radio mood chip filters the station list', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  await mockConsole(page);
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+
+  await page.getByRole('tab', { name: 'Radio' }).click();
+  await expect(page.getByText('Chill FM')).toBeVisible();
+  await expect(page.getByText('Focus Beats')).toBeVisible();
+  await expect(page.getByText('No Genre Station')).toBeVisible();
+
+  await page.getByRole('button', { name: 'Chill (2)' }).click();
+  await expect(page.getByText('Chill FM')).toBeVisible();
+  await expect(page.getByText('Coast Local')).toBeVisible();
+  await expect(page.getByText('Focus Beats')).toHaveCount(0);
+  await expect(page.getByText('No Genre Station')).toHaveCount(0);
+  await expect(page.getByText('Moods come from each station\'s genre. Set or change it under Media Library → Radio stations.')).toBeVisible();
+});
+
+test('a multi-tag station genre becomes one mood chip per tag', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  await mockConsole(page);
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+
+  await page.getByRole('tab', { name: 'Radio' }).click();
+  const moods = page.getByRole('group', { name: 'Moods' });
+  await expect(moods.getByRole('button', { name: 'Local (1)' })).toBeVisible();
+  await expect(moods.getByRole('button', { name: 'Local News (1)' })).toBeVisible();
+  await expect(moods.getByRole('button', { name: /local, local news/i })).toHaveCount(0);
+
+  await moods.getByRole('button', { name: 'Local News (1)' }).click();
+  await expect(page.getByText('Coast Local')).toBeVisible();
+  await expect(page.getByText('Chill FM')).toHaveCount(0);
+});
+
+test('every source tab links to the page that manages its media', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  await mockConsole(page);
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  const panel = page.getByRole('tabpanel');
+
+  await page.getByRole('tab', { name: 'Music' }).click();
+  await expect(panel.getByRole('link', { name: 'Add songs' })).toHaveAttribute('href', '/media-bots');
+  await page.getByRole('tab', { name: 'Playlists' }).click();
+  await expect(panel.getByRole('link', { name: 'Add playlist' })).toHaveAttribute('href', '/media-bots?tab=playlists');
+  await page.getByRole('tab', { name: 'Recent requests' }).click();
+  await expect(panel.getByRole('link', { name: 'Manage requests' })).toHaveAttribute('href', '/media-bots?tab=requests');
+
+  await page.getByRole('tab', { name: 'Link' }).click();
+  await expect(panel.getByRole('link', { name: 'Add files' })).toHaveAttribute('href', '/media-bots');
+
+  await page.getByRole('tab', { name: 'IPTV' }).click();
+  await expect(panel.getByRole('link', { name: 'Add playlist' })).toHaveAttribute('href', '/iptv');
+
+  await page.getByRole('tab', { name: 'Radio' }).click();
+  await panel.getByRole('link', { name: 'Add station' }).click();
+  await expect(page).toHaveURL('/media-bots?tab=radio');
+  await expect(page.getByRole('tab', { name: 'Radio stations', selected: true })).toBeVisible();
+});
+
+test('the console fits a phone screen with a long song title', async ({ page, request }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  const longTitle = 'How\'d You Make That Rap Song | JT Catalano (Official Music Video) [Remastered Extended Edition]';
+  await mockConsole(page);
+  await page.route('**/api/music-bots/media', (r) => {
+    const [bot] = media(Date.now());
+    return r.fulfill({ json: [{ ...bot, music: { ...bot.music, title: longTitle } }] });
+  });
+  await page.route('**/api/servers/1/music-library/songs/search**', (r) =>
+    r.fulfill({
+      json: {
+        total: 1, page: 1, pageSize: 50,
+        songs: [{
+          id: 42, title: longTitle, artist: 'JT Catalano', duration: 214,
+          filePath: '/a.ogg', source: 'local', sourceUrl: null, fileSize: 1,
+          serverConfigId: 1, createdAt: '2026-10-01T00:00:00.000Z',
+        }],
+      },
+    }));
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  await expect(page.getByRole('button', { name: 'Pause Aurora Radio' })).toBeVisible();
+  await expect(page.getByRole('tabpanel').getByText(longTitle)).toBeVisible();
+
+  for (const tab of ['Music', 'Link', 'Radio', 'IPTV']) {
+    await page.getByRole('tab', { name: tab, exact: true }).click();
+    const overflow = await page.evaluate(() => {
+      const vw = document.documentElement.clientWidth;
+      const main = document.querySelector('main') ?? document.documentElement;
+      const wide = [...main.querySelectorAll('*')]
+        .filter((el) => el.getBoundingClientRect().right > vw + 1)
+        .map((el) => `${el.tagName}.${el.className}`);
+      return { scroll: main.scrollWidth - main.clientWidth, wide: wide.slice(0, 5) };
+    });
+    expect(overflow, `${tab} tab`).toEqual({ scroll: 0, wide: [] });
+  }
+});

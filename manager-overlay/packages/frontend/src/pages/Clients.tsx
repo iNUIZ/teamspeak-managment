@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useClients, useKickClient, useBanClient, usePokeClient } from '@/hooks/use-clients';
@@ -45,7 +46,8 @@ type ClientActionTarget = {
 };
 
 export default function Clients() {
-  useUiTranslation();
+  useUiLanguageStore(state => state.language);
+  const { language } = useUiTranslation();
   const { selectedConfigId, selectedSid } = useServerStore();
   const isAdmin = useAuthStore((s) => s.isAdmin());
   const { data, isLoading, error, refetch, isFetching } = useClients();
@@ -60,7 +62,7 @@ export default function Clients() {
   const banClient = useBanClient();
   const pokeClient = usePokeClient();
   const copyIp = (ip: string) => {
-    void copyText(ip).then(() => toast.success('IP copied'), () => toast.error('Could not copy. Select the text and copy it by hand.'));
+    void copyText(ip).then(() => toast.success(tr("IP copied")), () => toast.error(tr("Could not copy. Select the text and copy it by hand.")));
   };
   const { data: bots } = useMusicBots();
   const { data: stations } = useRadioStations(selectedConfigId);
@@ -164,7 +166,7 @@ export default function Clients() {
       },
       {
         onSuccess: () => {
-          toast.success(`Kicked ${target.name}`);
+          toast.success(uiText("Kicked {0}", target.name));
           closeKickDialog();
         },
         onError: (error) => {
@@ -192,7 +194,7 @@ export default function Clients() {
       },
       {
         onSuccess: () => {
-          toast.success(`Banned ${target.name}`);
+          toast.success(uiText("Banned {0}", target.name));
           closeBanDialog();
         },
         onError: (error) => {
@@ -215,7 +217,7 @@ export default function Clients() {
       { configId: target.configId, sid: target.sid, clid: target.clid, msg: messageText },
       {
         onSuccess: () => {
-          toast.success(`Poked ${target.name}`);
+          toast.success(uiText("Poked {0}", target.name));
           closePokeDialog();
         },
         onError: (error) => {
@@ -232,7 +234,7 @@ export default function Clients() {
     const botId = parseInt(selectedBotId, 10);
     const url = ytUrl.trim();
     if (!botId || !url) {
-      toast.error('Select a media bot and paste a YouTube, Spotify, or Apple Music URL');
+      toast.error(uiText("Select a media bot and paste a YouTube, Spotify, or Apple Music URL"));
       return;
     }
     playUrl.mutate(
@@ -248,7 +250,7 @@ export default function Clients() {
           closePlayDialog();
         },
         onError: (err: any) => {
-          toast.error(err?.response?.data?.error || err?.message || 'Failed to play URL');
+          toast.error(apiErrorMessage(err, tr('Failed to play URL')));
         },
       },
     );
@@ -258,7 +260,7 @@ export default function Clients() {
     const botId = parseInt(selectedBotId, 10);
     const stationId = parseInt(selectedStationId, 10);
     if (!botId || !stationId) {
-      toast.error('Select a media bot and a radio station');
+      toast.error(uiText("Select a media bot and a radio station"));
       return;
     }
     playRadio.mutate(
@@ -269,7 +271,7 @@ export default function Clients() {
           closePlayDialog();
         },
         onError: (err: any) => {
-          toast.error(err?.response?.data?.error || err?.message || 'Failed to play radio');
+          toast.error(apiErrorMessage(err, tr('Failed to play radio')));
         },
       },
     );
@@ -279,7 +281,7 @@ export default function Clients() {
     const cols: ColumnDef<any>[] = [
       {
         accessorKey: 'client_nickname',
-        header: 'Nickname',
+        header: tr("Nickname"),
         cell: ({ row }) => (
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-[10px] font-mono-data text-primary">
@@ -291,7 +293,7 @@ export default function Clients() {
       },
       {
         accessorKey: 'client_country',
-        header: 'Country',
+        header: tr("Country"),
         cell: ({ getValue }) => <span className="font-mono-data text-xs">{(getValue() as string) || '-'}</span>,
       },
       ...(isAdmin
@@ -307,7 +309,7 @@ export default function Clients() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      aria-label={`Copy IP ${ip}`}
+                      aria-label={uiText("Copy IP {0}", ip)}
                       onClick={() => copyIp(ip)}
                     >
                       <Copy className="h-3 w-3" />
@@ -320,26 +322,26 @@ export default function Clients() {
         : []),
       {
         accessorKey: 'client_idle_time',
-        header: 'Idle',
+        header: tr("Idle time"),
         cell: ({ getValue }) => <span className="font-mono-data text-xs text-muted-foreground">{formatUptime(Math.floor((getValue() as number) / 1000))}</span>,
       },
       {
         accessorKey: 'client_away',
-        header: 'Status',
+        header: tr("Status"),
         cell: ({ row }) => {
           const o = row.original;
           if (Number(o.client_output_muted) === 1 && Number(o.client_away) === 1) {
-            return <Badge className="bg-orange-500/15 text-orange-700 text-[10px]">Speaker away</Badge>;
+            return <Badge className="bg-orange-500/15 text-orange-700 text-[10px]"> {tr("Speaker away")}{' '}</Badge>;
           }
           if (Number(o.client_output_muted) === 1 && Number(o.client_input_muted) === 1) {
-            return <Badge className="bg-orange-500/15 text-orange-700 text-[10px]">Speaker + mic muted</Badge>;
+            return <Badge className="bg-orange-500/15 text-orange-700 text-[10px]"> {tr("Speaker + mic muted")}{' '}</Badge>;
           }
           if (Number(o.client_output_muted) === 1) {
-            return <Badge className="bg-orange-500/15 text-orange-700 text-[10px]">Speaker muted</Badge>;
+            return <Badge className="bg-orange-500/15 text-orange-700 text-[10px]"> {tr("Speaker muted")}{' '}</Badge>;
           }
-          if (Number(o.client_away) === 1) return <Badge variant="warning" className="text-[10px]">Away</Badge>;
-          if (Number(o.client_input_muted) === 1) return <Badge variant="secondary" className="text-[10px]">Mic muted</Badge>;
-          return <Badge variant="success" className="text-[10px]">Active</Badge>;
+          if (Number(o.client_away) === 1) return <Badge variant="warning" className="text-[10px]"> {tr("Away")}{' '}</Badge>;
+          if (Number(o.client_input_muted) === 1) return <Badge variant="secondary" className="text-[10px]"> {tr("Mic muted")}{' '}</Badge>;
+          return <Badge variant="success" className="text-[10px]">{tr('Active')}</Badge>;
         },
       },
     ];
@@ -352,7 +354,7 @@ export default function Clients() {
           return (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="cursor-pointer" aria-label={`Actions for ${c.client_nickname}`}>
+                <Button variant="ghost" size="icon" className="cursor-pointer" aria-label={uiText("Actions for {0}", c.client_nickname)}>
                   <MoreHorizontal className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
@@ -366,20 +368,18 @@ export default function Clients() {
                     setPokeError('');
                   }}
                 >
-                  <Zap className="mr-2 h-4 w-4" /> Poke
-                </DropdownMenuItem>
+                  <Zap className="mr-2 h-4 w-4" /> {tr("Poke")}{' '}</DropdownMenuItem>
                 <DropdownMenuItem
                   className="cursor-pointer"
                   onClick={() => openPlayDialog('youtube', c.client_nickname)}
                 >
-                  <Youtube className="mr-2 h-4 w-4" /> Play YouTube / Spotify / Apple Music
+              <Youtube className="mr-2 h-4 w-4" />{tr('Play YouTube / Spotify / Apple Music')}
                 </DropdownMenuItem>
                 <DropdownMenuItem
                   className="cursor-pointer"
                   onClick={() => openPlayDialog('radio', c.client_nickname)}
                 >
-                  <Radio className="mr-2 h-4 w-4" /> Play Radio
-                </DropdownMenuItem>
+                  <Radio className="mr-2 h-4 w-4" /> {tr("Play Radio")}{' '}</DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   className="cursor-pointer"
@@ -390,8 +390,7 @@ export default function Clients() {
                     setKickError('');
                   }}
                 >
-                  <LogOut className="mr-2 h-4 w-4" /> Kick from Server
-                </DropdownMenuItem>
+                  <LogOut className="mr-2 h-4 w-4" /> {tr("Kick from Server")}{' '}</DropdownMenuItem>
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive cursor-pointer"
                   onClick={() => {
@@ -402,8 +401,7 @@ export default function Clients() {
                     setBanError('');
                   }}
                 >
-                  <Ban className="mr-2 h-4 w-4" /> Ban client
-                </DropdownMenuItem>
+                  <Ban className="mr-2 h-4 w-4" /> {tr("Ban client")}{' '}</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           );
@@ -411,7 +409,7 @@ export default function Clients() {
       });
     }
     return cols;
-  }, [isAdmin, selectedConfigId, selectedSid]);
+  }, [isAdmin, selectedConfigId, selectedSid, language, useUiLanguageStore.getState().language]);
 
   const hasClientData = Array.isArray(data);
   const gateError = error || virtualServersError;
@@ -438,7 +436,7 @@ export default function Clients() {
         />
         <div className="flex justify-center">
           <Button size="sm" variant="outline" onClick={retryGate} disabled={isFetchingGate}>
-            {isFetchingGate ? 'Retrying…' : 'Retry'}
+            {isFetchingGate ? tr("Retrying…") : tr("Retry")}
           </Button>
         </div>
       </div>
@@ -465,14 +463,14 @@ export default function Clients() {
       <PageHeader
         title={tr("Clients")}
         icon={Users}
-        description={`${formatNumber(clients.length)} online`}
+        description={uiText("{0} online", formatNumber(clients.length))}
         metadata={(
           <RefreshStatus
             isRefreshing={isFetchingGate}
             tone={refreshTone}
-            idleLabel="Live client updates active"
-            refreshingLabel="Refreshing clients…"
-            degradedLabel="Client updates interrupted"
+            idleLabel={uiText("Live client updates active")}
+            refreshingLabel={uiText("Refreshing clients…")}
+            degradedLabel={uiText("Client updates interrupted")}
             startingLabel={tr("Waiting for TeamSpeak Query…")}
           />
         )}
@@ -490,13 +488,13 @@ export default function Clients() {
         columns={columns}
         data={clients}
         searchEnabled
-        searchLabel="Search clients"
-        searchPlaceholder="Search clients..."
-        tableLabel="Clients table"
+        searchLabel={uiText("Search clients")}
+        searchPlaceholder={uiText("Search clients...")}
+        tableLabel={uiText("Clients table")}
         density="compact"
         stickyHeader
-        emptyText="No clients found"
-        filteredEmptyText="No clients match your search"
+        emptyText={uiText("No clients found")}
+        filteredEmptyText={uiText("No clients match your search")}
       />
 
       {/* Kick confirmation */}
@@ -506,13 +504,11 @@ export default function Clients() {
       >
         <DialogContent onOpenAutoFocus={(event) => { event.preventDefault(); kickReasonInput.current?.focus(); }}>
           <DialogHeader>
-            <DialogTitle>Kick from Server</DialogTitle>
-            <DialogDescription>
-              Kick <span className="font-medium text-foreground">{kickTarget?.name}</span> from the current virtual server. They may reconnect unless separately banned.
-            </DialogDescription>
+            <DialogTitle> {tr("Kick from Server")}{' '}</DialogTitle>
+            <DialogDescription> {tr("Kick")}{' '}<span className="font-medium text-foreground">{kickTarget?.name}</span> {tr("from the current virtual server. They may reconnect unless separately banned.")}{' '}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="kick-reason">Reason</Label>
+            <Label htmlFor="kick-reason"> {tr("Reason")}{' '}</Label>
             <Input
               id="kick-reason"
               ref={kickReasonInput}
@@ -533,7 +529,7 @@ export default function Clients() {
               aria-busy={kickClient.isPending}
             >
               <LogOut className="h-4 w-4 mr-1" />
-              {kickClient.isPending ? 'Kicking…' : 'Kick from Server'}
+              {kickClient.isPending ? uiText("Kicking…") : tr("Kick from Server")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -546,29 +542,27 @@ export default function Clients() {
       >
         <DialogContent onOpenAutoFocus={(event) => { event.preventDefault(); banReasonInput.current?.focus(); }}>
           <DialogHeader>
-            <DialogTitle>Ban client</DialogTitle>
-            <DialogDescription>
-              This will disconnect <span className="font-medium text-foreground">{banTarget?.name}</span> and prevent them from reconnecting for the selected duration.
-            </DialogDescription>
+            <DialogTitle> {tr("Ban client")}{' '}</DialogTitle>
+            <DialogDescription> {tr("This will disconnect")}{' '}<span className="font-medium text-foreground">{banTarget?.name}</span> {tr("and prevent them from reconnecting for the selected duration.")}{' '}</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="ban-duration">Duration</Label>
+              <Label htmlFor="ban-duration"> {tr("Duration")}{' '}</Label>
               <Select value={banDuration} onValueChange={setBanDuration} disabled={banClient.isPending}>
-                <SelectTrigger id="ban-duration" aria-label="Duration">
+                <SelectTrigger id="ban-duration" aria-label={tr("Duration")}>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="3600">1 hour</SelectItem>
-                  <SelectItem value="86400">1 day</SelectItem>
-                  <SelectItem value="604800">1 week</SelectItem>
-                  <SelectItem value="2592000">30 days</SelectItem>
-                  <SelectItem value="0">Permanent</SelectItem>
+                  <SelectItem value="3600"> {tr("1 hour")}{' '}</SelectItem>
+                  <SelectItem value="86400"> {tr("1 day")}{' '}</SelectItem>
+                  <SelectItem value="604800"> {tr("1 week")}{' '}</SelectItem>
+                  <SelectItem value="2592000"> {tr("30 days")}{' '}</SelectItem>
+                  <SelectItem value="0"> {tr("Permanent")}{' '}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="ban-reason">Reason</Label>
+              <Label htmlFor="ban-reason"> {tr("Reason")}{' '}</Label>
               <Input
                 id="ban-reason"
                 ref={banReasonInput}
@@ -590,7 +584,7 @@ export default function Clients() {
               aria-busy={banClient.isPending}
             >
               <Ban className="h-4 w-4 mr-1" />
-              {banClient.isPending ? 'Banning…' : 'Ban client'}
+              {banClient.isPending ? uiText("Banning…") : tr("Ban client")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -603,19 +597,17 @@ export default function Clients() {
       >
         <DialogContent onOpenAutoFocus={(event) => { event.preventDefault(); pokeMessageInput.current?.focus(); }}>
           <DialogHeader>
-            <DialogTitle>Poke {pokeTarget?.name}</DialogTitle>
-            <DialogDescription>
-              Send a short notification to {pokeTarget?.name}. The dialog stays open if the server rejects it.
-            </DialogDescription>
+            <DialogTitle> {tr("Poke")}{' '}{pokeTarget?.name}</DialogTitle>
+            <DialogDescription> {tr("Send a short notification to")}{' '}{pokeTarget?.name} {tr(". The dialog stays open if the server rejects it.")}{' '}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label htmlFor="poke-message">Message</Label>
+            <Label htmlFor="poke-message"> {tr("Message")}{' '}</Label>
             <Input
               id="poke-message"
               ref={pokeMessageInput}
               value={pokeMsg}
               onChange={(e) => setPokeMsg(e.target.value)}
-              placeholder="Hey!"
+              placeholder={uiText("Hey!")}
               autoFocus
               disabled={pokeClient.isPending}
             />
@@ -630,7 +622,7 @@ export default function Clients() {
               aria-busy={pokeClient.isPending}
             >
               <Zap className="h-4 w-4 mr-1" />
-              {pokeClient.isPending ? 'Sending…' : 'Send poke'}
+              {pokeClient.isPending ? tr("Sending…") : uiText("Send poke")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -640,33 +632,31 @@ export default function Clients() {
       <Dialog open={playMode === 'youtube'} onOpenChange={(open) => !open && closePlayDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Play URL{playClientName ? ` (from ${playClientName})` : ''}</DialogTitle>
+            <DialogTitle>{tr('Play URL')}{playClientName ? ` (${tr('Requested by')}: ${playClientName})` : ''}</DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-muted-foreground">
-            Paste a YouTube / YouTube Music, Spotify, or Apple Music song or playlist URL. Playback uses the selected media bot&apos;s channel (Apple Music / Spotify resolve via YouTube).
-          </p>
+          <p className="text-xs text-muted-foreground"> {tr("Paste a YouTube / YouTube Music, Spotify, or Apple Music song or playlist URL. Playback uses the selected media bot's channel (Apple Music / Spotify resolve via YouTube).")}{' '}</p>
           <div className="space-y-3">
             <div>
-              <Label className="text-xs">Media bot</Label>
+              <Label className="text-xs"> {tr("Media bot")}{' '}</Label>
               <Select value={selectedBotId} onValueChange={setSelectedBotId}>
                 <SelectTrigger className="cursor-pointer">
-                  <SelectValue placeholder={runningBots.length === 0 ? 'No running bots' : 'Select bot...'} />
+                  <SelectValue placeholder={tr(runningBots.length === 0 ? 'No running bots' : 'Select bot...')} />
                 </SelectTrigger>
                 <SelectContent>
                   {runningBots.map((b) => (
                     <SelectItem key={b.id} value={String(b.id)} className="cursor-pointer">
-                      {b.name} — {b.status}
+                      {b.name} — {tr(b.status)}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
             <div>
-              <Label className="text-xs">YouTube / Spotify / Apple Music URL</Label>
+              <Label className="text-xs"> {tr("YouTube / Spotify / Apple Music URL")}{' '}</Label>
               <Input
                 value={ytUrl}
                 onChange={(e) => setYtUrl(e.target.value)}
-                placeholder="https://music.apple.com/... or YouTube / Spotify URL"
+                placeholder={tr("https://music.apple.com/... or YouTube / Spotify URL")}
                 autoFocus
               />
             </div>
@@ -678,9 +668,10 @@ export default function Clients() {
               disabled={!selectedBotId || !ytUrl.trim() || playUrl.isPending || runningBots.length === 0}
             >
               <Youtube className="h-4 w-4 mr-1" />
-              {playUrl.isPending ? 'Starting…' : 'Play'}
+              {tr(playUrl.isPending ? 'Starting…' : 'Play')}
             </Button>
           </DialogFooter>
+          {playUrl.isError && <p role="alert" className="text-sm text-destructive">{apiErrorMessage(playUrl.error, tr('Failed to play URL'))}</p>}
         </DialogContent>
       </Dialog>
 
@@ -688,17 +679,15 @@ export default function Clients() {
       <Dialog open={playMode === 'radio'} onOpenChange={(open) => !open && closePlayDialog()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Play Radio{playClientName ? ` (from ${playClientName})` : ''}</DialogTitle>
+            <DialogTitle>{tr('Play Radio')}{playClientName ? ` (${tr('Requested by')}: ${playClientName})` : ''}</DialogTitle>
           </DialogHeader>
-          <p className="text-xs text-muted-foreground">
-            Stream a saved radio station on a running media bot. Add stations under Media Library → Radio stations.
-          </p>
+          <p className="text-xs text-muted-foreground"> {tr("Stream a saved radio station on a running media bot. Add stations under Media Library → Radio stations.")}{' '}</p>
           <div className="space-y-3">
             <div>
-              <Label className="text-xs">Media bot</Label>
+              <Label className="text-xs"> {tr("Media bot")}{' '}</Label>
               <Select value={selectedBotId} onValueChange={setSelectedBotId}>
                 <SelectTrigger className="cursor-pointer">
-                  <SelectValue placeholder={runningBots.length === 0 ? 'No running bots' : 'Select bot...'} />
+                  <SelectValue placeholder={runningBots.length === 0 ? uiText("No running bots") : uiText("Select bot...")} />
                 </SelectTrigger>
                 <SelectContent>
                   {runningBots.map((b) => (
@@ -710,10 +699,10 @@ export default function Clients() {
               </Select>
             </div>
             <div>
-              <Label className="text-xs">Station</Label>
+              <Label className="text-xs"> {tr("Station")}{' '}</Label>
               <Select value={selectedStationId} onValueChange={setSelectedStationId}>
                 <SelectTrigger className="cursor-pointer">
-                  <SelectValue placeholder={stationList.length === 0 ? 'No stations' : 'Select station...'} />
+                  <SelectValue placeholder={stationList.length === 0 ? uiText("No stations") : uiText("Select station...")} />
                 </SelectTrigger>
                 <SelectContent>
                   {stationList.map((s) => (
@@ -732,7 +721,7 @@ export default function Clients() {
               disabled={!selectedBotId || !selectedStationId || playRadio.isPending || runningBots.length === 0 || stationList.length === 0}
             >
               <Radio className="h-4 w-4 mr-1" />
-              {playRadio.isPending ? 'Starting…' : 'Play'}
+              {playRadio.isPending ? tr("Starting…") : tr("Play")}
             </Button>
           </DialogFooter>
         </DialogContent>

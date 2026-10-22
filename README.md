@@ -27,8 +27,8 @@ PowerShell ve npm geliştirme dosyalarını içermez.
 
 ## Bileşenler
 
-YouTube için varsayılan çerezsiz PO Token yöntemi ve isteğe bağlı çerez kullanımı:
-[oynatma kılavuzu](docs/cookieless-youtube.md).
+YouTube yalnızca yönetici tarafından yüklenen çerez dosyasıyla çalışır:
+[oynatma kılavuzu](docs/youtube-cookies.md).
 
 Panelin yeni logosu, TR/EN arayüzü, otomatik bot portu ve isteğe bağlı
 `!say` konuşma sentezi için [panel ve TTS kılavuzunu](docs/panel-and-tts.md) okuyun.

@@ -2,7 +2,7 @@
 
 ## 0.3.8-alpha.3 - 2026-10-20
 
-- Default cookieless YouTube playback using a pinned private PO Token service; explicit optional account-cookie mode.
+- Cookie-only YouTube playback with automatic activation of an administrator's uploaded cookie file.
 - Per-bot extensions, command switches and aliases, and independently configurable TR/EN TTS.
 - Expanded Turkish translations, player-widget controls, and clearer media and permission diagnostics.
 - Automatic radio presets, bot track cover/description support, and improved connection and voice-port setup.

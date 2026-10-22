@@ -3,7 +3,8 @@ import { spawnYtDlp, ytDlpTarget } from './yt-dlp-process.js';
 import { cacheKey, identityFromInfo, MAX_CACHE_FILE_BYTES, MediaCacheError, mediaCacheFor } from './media-cache.js';
 import path from "path";
 import fs from "fs";
-import type { YouTubeAuthMode } from './youtube-pot.js';
+import { getYtCookieFile } from './youtube-cookies.js';
+export { getYtCookieFile, setYtCookieFile } from './youtube-cookies.js';
 
 export interface YouTubeInfo {
   id: string;
@@ -33,31 +34,14 @@ export interface ParsedYouTubeUrl {
   watchUrl?: string;
 }
 
-// Shared cookie file path (set from settings)
-let ytCookieFile: string | null = null;
-let ytAuthMode: YouTubeAuthMode = 'po-token';
-
-export function setYouTubeAuthMode(mode: YouTubeAuthMode): void { ytAuthMode = mode; }
-export function getYouTubeAuthMode(): YouTubeAuthMode { return ytAuthMode; }
-
-export function setYtCookieFile(filePath: string | null): void {
-  ytCookieFile = filePath;
-}
-
-export function getYtCookieFile(): string | null {
-  return ytAuthMode === 'cookies' ? ytCookieFile : null;
-}
-
 /** Permissive best-audio chain — ffmpeg converts whatever we get in the audio pipeline. */
 const YT_AUDIO_FORMAT = "ba/b/bestaudio/best";
 
 /** Rotate YouTube player clients to reduce bot-check and empty-format failures. */
 const YT_EXTRACTOR_CLIENT_ROTATION = [
-  "mweb",
-  "tv_embedded,web,default",
-  "web,default",
-  "tv_embedded",
-  "android_vr,web",
+  "default",
+  "web",
+  "web_safari",
 ] as const;
 
 function buildYtDlpBaseArgs(playerClients: string): string[] {
@@ -80,20 +64,21 @@ export function getCookieArgs(): string[] {
 
 function formatYtDlpFailure(phase: string, code: number | null, stderr: string): string {
   const summary = summarizeYtDlpStderr(stderr);
-  if (/sign in to confirm|not a bot/i.test(stderr) && !getYtCookieFile()) {
-    return `${phase} (code ${code}): ${summary}. Check the local PO Token provider and outbound network. Optional account cookies can be enabled in Settings → YouTube; neither method guarantees access.`;
+  if (/sign in to confirm|not a bot/i.test(stderr)) {
+    return `${phase} (code ${code}): ${summary}. Refresh your YouTube cookies in Settings → YouTube and check outbound connectivity. Cookies do not guarantee access.`;
   }
   return `${phase} (code ${code}): ${summary}`;
 }
 
 /** Prefer ERROR lines in yt-dlp stderr (warnings often drown the real failure). */
-function summarizeYtDlpStderr(stderr: string, maxLen = 280): string {
+export function summarizeYtDlpStderr(stderr: string, maxLen = 280): string {
   const lines = stderr
     .split(/\r?\n/)
     .map((l) => l.trim())
-    .filter(Boolean);
+    .filter(l => Boolean(l) && !/^Reading options from STDIN/i.test(l));
   const errors = lines.filter((l) => /ERROR:/i.test(l));
-  const chosen = errors.length > 0 ? errors : lines;
+  const auth = lines.filter(l => /sign in to confirm|not a bot|HTTP Error (403|429)/i.test(l));
+  const chosen = auth.length ? auth : errors.length > 0 ? errors : lines;
   const text = chosen.join(" | ");
   return text.slice(0, maxLen) || "unknown yt-dlp error";
 }
@@ -481,7 +466,6 @@ async function ytDlpDumpJson(mediaUrl: string, signal?: AbortSignal): Promise<Re
       withMediaUrl(
         [
           ...buildYtDlpBaseArgs(clients),
-          "--no-warnings",
           "--dump-json",
           "--no-playlist",
           "--ignore-no-formats-error",

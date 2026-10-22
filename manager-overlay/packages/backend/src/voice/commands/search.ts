@@ -1,6 +1,6 @@
 import type { VoiceBot } from '../voice-bot.js';
 import type { YouTubeSearchResult } from '../audio/youtube.js';
-import { searchYouTube, searchYouTubeMusic } from '../audio/youtube.js';
+import { getYtCookieFile, searchYouTube, searchYouTubeMusic } from '../audio/youtube.js';
 import type { CommandContext } from './context.js';
 
 const SEARCH_SESSION_MS = 5 * 60 * 1000;
@@ -69,6 +69,11 @@ export async function handleSearch(
   const query = rawQuery.trim().slice(0, MAX_QUERY_LENGTH);
   if (query.length < 2) {
     await context.reply(bot, userClid, 'Kullanım: !ara <şarkı veya sanatçı>');
+    return;
+  }
+  if (!getYtCookieFile()) {
+    sessions.delete(sessionKey(botId, userClid));
+    await context.reply(bot, userClid, 'YouTube çerezleri gerekli. Yönetici, panelde Ayarlar → YouTube bölümünden cookies.txt yüklemeli.');
     return;
   }
   await context.reply(bot, userClid, 'YouTube Music ve YouTube aranıyor; sonuçlar başlık, sanatçı ve sürüm uyumuna göre sıralanıyor...');

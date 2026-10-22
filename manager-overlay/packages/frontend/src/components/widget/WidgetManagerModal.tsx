@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 import { useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -36,6 +37,7 @@ function copyText(text: string) {
 }
 
 export function WidgetManagerModal({ open, onOpenChange }: Props) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const { data: widgets = [], isLoading } = useWidgets();
   const { data: servers = [] } = useQuery<ServerConfig[]>({ queryKey: ['servers'], queryFn: serversApi.list });
@@ -188,7 +190,7 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
                     </div>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Server: {(w as any).serverConfig?.name || `#${w.serverConfigId}`} | VS {w.virtualServerId}
+                    {uiText("Server: ")}{(w as any).serverConfig?.name || `#${w.serverConfigId}`} {uiText(" | VS ")}{w.virtualServerId}
                   </p>
                   <div className="flex items-center gap-1.5 flex-wrap">
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openEmbed(w)}>
@@ -196,8 +198,7 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => window.open(`/widget/${w.token}`, '_blank')}>
                       <ExternalLink className="h-3 w-3 mr-1" /> {tr("Preview")}</Button>
                     <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => window.open(`/api/widget/${w.token}/image.svg`, '_blank')}>
-                      <Image className="h-3 w-3 mr-1" /> SVG
-                    </Button>
+                      <Image className="h-3 w-3 mr-1" /> {uiText(" SVG")}</Button>
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => openEdit(w)}>
                       <Pencil className="h-3 w-3 mr-1" /> {tr("Edit")}</Button>
                     <Button size="sm" variant="ghost" className="h-7 text-xs text-destructive" onClick={() => handleDelete(w.id)}>
@@ -299,9 +300,9 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
 
               <Tabs defaultValue="iframe">
                 <TabsList className="w-full">
-                  <TabsTrigger value="iframe" className="flex-1">iFrame</TabsTrigger>
+                  <TabsTrigger value="iframe" className="flex-1">{uiText("iFrame")}</TabsTrigger>
                   <TabsTrigger value="image" className="flex-1"> {tr("Image URLs")}</TabsTrigger>
-                  <TabsTrigger value="bbcode" className="flex-1">BBCode</TabsTrigger>
+                  <TabsTrigger value="bbcode" className="flex-1">{uiText("BBCode")}</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="iframe" className="space-y-2">
@@ -313,8 +314,8 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
                     <Button
                       size="icon" variant="ghost"
                       className="absolute top-1 right-1 h-7 w-7"
-                      aria-label="Copy iframe embed code"
-                      title="Copy iframe embed code"
+                      aria-label={uiText("Copy iframe embed code")}
+                      title={uiText("Copy iframe embed code")}
                       onClick={() => copyText(`<iframe src="${origin}/widget/${embedTarget.token}" width="420" height="600" frameborder="0" scrolling="auto" style="border-radius:8px;border:none;"></iframe>`)}
                     >
                       <Copy className="h-3.5 w-3.5" />
@@ -329,7 +330,7 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
                       <code className="flex-1 bg-muted rounded-md p-2 text-xs font-mono break-all">
                         {`${origin}/api/widget/${embedTarget.token}/image.svg`}
                       </code>
-                      <Button size="icon" variant="ghost" className="h-7 w-7 flex-shrink-0" aria-label="Copy SVG image URL" title="Copy SVG image URL" onClick={() => copyText(`${origin}/api/widget/${embedTarget.token}/image.svg`)}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 flex-shrink-0" aria-label={uiText("Copy SVG image URL")} title={uiText("Copy SVG image URL")} onClick={() => copyText(`${origin}/api/widget/${embedTarget.token}/image.svg`)}>
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -340,7 +341,7 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
                       <code className="flex-1 bg-muted rounded-md p-2 text-xs font-mono break-all">
                         {`${origin}/api/widget/${embedTarget.token}/image.png`}
                       </code>
-                      <Button size="icon" variant="ghost" className="h-7 w-7 flex-shrink-0" aria-label="Copy PNG image URL" title="Copy PNG image URL" onClick={() => copyText(`${origin}/api/widget/${embedTarget.token}/image.png`)}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 flex-shrink-0" aria-label={uiText("Copy PNG image URL")} title={uiText("Copy PNG image URL")} onClick={() => copyText(`${origin}/api/widget/${embedTarget.token}/image.png`)}>
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -351,7 +352,7 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
                       <code className="flex-1 bg-muted rounded-md p-2 text-xs font-mono break-all">
                         {`<img src="${origin}/api/widget/${embedTarget.token}/image.png" alt="TeamSpeak Server" />`}
                       </code>
-                      <Button size="icon" variant="ghost" className="h-7 w-7 flex-shrink-0" aria-label="Copy HTML img tag" title="Copy HTML img tag" onClick={() => copyText(`<img src="${origin}/api/widget/${embedTarget.token}/image.png" alt="TeamSpeak Server" />`)}>
+                      <Button size="icon" variant="ghost" className="h-7 w-7 flex-shrink-0" aria-label={uiText("Copy HTML img tag")} title={uiText("Copy HTML img tag")} onClick={() => copyText(`<img src="${origin}/api/widget/${embedTarget.token}/image.png" alt="TeamSpeak Server" />`)}>
                         <Copy className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -367,8 +368,8 @@ export function WidgetManagerModal({ open, onOpenChange }: Props) {
                     <Button
                       size="icon" variant="ghost"
                       className="absolute top-1 right-1 h-7 w-7"
-                      aria-label="Copy forum BBCode"
-                      title="Copy forum BBCode"
+                      aria-label={uiText("Copy forum BBCode")}
+                      title={uiText("Copy forum BBCode")}
                       onClick={() => copyText(`[img]${origin}/api/widget/${embedTarget.token}/image.png[/img]`)}
                     >
                       <Copy className="h-3.5 w-3.5" />

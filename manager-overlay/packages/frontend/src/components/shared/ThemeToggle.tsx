@@ -13,8 +13,8 @@ export function ThemeToggle() {
       size="icon"
       onClick={toggleTheme}
       className="h-10 w-10 sm:h-8 sm:w-8"
-      aria-label={t(`Switch to ${nextTheme} theme`)}
-      title={t(`Switch to ${nextTheme} theme`)}
+      aria-label={t('Switch to {0} theme', t(nextTheme === 'light' ? 'Light' : 'Dark'))}
+      title={t('Switch to {0} theme', t(nextTheme === 'light' ? 'Light' : 'Dark'))}
     >
       {baseTheme === 'light' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
     </Button>

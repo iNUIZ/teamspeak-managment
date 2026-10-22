@@ -1,3 +1,5 @@
+import { translateUiError as uiError } from '@/lib/i18n';
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -9,6 +11,7 @@ import axios from 'axios';
 import { BrandMark } from '@/components/shared/BrandMark';
 
 export default function SetupPage() {
+  useUiLanguageStore(state => state.language);
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
@@ -38,7 +41,7 @@ export default function SetupPage() {
     setError('');
 
     if (password !== confirmPassword) {
-      setError('Passwords do not match');
+      setError(uiText("Passwords do not match"));
       return;
     }
 
@@ -51,7 +54,7 @@ export default function SetupPage() {
       });
       navigate('/login', { replace: true });
     } catch (err: any) {
-      setError(err.response?.data?.error || 'Setup failed');
+      setError(uiError(String(err.response?.data?.error || uiText("Setup failed")), uiText("Setup failed")));
     } finally {
       setLoading(false);
     }
@@ -64,58 +67,57 @@ export default function SetupPage() {
       <div className="w-full max-w-sm mx-4 relative">
         <div className="text-center mb-8">
           <BrandMark className="mx-auto mb-4 h-16 w-16 text-primary" />
-          <h1 className="text-xl font-semibold text-foreground">Teamspeak Managment</h1>
-          <p className="text-sm text-muted-foreground mt-1">Initial setup · Create your administrator account</p>
+          <h1 className="text-xl font-semibold text-foreground">{uiText("Teamspeak Managment")}</h1>
+          <p className="text-sm text-muted-foreground mt-1">{uiText("Initial setup · Create your administrator account")}</p>
         </div>
 
         <Card className="border-border/50 backdrop-blur-sm">
           <CardHeader className="pb-4">
             <h2 className="text-sm font-medium text-center text-muted-foreground">
-              This is the first time setup. Create an admin account to get started.
-            </h2>
+              {uiText("This is the first time setup. Create an admin account to get started.")}</h2>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="username" className="text-xs">Username</Label>
+                <Label htmlFor="username" className="text-xs">{uiText("Username")}</Label>
                 <Input
                   id="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
+                  placeholder={uiText("admin")}
                   autoComplete="username"
                   autoFocus
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="displayName" className="text-xs">Display Name</Label>
+                <Label htmlFor="displayName" className="text-xs">{uiText("Display Name")}</Label>
                 <Input
                   id="displayName"
                   value={displayName}
                   onChange={(e) => setDisplayName(e.target.value)}
-                  placeholder="Administrator"
+                  placeholder={uiText("Administrator")}
                   autoComplete="name"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-xs">Password</Label>
+                <Label htmlFor="password" className="text-xs">{uiText("Password")}</Label>
                 <Input
                   id="password"
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="Min. 8 chars, uppercase, lowercase, digit"
+                  placeholder={uiText("Min. 8 chars, uppercase, lowercase, digit")}
                   autoComplete="new-password"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="confirmPassword" className="text-xs">Confirm Password</Label>
+                <Label htmlFor="confirmPassword" className="text-xs">{uiText("Confirm Password")}</Label>
                 <Input
                   id="confirmPassword"
                   type="password"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Repeat password"
+                  placeholder={uiText("Repeat password")}
                   autoComplete="new-password"
                 />
               </div>
@@ -135,10 +137,9 @@ export default function SetupPage() {
                 {loading ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Creating account...
-                  </>
+                    {uiText("Creating account...")}</>
                 ) : (
-                  'Create Admin Account'
+                  uiText("Create Admin Account")
                 )}
               </Button>
             </form>

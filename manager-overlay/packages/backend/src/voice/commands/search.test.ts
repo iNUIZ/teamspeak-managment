@@ -1,13 +1,25 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import type { YouTubeSearchResult } from '../audio/youtube.js';
-import { qualityScore, searchInternals } from './search.js';
+import { handleSearch, qualityScore, searchInternals } from './search.js';
+import { setYtCookieFile } from '../audio/youtube.js';
+import type { CommandContext } from './context.js';
+import type { VoiceBot } from '../voice-bot.js';
 
 const item = (id: string, title: string, artist = 'Artist', duration = 210): YouTubeSearchResult => ({
   id, title, artist, duration, thumbnail: '',
 });
 
 describe('mixed !ara ranking', () => {
+  it('explains missing cookies instead of pretending that no songs matched', async () => {
+    setYtCookieFile(null);
+    const replies: string[] = [];
+    const context = { reply: async (_bot: unknown, _clid: number, text: string) => { replies.push(text); } } as unknown as CommandContext;
+    await handleSearch(context, 1, {} as VoiceBot, 12, 'semicenk');
+    assert.equal(replies.length, 1);
+    assert.match(replies[0], /cookies.txt/);
+    assert.doesNotMatch(replies[0], /sonuç bulunamadı/);
+  });
   it('mixes sources by quality instead of fixed source buckets', () => {
     const ranked = searchInternals.mergeAndRank('artist song', [
       { sourceLabel: 'YouTube', items: [item('yt', 'unrelated reaction', 'Someone')] },

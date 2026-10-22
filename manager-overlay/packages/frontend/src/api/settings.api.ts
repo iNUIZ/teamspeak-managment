@@ -13,8 +13,6 @@ export interface ServerVideoStreamingSettings {
 }
 
 export const settingsApi = {
-  setYouTubeAuthMode: (mode: 'po-token' | 'cookies') =>
-    api.put('/settings/yt-cookies/mode', { mode }).then((r) => r.data),
   getYtCookieStatus: () => api.get('/settings/yt-cookies').then((r) => r.data),
 
   uploadYtCookieFile: (file: File) => {

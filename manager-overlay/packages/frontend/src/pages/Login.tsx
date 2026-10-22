@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { useState, useEffect } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -13,6 +14,7 @@ import { LanguageSwitch } from '@/components/shared/LanguageSwitch';
 import { useTranslation } from '@/lib/i18n';
 
 export default function Login() {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [username, setUsername] = useState('');
@@ -82,7 +84,7 @@ export default function Login() {
         {/* Header */}
         <div className="text-center mb-8">
           <BrandMark className="mx-auto mb-4 h-16 w-16 text-primary" />
-          <h1 className="text-xl font-semibold text-foreground">Teamspeak Managment</h1>
+          <h1 className="text-xl font-semibold text-foreground">{uiText("Teamspeak Managment")}</h1>
           <p className="text-sm text-muted-foreground mt-1">{t('Server Administration Panel')}</p>
         </div>
 
@@ -98,7 +100,7 @@ export default function Login() {
                   id="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
+                  placeholder={uiText("admin")}
                   autoComplete="username"
                   autoFocus
                 />

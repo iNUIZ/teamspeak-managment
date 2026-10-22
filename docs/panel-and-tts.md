@@ -75,11 +75,9 @@ Wiki: https://nuiz.mintlify.site/index
 
 ## Panel kullanım kolaylığı ve şarkı profili
 
-YouTube oynatma yöntemi Ayarlar → YouTube bölümünden seçilir. Varsayılan
-çerezsiz PO Token hizmeti Manager imajıyla gelir; çerez yüklemek tek başına
-hesap erişimini açmaz. Kullanmak için ayrıca isteğe bağlı çerez yöntemini seçin.
-Hizmet durumu, platform gereksinimleri ve sınırlamalar:
-[Çerezsiz oynatma](cookieless-youtube.md).
+YouTube için Ayarlar → YouTube bölümünden cookies.txt yüklenir. Dosya yeni
+işlemlerde otomatik kullanılır; çerezsiz alternatif hizmet bulunmaz.
+Platform gereksinimleri ve sınırlamalar: [Çerezle oynatma](youtube-cookies.md).
 
 Kontrol panelindeki hızlı işlemlerle kanallara, kullanıcılara, bot merkezine ve
 yöneticiyseniz bağlantılara ulaşabilirsiniz. Yan menüde Türkçe veya İngilizce

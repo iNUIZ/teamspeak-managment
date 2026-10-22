@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -34,6 +35,7 @@ export function useUpNextSensors() {
 export function Row({ rowKey, item, onPlay, onRemove, disabled, dragDisabled }: {
   rowKey: string; item: Pick<QueueItemInfo, 'title' | 'artist'>; onPlay(): void; onRemove(): void; disabled: boolean; dragDisabled: boolean;
 }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({
     id: rowKey, disabled: dragDisabled,
@@ -42,7 +44,7 @@ export function Row({ rowKey, item, onPlay, onRemove, disabled, dragDisabled }: 
     <li ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn('flex items-center gap-2 rounded-md border bg-card p-1.5', isDragging && 'opacity-60')}>
       <button ref={setActivatorNodeRef} type="button" {...attributes} {...listeners} disabled={dragDisabled}
-        aria-label={`Drag to reorder ${item.title}`}
+        aria-label={uiText("Drag to reorder {0}", item.title)}
         className="flex h-10 w-8 shrink-0 cursor-grab touch-none items-center justify-center text-muted-foreground disabled:cursor-not-allowed disabled:opacity-50">
         <GripVertical className="h-4 w-4" aria-hidden="true" />
       </button>
@@ -51,11 +53,11 @@ export function Row({ rowKey, item, onPlay, onRemove, disabled, dragDisabled }: 
         {item.artist && <p className="truncate text-xs text-muted-foreground">{item.artist}</p>}
       </div>
       <Button variant="outline" size="icon" className="h-10 w-10 shrink-0" disabled={disabled}
-        aria-label={`Play ${item.title} now`} onClick={onPlay}>
+        aria-label={uiText("Play {0} now", item.title)} onClick={onPlay}>
         <Play className="h-4 w-4" aria-hidden="true" />
       </Button>
       <Button variant="ghost" size="icon" className="h-10 w-10 shrink-0 text-destructive" disabled={disabled}
-        aria-label={`Remove ${item.title} from the queue`} onClick={onRemove}>
+        aria-label={uiText("Remove {0} from the queue", item.title)} onClick={onRemove}>
         <X className="h-4 w-4" aria-hidden="true" />
       </Button>
     </li>
@@ -78,6 +80,7 @@ export function UpNextQueue({ botId, state, keptFor, loadError, stripOnly = fals
   /** The video lane owns Up next: show this queue as its one-line kept strip only. */
   stripOnly?: boolean;
 }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const move = useMoveQueueItem();
   const remove = useRemoveFromQueue();
@@ -123,11 +126,10 @@ export function UpNextQueue({ botId, state, keptFor, loadError, stripOnly = fals
     if (items.length === 0) return null;
     return (
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed p-2 text-sm text-muted-foreground">
-        <span>{items.length === 1 ? '1 queued song is kept.' : `${items.length} queued songs are kept.`}</span>
-        <Button variant="outline" size="sm" className="h-9" disabled={busy} aria-label="Play music queue"
+        <span>{items.length === 1 ? uiText("1 queued song is kept.") : uiText("{0} queued songs are kept.", items.length)}</span>
+        <Button variant="outline" size="sm" className="h-9" disabled={busy} aria-label={uiText("Play music queue")}
           onClick={() => playFrom.mutate({ botId, index: absoluteIndex(currentIndex, 0), itemId: items[0].id })}>
-          Play queue
-        </Button>
+          {uiText("Play queue")}</Button>
       </div>
     );
   }
@@ -138,7 +140,7 @@ export function UpNextQueue({ botId, state, keptFor, loadError, stripOnly = fals
         <h2 id="up-next" className="text-sm font-semibold"> {tr("Up next")}</h2>
         {loadError ? (
           <p role="alert" className="text-sm text-destructive">
-            Could not load the queue. {apiErrorMessage(loadError, 'Try again in a moment.')}
+            {uiText("Could not load the queue. ")}{apiErrorMessage(loadError, 'Try again in a moment.')}
           </p>
         ) : (
           <p className="text-sm text-muted-foreground"> {tr("Loading the queue…")}</p>
@@ -151,27 +153,25 @@ export function UpNextQueue({ botId, state, keptFor, loadError, stripOnly = fals
     <section aria-labelledby="up-next" className="space-y-3 border-t pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-baseline gap-2">
-          <h2 id="up-next" className="text-sm font-semibold">Up next ({items.length})</h2>
+          <h2 id="up-next" className="text-sm font-semibold">{uiText("Up next (")}{items.length})</h2>
           {items.length > 1 && <span className="text-xs text-muted-foreground"> {tr("Drag to reorder")}</span>}
         </div>
         <div className="flex flex-wrap gap-1">
           <Button variant={state?.shuffle ? 'default' : 'outline'} size="sm" className="h-9"
             aria-pressed={!!state?.shuffle} onClick={() => setShuffle.mutate({ botId, enabled: !state?.shuffle })}>
-            <Shuffle className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Shuffle
-          </Button>
+            <Shuffle className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> {uiText(" Shuffle")}</Button>
           <Button variant="outline" size="sm" className="h-9" onClick={() => setRepeat.mutate({ botId, mode: NEXT_REPEAT[repeat] })}>
             {repeat === 'track' ? <Repeat1 className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> : <Repeat className="mr-1 h-3.5 w-3.5" aria-hidden="true" />}
-            {REPEAT_LABEL[repeat]}
+            {uiText(REPEAT_LABEL[repeat])}
           </Button>
           <Button variant="ghost" size="sm" className="h-9" disabled={items.length === 0} onClick={() => clear.mutate(botId)}>
-            <Trash2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Clear
-          </Button>
+            <Trash2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> {uiText(" Clear")}</Button>
         </div>
       </div>
 
       {loadError != null && (
         <p role="alert" className="text-sm text-destructive">
-          Could not refresh the queue. {apiErrorMessage(loadError, 'Try again in a moment.')}
+          {uiText("Could not refresh the queue. ")}{apiErrorMessage(loadError, 'Try again in a moment.')}
         </p>
       )}
       {failed != null && (
@@ -182,11 +182,10 @@ export function UpNextQueue({ botId, state, keptFor, loadError, stripOnly = fals
 
       {keptFor && items.length > 0 && (
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed p-2 text-sm text-muted-foreground">
-          <span>Up next ({items.length}) is kept while the {keptFor} plays.</span>
+          <span>{uiText("Up next (")}{items.length}{uiText(") is kept while the ")}{keptFor} {uiText(" plays.")}</span>
           <Button variant="outline" size="sm" className="h-9" disabled={busy}
             onClick={() => playFrom.mutate({ botId, index: absoluteIndex(currentIndex, 0), itemId: items[0].id })}>
-            Play queue
-          </Button>
+            {uiText("Play queue")}</Button>
         </div>
       )}
 

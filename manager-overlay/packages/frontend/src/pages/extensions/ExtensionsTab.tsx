@@ -1,3 +1,5 @@
+import { translateUiError as uiError } from '@/lib/i18n';
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Puzzle, PackageCheck, Upload, ShieldCheck } from 'lucide-react';
@@ -23,6 +25,7 @@ const EXAMPLE = JSON.stringify({
 }, null, 2);
 
 export function ExtensionsTab({ fixedConfigId }: { fixedConfigId?: number } = {}) {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const headerConfigId = useServerStore(s => s.selectedConfigId);
   const selectedConfigId = fixedConfigId ?? headerConfigId;
@@ -37,7 +40,7 @@ export function ExtensionsTab({ fixedConfigId }: { fixedConfigId?: number } = {}
   const install = useMutation({
     mutationFn: (manifest: ExtensionManifest) => extensionsApi.import(selectedConfigId!, manifest),
     onSuccess: () => { toast.success(t('Extension installed')); qc.invalidateQueries({ queryKey }); },
-    onError: (error: any) => toast.error(error?.response?.data?.error || t('Extension could not be installed')),
+    onError: (error: any) => toast.error(uiError(String(error?.response?.data?.error || t('Extension could not be installed')), t('Extension could not be installed'))),
   });
   const toggle = useMutation({
     mutationFn: ({ id, enabled }: { id: string; enabled: boolean }) => extensionsApi.setEnabled(selectedConfigId!, id, enabled),
@@ -73,7 +76,7 @@ export function ExtensionsTab({ fixedConfigId }: { fixedConfigId?: number } = {}
           {installed.length === 0 && <p className="text-sm text-muted-foreground">{t('No third-party extension installed yet.')}</p>}
           {installed.map((pack: any) => (
             <div key={pack.id} className="flex items-center justify-between gap-4 rounded-lg border p-4">
-              <div><div className="font-medium">{pack.name} <span className="text-xs text-muted-foreground">v{pack.version}</span></div><div className="text-xs text-muted-foreground">{pack.description || `${pack.commands?.length || 0} command(s)`}</div></div>
+              <div><div className="font-medium">{pack.name} <span className="text-xs text-muted-foreground">v{pack.version}</span></div><div className="text-xs text-muted-foreground">{pack.description || uiText("{0} command(s)", pack.commands?.length || 0)}</div></div>
               <Switch aria-label={pack.name} disabled={toggle.isPending} checked={Boolean(pack.enabled)} onCheckedChange={(enabled) => toggle.mutate({ id: pack.id, enabled })} />
             </div>
           ))}
@@ -84,7 +87,7 @@ export function ExtensionsTab({ fixedConfigId }: { fixedConfigId?: number } = {}
         <CardHeader><CardTitle className="flex items-center gap-2 text-base"><Upload className="h-4 w-4" /> {t('Install from manifest')}</CardTitle></CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3 text-xs text-muted-foreground"><ShieldCheck className="h-4 w-4 shrink-0 text-emerald-500" />{t('Manifests define text commands; they do not run arbitrary code or access host files.')}</div>
-          <Label htmlFor="extension-manifest">extension.json</Label>
+          <Label htmlFor="extension-manifest">{uiText("extension.json")}</Label>
           <textarea id="extension-manifest" className="min-h-64 w-full rounded-md border bg-background p-3 font-mono text-xs" value={source} onChange={(event) => setSource(event.target.value)} spellCheck={false} />
           <Button onClick={importManifest} disabled={install.isPending}><Upload className="mr-2 h-4 w-4" /> {t('Validate and install')}</Button>
         </CardContent>

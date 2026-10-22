@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict';
+import { useLanguageStore } from '../../src/lib/i18n';
+useLanguageStore.setState({ language: 'en' });
 import { describe, it } from 'node:test';
 import {
   ENCODER_OPTIONS,

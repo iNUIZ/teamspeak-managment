@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { useEffect, useMemo, useState, type ElementType, type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -75,6 +76,7 @@ const chartColours = {
 };
 
 function Metric({ label, value, icon: Icon, health = 'normal' }: { label: string; value: string | number; icon: ElementType; health?: MetricHealth }) {
+  useUiLanguageStore(state => state.language);
   return (
     <div
       data-health={health}
@@ -91,7 +93,7 @@ function Metric({ label, value, icon: Icon, health = 'normal' }: { label: string
         {health !== 'normal' && (
           <Badge variant={health === 'high' ? 'destructive' : 'warning'} className="ml-auto shrink-0 px-1.5 text-[10px]">
             <AlertTriangle className="mr-1 h-3 w-3" aria-hidden="true" />
-            {METRIC_HEALTH_LABEL[health]}
+            {uiText(METRIC_HEALTH_LABEL[health])}
           </Badge>
         )}
       </div>
@@ -110,6 +112,7 @@ function Metric({ label, value, icon: Icon, health = 'normal' }: { label: string
 }
 
 function DetailRow({ label, children }: { label: string; children: ReactNode }) {
+  useUiLanguageStore(state => state.language);
   return (
     <div className="grid min-w-0 gap-1 border-b border-border/70 py-3 last:border-0 sm:grid-cols-[minmax(7rem,0.4fr)_minmax(0,1fr)] sm:gap-4">
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
@@ -119,6 +122,7 @@ function DetailRow({ label, children }: { label: string; children: ReactNode }) 
 }
 
 export default function Dashboard() {
+  useUiLanguageStore(state => state.language);
   const { t, language } = useTranslation();
   const { selectedConfigId, selectedSid } = useServerStore();
   const { data: servers } = useServers();
@@ -200,7 +204,7 @@ export default function Dashboard() {
                 <Button size="sm" asChild>
                   <Link to={CONNECTION_SETUP_PATH}>{t('Go to Connections')}</Link>
                 </Button>
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={dismissNudge} aria-label="Dismiss connection setup suggestion">
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={dismissNudge} aria-label={uiText("Dismiss connection setup suggestion")}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
@@ -241,7 +245,7 @@ export default function Dashboard() {
           <EmptyState icon={Wifi} title={teamSpeakConnectionTitle(gateError)} description={detail} />
           <div className="flex justify-center">
             <Button size="sm" variant="outline" onClick={retryGate} disabled={isFetchingGate}>
-              {isFetchingGate ? 'Retrying…' : 'Retry connection'}
+              {isFetchingGate ? uiText("Retrying…") : uiText("Retry connection")}
             </Button>
           </div>
         </div>
@@ -252,12 +256,12 @@ export default function Dashboard() {
       <div className="space-y-4">
         <EmptyState
           icon={Wifi}
-          title="Connection failed"
-          description="Could not connect to the TeamSpeak server. Check your connection settings."
+          title={uiText("Connection failed")}
+          description={uiText("Could not connect to the TeamSpeak server. Check your connection settings.")}
         />
         <div className="flex justify-center">
           <Button size="sm" variant="outline" onClick={retryGate} disabled={isFetchingGate}>
-            {isFetchingGate ? 'Retrying…' : 'Retry connection'}
+            {isFetchingGate ? uiText("Retrying…") : uiText("Retry connection")}
           </Button>
         </div>
       </div>
@@ -344,11 +348,11 @@ export default function Dashboard() {
                 <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">{t('Online users')}</p>
                 <p className="mt-1 font-mono-data text-3xl font-bold text-primary">{formatNumber(data.onlineUsers)} / {formatNumber(data.maxClients)}</p>
               </div>
-              <p className="font-mono-data text-sm text-muted-foreground">{roundedUtilisation}% {language === 'tr' ? 'kullanım' : 'utilised'}</p>
+              <p className="font-mono-data text-sm text-muted-foreground">{roundedUtilisation}% {language === 'tr' ? uiText("kullanım") : uiText("utilised")}</p>
             </div>
             <div
               role="progressbar"
-              aria-label="User slot utilisation"
+              aria-label={uiText("User slot utilisation")}
               aria-valuemin={0}
               aria-valuemax={100}
               aria-valuenow={roundedUtilisation}
@@ -360,14 +364,14 @@ export default function Dashboard() {
               />
             </div>
             <p className="mt-2 text-xs text-muted-foreground">
-              {formatNumber(availableSlots)} {language === 'tr' ? 'kişilik boş kapasite' : `${availableSlots === 1 ? 'slot' : 'slots'} available`}
+              {formatNumber(availableSlots)} {language === 'tr' ? uiText("kişilik boş kapasite") : uiText("{0} available", availableSlots === 1 ? uiText("slot") : uiText("slots"))}
             </p>
           </div>
 
           <div className="grid min-w-0 grid-cols-2 gap-3">
             <Metric icon={Hash} label={t('Channels')} value={formatNumber(data.channelCount)} />
             <Metric icon={Clock} label={t('Uptime')} value={formatUptime(data.uptime)} />
-            <Metric icon={Gauge} label="Ping" value={`${pingMs.toFixed(1)} ms`} health={classifyPing(pingMs)} />
+            <Metric icon={Gauge} label={uiText("Ping")} value={`${pingMs.toFixed(1)} ms`} health={classifyPing(pingMs)} />
             <Metric icon={Radio} label={t('Packet loss')} value={`${packetLossPercent.toFixed(2)}%`} health={classifyPacketLoss(packetLossPercent / 100)} />
           </div>
         </div>
@@ -398,7 +402,7 @@ export default function Dashboard() {
                   <ReTooltip
                     contentStyle={{ background: chartColours.popover, border: `1px solid ${chartColours.border}`, borderRadius: '6px', fontSize: '12px' }}
                     labelStyle={{ color: chartColours.popoverForeground }}
-                    formatter={(value: number, name: string) => [`${formatBytes(value)}/s`, name === 'incoming' ? 'Incoming' : 'Outgoing']}
+                    formatter={(value: number, name: string) => [`${formatBytes(value)}/s`, t(name === 'incoming' ? 'Incoming' : 'Outgoing')]}
                   />
                   <Area type="monotone" dataKey="incoming" stroke={chartColours.incoming} fill="url(#dashboard-incoming)" strokeWidth={2} isAnimationActive={false} />
                   <Area type="monotone" dataKey="outgoing" stroke={chartColours.outgoing} fill="url(#dashboard-outgoing)" strokeWidth={2} isAnimationActive={false} />
@@ -426,8 +430,8 @@ export default function Dashboard() {
 
         <DataPanel title={t('Runtime & Capacity')} description={t('Runtime identity and available capacity')}>
           <dl className="min-w-0">
-            <DetailRow label={t('Server version')}>{data.version || 'Unknown'}</DetailRow>
-            <DetailRow label={t('Platform')}>{data.platform || 'Unknown'}</DetailRow>
+            <DetailRow label={t('Server version')}>{data.version || uiText("Unknown")}</DetailRow>
+            <DetailRow label={t('Platform')}>{data.platform || uiText("Unknown")}</DetailRow>
             <DetailRow label={t('Total slots')}>{formatNumber(data.maxClients)}</DetailRow>
             <DetailRow label={t('Available slots')}>{formatNumber(availableSlots)}</DetailRow>
           </dl>

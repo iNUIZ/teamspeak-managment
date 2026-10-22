@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 /**
  * Admin defaults for new video streams: Performance/Balanced/Quality profiles,
  * with Advanced knobs (Auto limit, encoder, bitrate, cpu-used, no-viewer stop)
@@ -55,6 +56,7 @@ interface VideoStreamDefaultsCardProps {
 }
 
 export function VideoStreamDefaultsCard({ server }: VideoStreamDefaultsCardProps) {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const [scope, setScope] = useState<'global' | 'server'>('global');
   const serverScope = scope === 'server' && !!server;
@@ -111,8 +113,8 @@ export function VideoStreamDefaultsCard({ server }: VideoStreamDefaultsCardProps
   const save = () => {
     update.mutate(draft, {
       onSuccess: () => toast.success(serverScope
-        ? `Defaults for ${server?.name} saved — they apply to the next stream there`
-        : 'Streaming defaults saved — they apply to the next stream'),
+        ? uiText("Defaults for {0} saved — they apply to the next stream there", server?.name)
+        : uiText("Streaming defaults saved — they apply to the next stream")),
       onError: (e) => toast.error(apiErrorMessage(e, 'Failed to save streaming defaults')),
     });
   };
@@ -312,12 +314,11 @@ export function VideoStreamDefaultsCard({ server }: VideoStreamDefaultsCardProps
 
         <div className="flex gap-2">
           <Button size="sm" onClick={save} disabled={!dirty || update.isPending}>
-            {update.isPending ? 'Saving…' : tr("Save defaults")}
+            {update.isPending ? uiText("Saving…") : tr("Save defaults")}
           </Button>
           {dirty && (
             <Button size="sm" variant="ghost" onClick={() => settings && setDraft(settings)}>
-              Reset
-            </Button>
+              {uiText("Reset")}</Button>
           )}
           {serverScope && Object.keys(overrides).length > 0 && (
             <Button
@@ -325,7 +326,7 @@ export function VideoStreamDefaultsCard({ server }: VideoStreamDefaultsCardProps
               variant="ghost"
               disabled={updateServer.isPending}
               onClick={() => updateServer.mutate({}, {
-                onSuccess: () => toast.success(`${server?.name} now uses the global defaults`),
+                onSuccess: () => toast.success(uiText("{0} now uses the global defaults", server?.name)),
                 onError: (e) => toast.error(apiErrorMessage(e, 'Failed to reset server defaults')),
               })}
             > {tr("Use global defaults")}</Button>
@@ -400,6 +401,7 @@ export function VideoStreamDefaultsCard({ server }: VideoStreamDefaultsCardProps
  * ffmpeg says why instead.
  */
 function EncoderProbeOutput({ encoder }: { encoder: VideoEncoderCapability }) {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const attempts = encoder.attempts ?? [];
   return (

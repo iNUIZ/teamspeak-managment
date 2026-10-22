@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 /**
  * Per-bot settings menu (Bot Hub cards and the console header): edit,
@@ -34,6 +35,7 @@ export function BotSettingsMenu({ botId, botName, status, onDeleted, size = 'sm'
   onDeleted?: () => void;
   size?: 'sm' | 'default';
 }) {
+  useUiLanguageStore(state => state.language);
   const { language } = useUiTranslation();
   const [editOpen, setEditOpen] = useState(false);
   const [automationOpen, setAutomationOpen] = useState(false);
@@ -65,7 +67,7 @@ export function BotSettingsMenu({ botId, botName, status, onDeleted, size = 'sm'
       toast.error(apiErrorMessage(bots.error, 'Could not load the bot settings'));
       setEditOpen(false);
     } else if (bots.isSuccess && !summary) {
-      toast.error(`${botName} no longer exists`);
+      toast.error(uiText("{0} no longer exists", botName));
       setEditOpen(false);
     }
   }, [editOpen, bots.isError, bots.isSuccess, bots.isFetching, bots.error, summary, botName]);
@@ -76,7 +78,7 @@ export function BotSettingsMenu({ botId, botName, status, onDeleted, size = 'sm'
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <Button variant="outline" size={size === 'sm' ? 'icon' : 'default'} className={size === 'sm' ? 'h-9 w-9' : 'h-10'}
-            aria-label={language === 'tr' ? `${botName} ayarları` : `Settings for ${botName}`}>
+            aria-label={language === 'tr' ? uiText("{0} ayarları", botName) : uiText("Settings for {0}", botName)}>
             <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
             {size !== 'sm' && <span className="ml-1.5"> {tr("Bot settings")}</span>}
           </Button>
@@ -85,10 +87,9 @@ export function BotSettingsMenu({ botId, botName, status, onDeleted, size = 'sm'
           <DropdownMenuItem onSelect={() => setEditOpen(true)}>
             <Pencil className="mr-2 h-4 w-4" aria-hidden="true" /> {tr("Edit bot")}</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setAutomationOpen(true)}>
-            <Radio className="mr-2 h-4 w-4" aria-hidden="true" /> Auto-DJ &amp; 24/7
-          </DropdownMenuItem>
+            <Radio className="mr-2 h-4 w-4" aria-hidden="true" /> {uiText(" Auto-DJ & 24/7")}</DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setTtsOpen(true)}>
-            <Puzzle className="mr-2 h-4 w-4" aria-hidden="true" />{language === 'tr' ? 'Eklentiler ve komutlar' : 'Extensions and commands'}
+            <Puzzle className="mr-2 h-4 w-4" aria-hidden="true" />{language === 'tr' ? uiText("Eklentiler ve komutlar") : uiText("Extensions and commands")}
           </DropdownMenuItem>
           {running ? (
             <DropdownMenuItem disabled={stopBot.isPending} onSelect={() => stopBot.mutate(botId, {
@@ -123,7 +124,7 @@ export function BotSettingsMenu({ botId, botName, status, onDeleted, size = 'sm'
       <ConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
-        title={language === 'tr' ? `${botName} silinsin mi?` : `Delete ${botName}?`}
+        title={language === 'tr' ? uiText("{0} silinsin mi?", botName) : uiText("Delete {0}?", botName)}
         description={tr('This will permanently delete this media bot and disconnect it from the server.')}
         confirmLabel={tr('Delete')}
         loading={deleteBot.isPending}

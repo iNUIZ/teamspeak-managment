@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { useRef, useState } from 'react';
 import { useStartVirtualServer, useStopVirtualServer, useVirtualServers } from '@/hooks/use-servers';
 import { useServerStore } from '@/stores/server.store';
@@ -17,6 +18,9 @@ import { toast } from 'sonner';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useTranslation } from '@/lib/i18n';
 import { SnapshotBackup } from '@/components/shared/SnapshotBackup';
+import { useSearchParams } from 'react-router-dom';
+import Instance from './Instance';
+import { ServiceTabs } from '@/components/shared/ServiceTabs';
 
 type StopTarget = {
   configId: number;
@@ -25,6 +29,12 @@ type StopTarget = {
 };
 
 export default function VirtualServers() {
+  useUiLanguageStore(state => state.language);
+  const [params] = useSearchParams(); const service = params.get('tab') === 'service';
+  return <div className="space-y-4"><ServiceTabs kind="servers" selected={service ? 'service' : 'servers'} />{service ? <Instance section="service" /> : <ServerList />}</div>;
+}
+function ServerList() {
+  useUiLanguageStore(state => state.language);
   const { t, language } = useTranslation();
   const { selectedConfigId } = useServerStore();
   const { data, isLoading, error, refetch, isFetching } = useVirtualServers();
@@ -66,7 +76,7 @@ export default function VirtualServers() {
     startServer.mutate(
       { configId, sid },
       {
-        onSuccess: () => toast.success(language === 'tr' ? `${name} başlatıldı` : `Started ${name}`),
+        onSuccess: () => toast.success(language === 'tr' ? uiText("{0} başlatıldı", name) : uiText("Started {0}", name)),
         onError: (error) => toast.error(apiErrorMessage(error, language === 'tr' ? `${name} başlatılamadı` : `Could not start ${name}`)),
         onSettled: () => {
           actionGuards.current.delete(guardKey);
@@ -92,7 +102,7 @@ export default function VirtualServers() {
       { configId: target.configId, sid: target.sid },
       {
         onSuccess: () => {
-          toast.success(language === 'tr' ? `${target.name} durduruldu` : `Stopped ${target.name}`);
+          toast.success(language === 'tr' ? uiText("{0} durduruldu", target.name) : uiText("Stopped {0}", target.name));
           closeStopDialog();
         },
         onError: (error) => {
@@ -129,7 +139,7 @@ export default function VirtualServers() {
           <Card
             key={vs.virtualserver_id}
             role="group"
-            aria-label={`${vs.virtualserver_name} virtual server`}
+            aria-label={uiText("{0} virtual server", vs.virtualserver_name)}
             className="hover:border-primary/30 transition-colors"
           >
             <CardContent className="p-4">
@@ -146,8 +156,8 @@ export default function VirtualServers() {
                       </Badge>
                     </div>
                     <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
-                      <span className="font-mono-data">SID: {vs.virtualserver_id}</span>
-                      <span className="font-mono-data">Port: {vs.virtualserver_port}</span>
+                      <span className="font-mono-data">{uiText("SID: ")}{vs.virtualserver_id}</span>
+                      <span className="font-mono-data">{uiText("Port: ")}{vs.virtualserver_port}</span>
                       {vs.virtualserver_status === 'online' && (
                         <>
                           <span className="flex items-center gap-1"><Users className="h-3 w-3" /> {vs.virtualserver_clientsonline - (vs.virtualserver_queryclientsonline || 0)}/{vs.virtualserver_maxclients}</span>
@@ -196,7 +206,7 @@ export default function VirtualServers() {
           <DialogHeader>
             <DialogTitle>{t('Stop TeamSpeak server')}</DialogTitle>
             <DialogDescription>
-              <span className="font-medium text-foreground">{stopTarget?.name}</span> (ID {stopTarget?.sid}). {t('Connected users will be disconnected.')}
+              <span className="font-medium text-foreground">{stopTarget?.name}</span> {uiText(" (ID ")}{stopTarget?.sid}). {t('Connected users will be disconnected.')}
             </DialogDescription>
           </DialogHeader>
           {stopError && <p role="alert" className="text-sm text-destructive">{stopError}</p>}

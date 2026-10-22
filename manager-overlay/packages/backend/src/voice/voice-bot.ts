@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { applyBotAvatar } from './bot-avatar.js';
+import { applyBotAvatar, AVATAR_UPLOAD_REFUSED } from './bot-avatar.js';
 import { fitAvatarForTeamSpeak } from './bot-avatar-fit.js';
 import { fetchTrackCover, trackCoverUrl, trackDescription } from './track-profile.js';
 import { readBotAvatar, type BotAvatarMode } from '../utils/bot-avatar-storage.js';
@@ -411,6 +411,13 @@ export class VoiceBot extends EventEmitter {
   private trackProfileManaged = false;
   private profileTrackStarted: QueueItem | null = null;
 
+  /** A voice client edits its own description with clientedit; clientupdate rejects it with 1538. */
+  private setOwnDescription(description: string): void {
+    const clid = this.client.getClientId();
+    if (!clid) return;
+    this.client.sendCommand(buildCommand('clientedit', { clid: String(clid), client_description: description }));
+  }
+
   private startTrackProfile(): void {
     if (this.profileTrackStarted === this._nowPlaying) return;
     this.profileTrackStarted = this._nowPlaying;
@@ -440,7 +447,7 @@ export class VoiceBot extends EventEmitter {
         let raw = await readBotAvatar(this.config, this.config.avatarDataDir);
         if (this.config.avatarMode === 'now-playing') {
           this.trackProfileManaged = true;
-          this.client.sendCommand(buildCommand('clientupdate', { client_description: trackDescription(track) }));
+          this.setOwnDescription(trackDescription(track));
           const cover = trackCoverUrl(track);
           // Artwork must never interrupt audio. A missing cover uses the default.
           if (cover) {
@@ -448,9 +455,11 @@ export class VoiceBot extends EventEmitter {
             catch { if (abort.signal.aborted) return; }
           }
         } else if (this.trackProfileManaged) {
-          this.client.sendCommand(buildCommand('clientupdate', { client_description: '' }));
+          this.setOwnDescription('');
           this.trackProfileManaged = false;
         }
+        // A refused upload (2568) would repeat on every track and stream title until the choice changes.
+        if (this.config.avatarMode === 'now-playing' && this._avatarError === AVATAR_UPLOAD_REFUSED) return;
         const image = await fitAvatarForTeamSpeak(raw);
         if (abort.signal.aborted || (!profileIdle && playbackTrack !== this._nowPlaying)) return;
         await applyBotAvatar(this.client, this.config.serverHost, image, abort.signal);
@@ -806,6 +815,8 @@ export class VoiceBot extends EventEmitter {
       const available = maxLen - prefix.length - sep.length - 1; // -1 for …
       nick = prefix + sep + (available > 0 ? title.substring(0, available) + '\u2026' : '\u2026');
     }
+    // A long base nickname can still overflow; TeamSpeak counts characters.
+    nick = [...nick].slice(0, maxLen).join('');
     try {
       this.client.sendCommand(buildCommand('clientupdate', { client_nickname: nick }));
     } catch { }

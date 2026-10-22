@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { useState, useMemo, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -45,6 +46,7 @@ import type { ConnectionDiagnosticReport } from '@ts6/common';
 import { useTranslation } from '@/lib/i18n';
 
 export default function Settings() {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'admin';
@@ -72,7 +74,7 @@ export default function Settings() {
           <TabsTrigger value="account"><Lock className="h-3.5 w-3.5 mr-1" /> {t('Account')}</TabsTrigger>
           <TabsTrigger value="appearance"><Palette className="h-3.5 w-3.5 mr-1" /> {t('Appearance')}</TabsTrigger>
           {isAdmin && <TabsTrigger value="users"><Users className="h-3.5 w-3.5 mr-1" /> {t('Users')}</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="youtube"><Youtube className="h-3.5 w-3.5 mr-1" /> YouTube</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="youtube"><Youtube className="h-3.5 w-3.5 mr-1" /> {uiText(" YouTube")}</TabsTrigger>}
           <TabsTrigger value="about"><Info className="h-3.5 w-3.5 mr-1" /> {t('About')}</TabsTrigger>
         </TabsList>
 
@@ -156,6 +158,7 @@ const INTENSITY_LABELS: Record<BackgroundIntensity, string> = {
 };
 
 function AppearanceTab() {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const {
     baseTheme, accent, setBaseTheme, setAccent,
@@ -176,12 +179,10 @@ function AppearanceTab() {
         >
           <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0" aria-hidden="true" />
           <div className="space-y-1">
-            <p className="font-medium">Safe UI mode</p>
+            <p className="font-medium">{uiText("Safe UI mode")}</p>
             <p className="text-xs text-warning/90">
-              Custom CSS is suspended for this document. Your saved CSS is still in this browser.
-              Use Advanced controls below to Disable or Reset, then reload without{' '}
-              <span className="font-mono-data">?safe-ui=1</span> to leave safe mode.
-              Recovery URL: <span className="break-all font-mono-data">{SAFE_UI_RECOVERY_PATH}</span>
+              {uiText("Custom CSS is suspended for this document. Your saved CSS is still in this browser. Use Advanced controls below to Disable or Reset, then reload without")}{' '}
+              <span className="font-mono-data">?safe-ui=1</span> {uiText(" to leave safe mode. Recovery URL: ")}<span className="break-all font-mono-data">{SAFE_UI_RECOVERY_PATH}</span>
             </p>
           </div>
         </div>
@@ -332,7 +333,7 @@ function AppearanceTab() {
                     <button
                       key={value}
                       type="button"
-                      aria-label={`${INTENSITY_LABELS[value]} background intensity`}
+                      aria-label={uiText("{0} background intensity", INTENSITY_LABELS[value])}
                       aria-pressed={selected}
                       onClick={() => setBackgroundIntensity(value)}
                       className={`min-w-0 rounded-md border p-2 text-center text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background ${selected ? 'border-primary bg-primary/10' : 'border-border bg-card hover:bg-accent'}`}
@@ -368,21 +369,21 @@ function AppearanceTab() {
 }
 
 function AboutTab() {
+  useUiLanguageStore(state => state.language);
   return (
     <Card className="max-w-md">
       <CardHeader>
         <CardTitle className="flex items-center gap-3 text-base font-medium">
           <BrandMark className="h-8 w-8 text-primary" />
-          Teamspeak Managment
-        </CardTitle>
+          {uiText("Teamspeak Managment")}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <span className="text-muted-foreground">Version</span>
+          <span className="text-muted-foreground">{uiText("Version")}</span>
           <Badge variant="secondary" className="font-mono-data">{APP_VERSION}</Badge>
         </div>
         <div className="flex items-center justify-between gap-4">
-          <span className="text-muted-foreground">Source</span>
+          <span className="text-muted-foreground">{uiText("Source")}</span>
           <a
             href={APP_REPOSITORY_URL}
             target="_blank"
@@ -390,8 +391,7 @@ function AboutTab() {
             className="inline-flex items-center gap-1.5 text-primary hover:underline"
           >
             <Github className="h-4 w-4" />
-            GitHub Repository
-          </a>
+            {uiText("GitHub Repository")}</a>
         </div>
         <p className="text-xs text-muted-foreground font-mono-data">{APP_VERSION_LABEL}</p>
       </CardContent>
@@ -400,6 +400,7 @@ function AboutTab() {
 }
 
 function AccountTab() {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -411,16 +412,16 @@ function AccountTab() {
 
   const handleSubmit = () => {
     if (newPassword.length < 8) {
-      toast.error('New password must be at least 8 characters with upper, lower, and a digit');
+      toast.error(uiText("New password must be at least 8 characters with upper, lower, and a digit"));
       return;
     }
     if (newPassword !== confirmPassword) {
-      toast.error('Passwords do not match');
+      toast.error(uiText("Passwords do not match"));
       return;
     }
     changePassword.mutate(undefined, {
       onSuccess: () => {
-        toast.success('Password changed successfully');
+        toast.success(uiText("Password changed successfully"));
         setCurrentPassword('');
         setNewPassword('');
         setConfirmPassword('');
@@ -441,15 +442,15 @@ function AccountTab() {
         <CardContent className="space-y-3">
           <div>
             <Label className="text-xs">{t('Current Password')}</Label>
-            <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Enter current password" />
+            <Input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder={uiText("Enter current password")} />
           </div>
           <div>
             <Label className="text-xs">{t('New Password')}</Label>
-            <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min. 8 characters, upper, lower, digit" />
+            <Input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder={uiText("Min. 8 characters, upper, lower, digit")} />
           </div>
           <div>
             <Label className="text-xs">{t('Confirm New Password')}</Label>
-            <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat new password" />
+            <Input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder={uiText("Repeat new password")} />
           </div>
           <Button
             onClick={handleSubmit}
@@ -465,6 +466,7 @@ function AccountTab() {
 }
 
 function ConnectionsTab() {
+  useUiLanguageStore(state => state.language);
   const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const { data: servers, isLoading } = useQuery({ queryKey: ['servers'], queryFn: serversApi.list });
@@ -518,18 +520,18 @@ function ConnectionsTab() {
 
     if (editId) {
       updateServer.mutate({ id: editId, data: payload }, {
-        onSuccess: () => { toast.success('Connection updated'); setEditId(null); setShowAdd(false); resetForm(); },
-        onError: () => toast.error('Failed to update'),
+        onSuccess: () => { toast.success(uiText("Connection updated")); setEditId(null); setShowAdd(false); resetForm(); },
+        onError: () => toast.error(uiText("Failed to update")),
       });
     } else {
       if (!form.apiKey) {
-        toast.error('API key is required');
+        toast.error(uiText("API key is required"));
         return;
       }
       payload.apiKey = form.apiKey;
       createServer.mutate(payload, {
-        onSuccess: () => { toast.success('Connection added'); setShowAdd(false); resetForm(); },
-        onError: () => toast.error('Failed to create'),
+        onSuccess: () => { toast.success(uiText("Connection added")); setShowAdd(false); resetForm(); },
+        onError: () => toast.error(uiText("Failed to create")),
       });
     }
   };
@@ -573,29 +575,25 @@ function ConnectionsTab() {
 
       {serverList.length > 0 && (
         <div className="flex items-center justify-between">
-          <p className="text-sm text-muted-foreground">Manage TeamSpeak server connections</p>
+          <p className="text-sm text-muted-foreground">{uiText("Manage TeamSpeak server connections")}</p>
           <Button size="sm" onClick={() => { resetForm(); setEditId(null); setShowAdd(true); }}>
-            <Plus className="h-4 w-4 mr-1" /> Add connection
-          </Button>
+            <Plus className="h-4 w-4 mr-1" /> {uiText(" Add connection")}</Button>
         </div>
       )}
 
       {serverList.length === 0 ? (
         <EmptyState
           icon={Server}
-          title="Connect your TeamSpeak server"
-          description="The setup wizard walks you through WebQuery and optional SSH step by step."
+          title={uiText("Connect your TeamSpeak server")}
+          description={uiText("The setup wizard walks you through WebQuery and optional SSH step by step.")}
         >
           <div className="flex flex-wrap items-center justify-center gap-2">
             <Button size="sm" onClick={() => setShowWizard(true)}>
-              <Wand2 className="h-4 w-4 mr-1" /> Start setup wizard
-            </Button>
+              <Wand2 className="h-4 w-4 mr-1" /> {uiText(" Start setup wizard")}</Button>
             <Button variant="outline" size="sm" onClick={() => { resetForm(); setEditId(null); setShowAdd(true); }}>
-              Add manually
-            </Button>
+              {uiText("Add manually")}</Button>
             <Button variant="ghost" size="sm" className="text-xs text-muted-foreground" onClick={() => setHelpOpen(true)}>
-              Need help?
-            </Button>
+              {uiText("Need help?")}</Button>
           </div>
         </EmptyState>
       ) : (
@@ -607,12 +605,12 @@ function ConnectionsTab() {
                   <CardTitle className="min-w-0 break-words text-sm font-medium">{server.name}</CardTitle>
                   <div className="flex flex-wrap items-center gap-1">
                     {server.isDemo ? (
-                      <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">Demo data</Badge>
+                      <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">{uiText("Demo data")}</Badge>
                     ) : (
                       <>
-                        <Badge variant="outline" className="text-[10px]">WebQuery</Badge>
+                        <Badge variant="outline" className="text-[10px]">{uiText("WebQuery")}</Badge>
                         <Badge variant={server.hasSshCredentials ? 'default' : 'secondary'} className="text-[10px]">
-                          {server.hasSshCredentials ? 'SSH configured' : 'SSH not configured'}
+                          {server.hasSshCredentials ? uiText("SSH configured") : uiText("SSH not configured")}
                         </Badge>
                       </>
                     )}
@@ -621,26 +619,25 @@ function ConnectionsTab() {
               </CardHeader>
               <CardContent className="space-y-2">
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <span className="text-muted-foreground">{server.isDemo ? 'Source' : 'Host'}</span>
+                  <span className="text-muted-foreground">{server.isDemo ? uiText("Source") : uiText("Host")}</span>
                   <span className={server.isDemo ? 'text-right' : 'break-all font-mono-data text-right'}>
-                    {server.isDemo ? 'Synthetic local fixtures' : `${server.host}:${server.webqueryPort}`}
+                    {server.isDemo ? uiText("Synthetic local fixtures") : `${server.host}:${server.webqueryPort}`}
                   </span>
-                  <span className="text-muted-foreground">Protocol</span>
-                  <span>{server.isDemo ? 'Simulated' : (server.useHttps ? 'HTTPS' : 'HTTP')}</span>
-                  <span className="text-muted-foreground">SSH</span>
-                  <span className={server.isDemo ? '' : 'font-mono-data'}>{server.isDemo ? 'Not used' : (server.sshPort || '-')}</span>
-                  <span className="text-muted-foreground">Status</span>
+                  <span className="text-muted-foreground">{uiText("Protocol")}</span>
+                  <span>{server.isDemo ? uiText("Simulated") : (server.useHttps ? uiText("HTTPS") : uiText("HTTP"))}</span>
+                  <span className="text-muted-foreground">{uiText("SSH")}</span>
+                  <span className={server.isDemo ? '' : 'font-mono-data'}>{server.isDemo ? uiText("Not used") : (server.sshPort || '-')}</span>
+                  <span className="text-muted-foreground">{uiText("Status")}</span>
                   <span>
                     <Badge variant={server.enabled ? 'default' : 'secondary'} className="text-[10px]">
-                      {server.enabled ? 'Enabled' : 'Disabled'}
+                      {server.enabled ? uiText("Enabled") : uiText("Disabled")}
                     </Badge>
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-1 pt-2">
                   {server.isDemo ? (
                     <span className="mr-auto text-[11px] text-muted-foreground">
-                      No real TeamSpeak connection is used.
-                    </span>
+                      {uiText("No real TeamSpeak connection is used.")}</span>
                   ) : (
                     <>
                       <Button
@@ -670,22 +667,19 @@ function ConnectionsTab() {
                         {testingServerId === server.id
                           ? <Loader2 className="h-3 w-3 mr-1 animate-spin" />
                           : <TestTube className="h-3 w-3 mr-1" />}
-                        Test WebQuery
-                      </Button>
+                        {uiText("Test WebQuery")}</Button>
                       {server.hasSshCredentials && (
                         <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => testSshServer.mutate(server.id, {
-                          onSuccess: () => toast.success('SSH connection successful'),
+                          onSuccess: () => toast.success(uiText("SSH connection successful")),
                           onError: (err: any) => toast.error(apiErrorMessage(err, 'SSH test failed')),
                         })}>
-                          <TestTube className="h-3 w-3 mr-1" /> Test SSH
-                        </Button>
+                          <TestTube className="h-3 w-3 mr-1" /> {uiText(" Test SSH")}</Button>
                       )}
                       <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => openEdit(server)}>
-                        <Pencil className="h-3 w-3 mr-1" /> Edit
-                      </Button>
+                        <Pencil className="h-3 w-3 mr-1" /> {uiText(" Edit")}</Button>
                     </>
                   )}
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(server.id)} aria-label={`Delete connection ${server.name}`} title="Delete connection">
+                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(server.id)} aria-label={uiText("Delete connection {0}", server.name)} title={uiText("Delete connection")}>
                     <Trash2 className="h-3.5 w-3.5" />
                   </Button>
                 </div>
@@ -731,9 +725,9 @@ function ConnectionsTab() {
       <ConfirmDialog
         open={deleteId !== null}
         onOpenChange={() => setDeleteId(null)}
-        title="Delete Connection?"
-        description="This will remove the server connection. Bots linked to this server will stop working."
-        onConfirm={() => { if (deleteId) deleteServer.mutate(deleteId, { onSuccess: () => { toast.success('Connection deleted'); setDeleteId(null); } }); }}
+        title={uiText("Delete Connection?")}
+        description={uiText("This will remove the server connection. Bots linked to this server will stop working.")}
+        onConfirm={() => { if (deleteId) deleteServer.mutate(deleteId, { onSuccess: () => { toast.success(uiText("Connection deleted")); setDeleteId(null); } }); }}
         destructive
       />
     </div>
@@ -741,6 +735,7 @@ function ConnectionsTab() {
 }
 
 function UsersTab() {
+  useUiLanguageStore(state => state.language);
   const qc = useQueryClient();
   const { data: users, isLoading } = useQuery({ queryKey: ['users'], queryFn: usersApi.list });
   const createUser = useMutation({ mutationFn: (data: any) => usersApi.create(data), onSuccess: () => qc.invalidateQueries({ queryKey: ['users'] }) });
@@ -759,52 +754,52 @@ function UsersTab() {
 
   const handleCreate = () => {
     createUser.mutate(form, {
-      onSuccess: () => { toast.success('User created'); setShowAdd(false); setForm({ username: '', password: '', displayName: '', role: 'viewer' }); },
-      onError: () => toast.error('Failed to create user'),
+      onSuccess: () => { toast.success(uiText("User created")); setShowAdd(false); setForm({ username: '', password: '', displayName: '', role: 'viewer' }); },
+      onError: () => toast.error(uiText("Failed to create user")),
     });
   };
 
   const handleRoleChange = (userId: number, role: string) => {
     updateUser.mutate({ id: userId, data: { role } }, {
-      onSuccess: () => toast.success('Role updated'),
-      onError: () => toast.error('Failed to update role'),
+      onSuccess: () => toast.success(uiText("Role updated")),
+      onError: () => toast.error(uiText("Failed to update role")),
     });
   };
 
   const handleToggleEnabled = (userId: number, enabled: boolean) => {
     updateUser.mutate({ id: userId, data: { enabled } }, {
-      onSuccess: () => toast.success(enabled ? 'User enabled' : 'User disabled'),
-      onError: () => toast.error('Failed to update status'),
+      onSuccess: () => toast.success(enabled ? uiText("User enabled") : uiText("User disabled")),
+      onError: () => toast.error(uiText("Failed to update status")),
     });
   };
 
   const handleResetPassword = () => {
     if (!resetPwUserId || resetPwValue.length < 6) {
-      toast.error('Password must be at least 6 characters');
+      toast.error(uiText("Password must be at least 6 characters"));
       return;
     }
     updateUser.mutate({ id: resetPwUserId, data: { password: resetPwValue } }, {
-      onSuccess: () => { toast.success('Password reset successfully'); setResetPwUserId(null); setResetPwValue(''); },
-      onError: () => toast.error('Failed to reset password'),
+      onSuccess: () => { toast.success(uiText("Password reset successfully")); setResetPwUserId(null); setResetPwValue(''); },
+      onError: () => toast.error(uiText("Failed to reset password")),
     });
   };
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <p className="text-sm text-muted-foreground">Manage webapp users and roles</p>
-        <Button size="sm" onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> Add User</Button>
+        <p className="text-sm text-muted-foreground">{uiText("Manage webapp users and roles")}</p>
+        <Button size="sm" onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> {uiText(" Add User")}</Button>
       </div>
 
-      <div className="max-w-full overflow-x-auto rounded-md border border-border" tabIndex={0} role="region" aria-label="Scrollable users table">
+      <div className="max-w-full overflow-x-auto rounded-md border border-border" tabIndex={0} role="region" aria-label={uiText("Scrollable users table")}>
         <table className="w-full min-w-[40rem] text-sm">
           <thead>
             <tr className="border-b border-border bg-muted/30">
-              <th className="h-10 px-3 text-left font-medium text-muted-foreground">Username</th>
-              <th className="h-10 px-3 text-left font-medium text-muted-foreground">Display Name</th>
-              <th className="h-10 px-3 text-left font-medium text-muted-foreground">Role</th>
-              <th className="h-10 px-3 text-left font-medium text-muted-foreground">Status</th>
-              <th className="h-10 px-3 text-right font-medium text-muted-foreground">Actions</th>
+              <th className="h-10 px-3 text-left font-medium text-muted-foreground">{uiText("Username")}</th>
+              <th className="h-10 px-3 text-left font-medium text-muted-foreground">{uiText("Display Name")}</th>
+              <th className="h-10 px-3 text-left font-medium text-muted-foreground">{uiText("Role")}</th>
+              <th className="h-10 px-3 text-left font-medium text-muted-foreground">{uiText("Status")}</th>
+              <th className="h-10 px-3 text-right font-medium text-muted-foreground">{uiText("Actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -823,8 +818,8 @@ function UsersTab() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="viewer">Viewer</SelectItem>
+                          <SelectItem value="admin">{uiText("Admin")}</SelectItem>
+                          <SelectItem value="viewer">{uiText("Viewer")}</SelectItem>
                         </SelectContent>
                       </Select>
                     )}
@@ -832,8 +827,7 @@ function UsersTab() {
                   <td className="px-3 py-2.5">
                     {isProtected ? (
                       <span className="inline-flex items-center gap-1 text-xs text-emerald-400">
-                        <Check className="h-3 w-3" /> Active
-                      </span>
+                        <Check className="h-3 w-3" /> {uiText(" Active")}</span>
                     ) : (
                       <Switch
                         checked={u.enabled}
@@ -843,10 +837,10 @@ function UsersTab() {
                   </td>
                   <td className="px-3 py-2.5 text-right">
                     <div className="inline-flex items-center gap-0.5">
-                      <Button variant="ghost" size="icon" className="h-7 w-7" title="Reset password" aria-label={`Reset password for ${u.username}`} onClick={() => { setResetPwUserId(u.id); setResetPwValue(''); }}>
+                      <Button variant="ghost" size="icon" className="h-7 w-7" title={uiText("Reset password")} aria-label={uiText("Reset password for {0}", u.username)} onClick={() => { setResetPwUserId(u.id); setResetPwValue(''); }}>
                         <KeyRound className="h-3.5 w-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(u.id)} disabled={isProtected} aria-label={`Delete user ${u.username}`} title="Delete user">
+                      <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive" onClick={() => setDeleteId(u.id)} disabled={isProtected} aria-label={uiText("Delete user {0}", u.username)} title={uiText("Delete user")}>
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
                     </div>
@@ -861,25 +855,25 @@ function UsersTab() {
       {/* Add User Dialog */}
       <Dialog open={showAdd} onOpenChange={setShowAdd}>
         <DialogContent>
-          <DialogHeader><DialogTitle>Add User</DialogTitle></DialogHeader>
+          <DialogHeader><DialogTitle>{uiText("Add User")}</DialogTitle></DialogHeader>
           <div className="space-y-3">
-            <div><Label className="text-xs">Username</Label><Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="johndoe" /></div>
-            <div><Label className="text-xs">Display Name</Label><Input value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} placeholder="John Doe" /></div>
-            <div><Label className="text-xs">Password</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="********" /></div>
+            <div><Label className="text-xs">{uiText("Username")}</Label><Input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder={uiText("johndoe")} /></div>
+            <div><Label className="text-xs">{uiText("Display Name")}</Label><Input value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} placeholder={uiText("John Doe")} /></div>
+            <div><Label className="text-xs">{uiText("Password")}</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="********" /></div>
             <div>
-              <Label className="text-xs">Role</Label>
+              <Label className="text-xs">{uiText("Role")}</Label>
               <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v })}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="viewer">Viewer</SelectItem>
+                  <SelectItem value="admin">{uiText("Admin")}</SelectItem>
+                  <SelectItem value="viewer">{uiText("Viewer")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
-            <Button onClick={handleCreate} disabled={!form.username || !form.password}>Create</Button>
+            <Button variant="outline" onClick={() => setShowAdd(false)}>{uiText("Cancel")}</Button>
+            <Button onClick={handleCreate} disabled={!form.username || !form.password}>{uiText("Create")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -888,21 +882,21 @@ function UsersTab() {
       <Dialog open={resetPwUserId !== null} onOpenChange={(v) => { if (!v) { setResetPwUserId(null); setResetPwValue(''); } }}>
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle className="text-sm">Reset Password</DialogTitle>
+            <DialogTitle className="text-sm">{uiText("Reset Password")}</DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             <p className="text-xs text-muted-foreground">
-              Set a new password for <span className="font-medium text-foreground">{userList.find((u: any) => u.id === resetPwUserId)?.username}</span>
+              {uiText("Set a new password for ")}<span className="font-medium text-foreground">{userList.find((u: any) => u.id === resetPwUserId)?.username}</span>
             </p>
             <div>
-              <Label className="text-xs">New Password</Label>
-              <Input type="password" value={resetPwValue} onChange={(e) => setResetPwValue(e.target.value)} placeholder="Min. 8 characters, upper, lower, digit" />
+              <Label className="text-xs">{uiText("New Password")}</Label>
+              <Input type="password" value={resetPwValue} onChange={(e) => setResetPwValue(e.target.value)} placeholder={uiText("Min. 8 characters, upper, lower, digit")} />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => { setResetPwUserId(null); setResetPwValue(''); }}>Cancel</Button>
+            <Button variant="outline" onClick={() => { setResetPwUserId(null); setResetPwValue(''); }}>{uiText("Cancel")}</Button>
             <Button onClick={handleResetPassword} disabled={resetPwValue.length < 6 || updateUser.isPending}>
-              {updateUser.isPending ? 'Resetting...' : 'Reset Password'}
+              {updateUser.isPending ? uiText("Resetting...") : uiText("Reset Password")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -911,9 +905,9 @@ function UsersTab() {
       <ConfirmDialog
         open={deleteId !== null}
         onOpenChange={() => setDeleteId(null)}
-        title="Delete User?"
-        description="This user will be permanently deleted."
-        onConfirm={() => { if (deleteId) deleteUser.mutate(deleteId, { onSuccess: () => { toast.success('User deleted'); setDeleteId(null); } }); }}
+        title={uiText("Delete User?")}
+        description={uiText("This user will be permanently deleted.")}
+        onConfirm={() => { if (deleteId) deleteUser.mutate(deleteId, { onSuccess: () => { toast.success(uiText("User deleted")); setDeleteId(null); } }); }}
         destructive
       />
     </div>
@@ -921,6 +915,7 @@ function UsersTab() {
 }
 
 function YouTubeTab() {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const qc = useQueryClient();
   const [pasteMode, setPasteMode] = useState(false);
@@ -929,12 +924,6 @@ function YouTubeTab() {
   const { data: status, isLoading } = useQuery({
     queryKey: ['yt-cookie-status'],
     queryFn: settingsApi.getYtCookieStatus,
-  });
-
-  const authMode = useMutation({
-    mutationFn: settingsApi.setYouTubeAuthMode,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['yt-cookie-status'] }),
-    onError: () => toast.error(t('Failed to change YouTube playback mode')),
   });
 
   const uploadFile = useMutation({
@@ -982,33 +971,13 @@ function YouTubeTab() {
       <div className="min-w-0 space-y-4" data-testid="youtube-column-sources">
       <RuntimeMediaDiagnostics focus={['yt-dlp', 'ffmpeg', 'ffprobe']} />
       <Card>
-        <CardHeader><CardTitle className="text-sm font-medium">{t('YouTube playback method')}</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          <p className="text-xs text-muted-foreground">{t('PO Token is the default, without account cookies. Network or account restrictions can still prevent playback. Cookies are an optional fallback, not a guaranteed network fix.')}</p>
-          <label className="block space-y-2 text-sm">
-            <span>{t('Playback method')}</span>
-            <select aria-label={t('Playback method')} className="w-full rounded-md border border-border bg-background p-2" value={status?.mode ?? 'po-token'}
-              disabled={isLoading || !status || authMode.isPending}
-              onChange={(e) => authMode.mutate(e.target.value as 'po-token' | 'cookies')}>
-              <option value="po-token">{t('PO Token — cookieless (recommended)')}</option>
-              <option value="cookies" disabled={!status?.exists}>{t('Optional account cookies')}</option>
-            </select>
-          </label>
-          <p role="status" className="text-xs text-muted-foreground">
-            {t(status?.provider?.ready ? 'PO Token provider ready' : status?.provider?.configured
-              ? 'PO Token provider unavailable — check the local service' : 'PO Token provider is not installed in this runtime')}
-          </p>
-          <Button size="sm" variant="outline" disabled={isLoading} onClick={() => qc.invalidateQueries({ queryKey: ['yt-cookie-status'] })}>{t('Refresh')}</Button>
-        </CardContent>
-      </Card>
-      <Card>
         <CardHeader>
           <CardTitle className="text-sm font-medium">{t('YouTube Cookies')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-muted-foreground">
             {t('Upload your own YouTube cookies.txt file. Cookies may expire and do not guarantee playback. Never share this file or commit it to GitHub.')}
-            {' '}{t('Uploading only stores the file. Select optional account cookies above to use it.')}
+            {' '}{t('YouTube uses cookies only. Uploaded cookies are used automatically for new searches and playback. Without cookies, YouTube requests are blocked; radio and local media remain available.')}
           </p>
 
           {/* Status */}
@@ -1096,6 +1065,7 @@ function YouTubeTab() {
 }
 
 function LimitsCard() {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const qc = useQueryClient();
   const { data: limits, isLoading } = useQuery({

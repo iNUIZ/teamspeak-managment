@@ -2,6 +2,7 @@
  * Video streaming labels and formatting shared by the stream controls and IPTV.
  */
 
+import { translate as tr, useLanguageStore } from './i18n';
 import type {
   VideoEncoderCapability,
   VideoSourceMode,
@@ -100,15 +101,15 @@ export function formatClock(ms: number): string {
 
 /** "Off", "5 min", "90 s", "1 h 30 min". */
 export function formatTimeout(sec: number): string {
-  if (sec <= 0) return 'Off';
-  if (sec < 60) return `${sec} s`;
+  if (sec <= 0) return tr('Off');
+  if (sec < 60) return tr('{0} s', sec);
   const h = Math.floor(sec / 3600);
   const m = Math.floor((sec % 3600) / 60);
   const s = sec % 60;
   const parts: string[] = [];
-  if (h) parts.push(`${h} h`);
-  if (m) parts.push(`${m} min`);
-  if (s) parts.push(`${s} s`);
+  if (h) parts.push(tr('{0} h', h));
+  if (m) parts.push(tr('{0} min', m));
+  if (s) parts.push(tr('{0} s', s));
   return parts.join(' ');
 }
 
@@ -117,7 +118,7 @@ export function qualityLabel(q: VideoStreamQualityInfo | null | undefined, fallb
   if (!q) return fallbackPreset ?? '—';
   if (q.requested !== 'auto') return q.actual;
   const ceiling = q.adaptation?.ceiling;
-  return ceiling && ceiling !== q.actual ? `Auto → ${q.actual} (reduced from ${ceiling})` : `Auto → ${q.actual}`;
+  return ceiling && ceiling !== q.actual ? tr('Auto → {0} (reduced from {1})', q.actual, ceiling) : tr('Auto → {0}', q.actual);
 }
 
 /** How long a finished recovery stays on screen. */
@@ -138,6 +139,10 @@ export function qualityAdaptationNote(
   if (!reduced && now - change.at > QUALITY_RESTORED_NOTE_MS) return null;
   const agoMin = Math.floor(Math.max(0, now - change.at) / 60_000);
   const ago = agoMin < 1 ? 'just now' : agoMin < 60 ? `${agoMin} min ago` : `${Math.floor(agoMin / 60)} h ago`;
+  if (useLanguageStore.getState().language === 'tr') {
+    const localizedAgo = agoMin < 1 ? tr('just now') : agoMin < 60 ? tr('{0} min ago', agoMin) : tr('{0} h ago', Math.floor(agoMin / 60));
+    return { text: tr(change.direction === 'down' ? 'Auto reduced quality to {0} · {1}' : 'Auto raised quality to {0} · {1}', change.to, localizedAgo), reduced };
+  }
   const verb = change.direction === 'down' ? 'reduced' : 'raised';
   return { text: `Auto ${verb} quality to ${change.to}: ${change.reason} · ${ago}`, reduced };
 }
@@ -145,18 +150,20 @@ export function qualityAdaptationNote(
 /** "H.264 (VAAPI)", "Auto → VP8 (software)", or "H.264 (VAAPI) → H.264 (software)" after a fallback. */
 export function encoderLabel(e: VideoStreamEncoderInfo | null | undefined): string {
   if (!e) return '—';
-  const active = ENCODER_LABELS[e.active] ?? e.active;
-  if (e.selected !== e.active) return `${ENCODER_LABELS[e.selected] ?? e.selected} → ${active}`;
-  if (e.requested === 'auto') return `Auto → ${active}`;
+  const active = tr(ENCODER_LABELS[e.active] ?? e.active);
+  if (e.selected !== e.active) return `${tr(ENCODER_LABELS[e.selected] ?? e.selected)} → ${active}`;
+  if (e.requested === 'auto') return tr('Auto → {0}', active);
   return active;
 }
 
 /** "No viewers — Stopped after 5 minutes with no viewers · 8 min ago". */
 export function lastStopLabel(stop: MediaStopInfo | null | undefined, now: number = Date.now()): string | null {
   if (!stop) return null;
-  const base = stop.detail || STOP_REASON_LABELS[stop.reason] || stop.reason;
+  const base = useLanguageStore.getState().language === 'tr'
+    ? tr(STOP_REASON_LABELS[stop.reason] || 'Bot stopped')
+    : stop.detail || STOP_REASON_LABELS[stop.reason] || stop.reason;
   const agoMin = Math.floor(Math.max(0, now - stop.at) / 60_000);
-  const ago = agoMin < 1 ? 'just now' : agoMin < 60 ? `${agoMin} min ago` : `${Math.floor(agoMin / 60)} h ago`;
+  const ago = agoMin < 1 ? tr('just now') : agoMin < 60 ? tr('{0} min ago', agoMin) : tr('{0} h ago', Math.floor(agoMin / 60));
   return `${base} · ${ago}`;
 }
 

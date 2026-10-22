@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { useRef } from 'react';
 import type { MusicBotSummary } from '@ts6/common';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { apiErrorMessage } from '@/lib/api-error';
 import { useTranslation } from '@/lib/i18n';
 
 export function BotAvatarSettings({ bot }: { bot: MusicBotSummary }) {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const input = useRef<HTMLInputElement>(null);
   const upload = useUploadBotAvatar();
@@ -15,7 +17,7 @@ export function BotAvatarSettings({ bot }: { bot: MusicBotSummary }) {
   const error = upload.error ?? setMode.error;
   return (
     <section aria-labelledby={`avatar-settings-${bot.id}`} className="space-y-3 rounded-md border p-3">
-      <h3 id={`avatar-settings-${bot.id}`} className="text-sm font-medium">Avatar</h3>
+      <h3 id={`avatar-settings-${bot.id}`} className="text-sm font-medium">{uiText("Avatar")}</h3>
       <div className="flex items-center gap-3">
         <BotAvatar botId={bot.id} name={bot.name} mode={bot.avatarMode} md5={bot.avatarMd5} className="h-16 w-16" />
         <p className="text-xs text-muted-foreground">{t('PNG, JPEG or GIF, at most 200 KB.')}</p>

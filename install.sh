@@ -436,6 +436,7 @@ services:
       MUSIC_DIR: /data/music
       SIDECAR_URL: http://127.0.0.1:9800
       SIDECAR_PORT: "9800"
+      MEDIA_UPSTREAM_PROXY: "${MEDIA_UPSTREAM_PROXY:-}"
     ports:
       - "${MANAGER_BIND_IP}:${MANAGER_PORT}:8080/tcp"
     volumes:
@@ -653,7 +654,7 @@ prepare_manager_image() {
     -t "$HARDENED_MANAGER_IMAGE" "$SCRIPT_DIR"
   set_env MANAGER_IMAGE "$HARDENED_MANAGER_IMAGE"
   ok "Manager güvenlik yamasıyla ${arch} için hazırlandı."
-  info "Çerezsiz YouTube PO Token hizmeti imaja dahil edildi; çerez kullanımı Ayarlar > YouTube bölümünden isteğe bağlı açılır."
+  info "YouTube için Ayarlar > YouTube bölümünden cookies.txt yükleyin. Çerezler otomatik kullanılır; radyo ve yerel medya çerez gerektirmez."
 }
 
 prepare_manager_volume_permissions() {
@@ -713,6 +714,20 @@ wait_manager_ready() {
   return 1
 }
 
+trust_manager_query_address() {
+  local manager_id=$1 server_id=$2 network=$3 manager_ip volume image
+  manager_ip=$(docker inspect "$manager_id" --format "{{with index .NetworkSettings.Networks \"${network}\"}}{{.IPAddress}}{{end}}")
+  [[ $manager_ip =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 0
+  volume=$(docker inspect "$server_id" --format '{{range .Mounts}}{{if eq .Destination "/var/tsserver"}}{{.Name}}{{end}}{{if eq .Destination "/var/ts3server"}}{{.Name}}{{end}}{{end}}')
+  [[ $volume =~ ^[a-zA-Z0-9][a-zA-Z0-9_.-]+$ ]] || { warn 'Query IP eşlemesi atlandı: yönetilen sunucu veri volume bulunamadı.'; return 0; }
+  image=$(docker inspect "$manager_id" --format '{{.Config.Image}}')
+  if ! MSYS_NO_PATHCONV=1 docker run --rm -i --network none --read-only --user 0:0 --cap-drop ALL --cap-add CHOWN --cap-add FOWNER --cap-add DAC_OVERRIDE \
+    --security-opt no-new-privileges:true --mount "type=volume,source=${volume},target=/target" \
+    --entrypoint python3 "$image" - "$manager_ip" < "${SCRIPT_DIR}/docker/update-query-allowlist.py"; then
+    warn 'Manager Query güvenilir IP kaydı güncellenemedi; mevcut kurallar korundu.'
+  fi
+}
+
 sync_manager_connections() {
   local manager_id project env_path kind server_id host key query_password result network changed=0
   local -a env_paths=("$ENV_FILE" "${DEFAULT_INSTALL_ROOT}/.env")
@@ -748,6 +763,7 @@ sync_manager_connections() {
         docker network connect "$network" "$manager_id" || { warn "Manager sunucu ağına bağlanamadı."; continue; }
       fi
       host=$(docker inspect "$server_id" --format '{{.Name}}')
+      trust_manager_query_address "$manager_id" "$server_id" "$network"
       host=${host#/}
       query_password=$(sed -n "s/^${kind^^}_ADMIN_PASSWORD=//p" "$env_path" | tail -n 1)
       if result=$(printf '%s\0%s\0%s\0%s\0' "${kind^^} · ${project}" "$host" "$key" "$query_password" \

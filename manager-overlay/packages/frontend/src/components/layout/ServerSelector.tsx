@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { useEffect, type ReactNode } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useServers, useVirtualServers } from '@/hooks/use-servers';
@@ -7,6 +8,7 @@ import { useTranslation } from '@/lib/i18n';
 
 /** Below `md` the side labels are screen-reader-only, so the trigger carries a visible caption instead. */
 function TriggerValue({ caption, children }: { caption: string; children: ReactNode }) {
+  useUiLanguageStore(state => state.language);
   return (
     <span className="!flex min-w-0 flex-1 flex-col items-start text-left leading-tight">
       <span aria-hidden="true" className="text-[9px] font-medium uppercase tracking-wide text-muted-foreground md:hidden">
@@ -18,6 +20,7 @@ function TriggerValue({ caption, children }: { caption: string; children: ReactN
 }
 
 export function ServerSelector() {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const { selectedConfigId, selectedSid, setServer, setSid } = useServerStore();
   const { data: servers, isLoading: serversLoading } = useServers();
@@ -58,7 +61,7 @@ export function ServerSelector() {
         value={selectedConfigId?.toString() || ''}
         onValueChange={(v) => setServer(parseInt(v))}
       >
-        <SelectTrigger className="h-10 min-w-0 flex-1 px-2 text-xs sm:px-3 md:h-8 md:w-[180px] md:flex-none" aria-label="Select server connection">
+        <SelectTrigger className="h-10 min-w-0 flex-1 px-2 text-xs sm:px-3 md:h-8 md:w-[180px] md:flex-none" aria-label={uiText("Select server connection")}>
           <TriggerValue caption={t('Connection')}>
             <SelectValue placeholder={t('Select server...')} />
           </TriggerValue>
@@ -82,7 +85,7 @@ export function ServerSelector() {
             onValueChange={(v) => setSid(parseInt(v))}
             disabled={contextLoading || !virtualServers?.length}
           >
-            <SelectTrigger className="h-10 min-w-0 flex-1 px-2 text-xs sm:px-3 md:h-8 md:w-[160px] md:flex-none" aria-label="Select virtual server">
+            <SelectTrigger className="h-10 min-w-0 flex-1 px-2 text-xs sm:px-3 md:h-8 md:w-[160px] md:flex-none" aria-label={uiText("Select virtual server")}>
               <TriggerValue caption={t('Virtual server')}>
                 <SelectValue placeholder={t(contextLoading ? 'Loading virtual servers…' : 'No virtual server')} />
               </TriggerValue>

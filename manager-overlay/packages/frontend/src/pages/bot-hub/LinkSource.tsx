@@ -110,7 +110,7 @@ export function LinkSource({ botId, serverConfigId }: ConsoleSourceContext) {
             className="h-11 min-w-0 flex-1 basis-48"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="https://… or filename.mp4"
+            placeholder={tr('https://… or filename.mp4')}
             autoComplete="off"
           />
           <AddMediaLink to="/media-bots" label={tr("Add files")} />

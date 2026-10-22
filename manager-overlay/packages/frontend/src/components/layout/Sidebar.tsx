@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import {
@@ -78,12 +79,7 @@ const navSections: NavSection[] = [
     label: 'System',
     adminOnly: true,
     items: [
-      { to: '/logs', icon: ScrollText, label: 'Server Logs', adminOnly: true },
-      { to: '/audit', icon: ClipboardList, label: 'Admin Audit', adminOnly: true },
-      { to: '/activity-journal', icon: NotebookPen, label: 'Activity Journal', adminOnly: true },
-
-      { to: '/instance', icon: Cpu, label: 'Instance', adminOnly: true },
-      { to: '/diagnostics', icon: Stethoscope, label: 'Diagnostics', adminOnly: true },
+      { to: '/reports', icon: ScrollText, label: 'Reports and diagnostics', adminOnly: true },
     ],
   },
   {
@@ -106,11 +102,13 @@ interface NavigationContentProps {
 }
 
 function NavigationContent({ collapsed = false, mobile = false, onNavigate }: NavigationContentProps) {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const [menuSearch, setMenuSearch] = useState('');
   const query = collapsed ? '' : menuSearch.trim().toLocaleLowerCase('tr-TR');
   const matches = (label: string) => !query || t(label).toLocaleLowerCase('tr-TR').includes(query)
-    || label.toLocaleLowerCase('en-US').includes(query);
+    || label.toLocaleLowerCase('en-US').includes(query)
+    || (label === 'Reports and diagnostics' && ['logs', 'audit', 'activity', 'diagnostics', 'kayıt', 'günlük', 'etkinlik', 'tanılama'].some(alias => alias.includes(query)));
   const isAdmin = useAuthStore((s) => s.isAdmin());
   const location = useLocation();
   const sidebarSections = useUiStore((s) => s.sidebarSections);
@@ -147,7 +145,7 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
             className="absolute right-2 top-2 h-11 w-11 text-muted-foreground hover:text-foreground sm:h-9 sm:w-9">×</button>}
         </div>}
         <ScrollArea ref={scrollRootRef} type="auto" className="h-full py-2">
-          <nav className="space-y-1 px-2" aria-label={mobile ? 'Mobile navigation' : 'Primary navigation'}>
+          <nav className="space-y-1 px-2" aria-label={mobile ? uiText("Mobile navigation") : uiText("Primary navigation")}>
             {query && !navSections.some(section => (!section.adminOnly || isAdmin)
               && section.items.some(item => (!item.adminOnly || isAdmin) && matches(item.label)))
               && <p role="status" className="px-2 py-3 text-sm text-muted-foreground">{t('No matching pages')}</p>}
@@ -203,7 +201,7 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
                         type="button"
                         aria-expanded={expanded}
                         aria-controls={contentId}
-                        aria-label={`${expanded ? 'Collapse' : 'Expand'} ${section.label} section`}
+                        aria-label={uiText(expanded ? 'Collapse {0} section' : 'Expand {0} section', t(section.label))}
                         onClick={() => toggleSidebarSection(section.id)}
                         className={cn(
                           'flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/55 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
@@ -250,7 +248,7 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger asChild>{settingsLink}</TooltipTrigger>
-            <TooltipContent side="right" className="font-medium">Settings</TooltipContent>
+            <TooltipContent side="right" className="font-medium">{uiText("Settings")}</TooltipContent>
           </Tooltip>
         ) : settingsLink}
 
@@ -262,6 +260,7 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
 }
 
 function VersionLinks({ collapsed }: { collapsed: boolean }) {
+  useUiLanguageStore(state => state.language);
   if (collapsed) {
     return (
       <div className="flex flex-col items-center gap-1 pt-1">
@@ -287,16 +286,17 @@ function VersionLinks({ collapsed }: { collapsed: boolean }) {
 }
 
 function ExternalNavLinks({ compact = false }: { compact?: boolean }) {
+  useUiLanguageStore(state => state.language);
   const linkClass = cn(
     'shrink-0 rounded text-sidebar-foreground/40 transition-colors hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
     compact ? 'p-1' : 'p-2 md:p-1',
   );
   return (
     <>
-      <a href={APP_REPOSITORY_URL} target="_blank" rel="noopener noreferrer" aria-label="Open TS6 Manager repository on GitHub" title="View TS6 Manager on GitHub" className={linkClass}>
+      <a href={APP_REPOSITORY_URL} target="_blank" rel="noopener noreferrer" aria-label={uiText("Open TS6 Manager repository on GitHub")} title={uiText("View TS6 Manager on GitHub")} className={linkClass}>
         <Github className="h-3.5 w-3.5" />
       </a>
-      <a href={APP_DOCUMENTATION_URL} target="_blank" rel="noopener noreferrer" aria-label="Open TS6 Manager documentation" title="Open TS6 Manager documentation" className={linkClass}>
+      <a href={APP_DOCUMENTATION_URL} target="_blank" rel="noopener noreferrer" aria-label={uiText("Open TS6 Manager documentation")} title={uiText("Open TS6 Manager documentation")} className={linkClass}>
         <BookOpen className="h-3.5 w-3.5" />
       </a>
     </>
@@ -304,13 +304,14 @@ function ExternalNavLinks({ compact = false }: { compact?: boolean }) {
 }
 
 function DesktopSidebarFooter({ collapsed }: { collapsed: boolean }) {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const { toggleSidebar } = useUiStore();
   return (
     <>
       <button
         onClick={toggleSidebar}
-        aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+        aria-label={collapsed ? uiText("Expand sidebar") : uiText("Collapse sidebar")}
         className={cn(
           'flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
           collapsed && 'justify-center px-0 py-2',
@@ -325,12 +326,13 @@ function DesktopSidebarFooter({ collapsed }: { collapsed: boolean }) {
 }
 
 function Logo({ compact = false, onNavigate }: { compact?: boolean; onNavigate?: () => void }) {
+  useUiLanguageStore(state => state.language);
   return (
     <NavLink
       to="/dashboard"
       onClick={onNavigate}
-      aria-label="Teamspeak Managment dashboard"
-      title={compact ? 'Teamspeak Managment dashboard' : undefined}
+      aria-label={uiText("Teamspeak Managment dashboard")}
+      title={compact ? uiText("Teamspeak Managment dashboard") : undefined}
       className={cn(
         'flex items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         compact && 'justify-center',
@@ -339,8 +341,8 @@ function Logo({ compact = false, onNavigate }: { compact?: boolean; onNavigate?:
       <BrandMark className="h-7 w-7 text-primary" />
       {!compact && (
         <div>
-          <span className="text-sm font-semibold text-sidebar-accent-foreground">Teamspeak</span>
-          <span className="text-sm text-sidebar-foreground ml-1">Managment</span>
+          <span className="text-sm font-semibold text-sidebar-accent-foreground">{uiText("Teamspeak")}</span>
+          <span className="text-sm text-sidebar-foreground ml-1">{uiText("Managment")}</span>
         </div>
       )}
     </NavLink>
@@ -348,6 +350,7 @@ function Logo({ compact = false, onNavigate }: { compact?: boolean; onNavigate?:
 }
 
 export function Sidebar() {
+  useUiLanguageStore(state => state.language);
   const sidebarCollapsed = useUiStore((s) => s.sidebarCollapsed);
 
   return (
@@ -368,6 +371,7 @@ export function Sidebar() {
 }
 
 export function MobileNavigation() {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const location = useLocation();
@@ -384,8 +388,8 @@ export function MobileNavigation() {
         </Button>
       </SheetTrigger>
       <SheetContent>
-        <SheetTitle className="sr-only">TS6 Manager navigation</SheetTitle>
-        <SheetDescription className="sr-only">Choose a page to navigate to.</SheetDescription>
+        <SheetTitle className="sr-only">{uiText("TS6 Manager navigation")}</SheetTitle>
+        <SheetDescription className="sr-only">{uiText("Choose a page to navigate to.")}</SheetDescription>
         <div className="flex min-h-14 items-center border-b border-sidebar-border px-4 pr-14 pt-[env(safe-area-inset-top)]">
           <Logo onNavigate={() => setOpen(false)} />
         </div>

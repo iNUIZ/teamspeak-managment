@@ -59,7 +59,7 @@ test('bot extensions isolate switches and TTS; settings no longer has global TTS
   await dialog.getByRole('tab', { name: 'Sesli okuma (TTS)' }).click();
   await expect(dialog.getByLabel('Varsayılan ses', { exact: true })).toHaveValue('tr');
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'English', exact: true }).click();
+  await page.getByRole('button', { name: 'İngilizce', exact: true }).click();
   await page.getByRole('button', { name: 'Settings for Lounge Bot', exact: true }).click();
   await page.getByRole('menuitem', { name: 'Extensions and commands', exact: true }).click();
   await expect(dialog.getByRole('heading', { name: 'Lounge Bot · Extensions and commands' })).toBeVisible();

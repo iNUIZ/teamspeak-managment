@@ -18,11 +18,11 @@ test('TR widget form and permissions tabs switch to EN and back with persistent 
   await page.getByRole('button', { name: 'Yeni bileşen', exact: true }).click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText('Bileşen oluştur', { exact: true })).toBeVisible();
-  await expect(dialog.getByText('TeamSpeak sunucu kimliği', { exact: true })).toBeVisible();
+  await expect(dialog.getByRole('combobox', { name: 'TeamSpeak sunucusu', exact: true })).toBeVisible();
   await expect(dialog.getByText('Kanal ağacını göster', { exact: true })).toBeVisible();
   await dialog.getByPlaceholder('Sunucu bileşenim').fill('Test value');
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: 'English', exact: true }).click();
+  await page.getByRole('button', { name: 'İngilizce', exact: true }).click();
   await page.goto('/permissions');
   await expect(page.getByRole('heading', { name: 'Permissions', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Türkçe', exact: true }).click();

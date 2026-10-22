@@ -3,20 +3,15 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { extraTurkish } from './tr-extra';
 import { operationsTurkish } from './tr-operations';
+import { reviewTurkish } from './tr-review';
+import { filesTurkish } from './tr-files';
+import { panelTurkish } from './tr-panel';
 
 export type Language = 'tr' | 'en';
 const turkish: Record<string, string> = {
-  'YouTube playback method': 'YouTube oynatma yöntemi',
+  'Ready': 'Hazır',
   'Change YouTube playback method': 'YouTube oynatma yöntemini değiştir',
-  'Playback method': 'Oynatma yöntemi',
-  'PO Token — cookieless (recommended)': 'PO Token — çerezsiz (önerilen)',
-  'Optional account cookies': 'İsteğe bağlı hesap çerezleri',
-  'Failed to change YouTube playback mode': 'YouTube oynatma yöntemi değiştirilemedi',
-  'PO Token is the default, without account cookies. Network or account restrictions can still prevent playback. Cookies are an optional fallback, not a guaranteed network fix.': 'Varsayılan yöntem, hesap çerezi gerektirmeyen PO Token’dır. Ağ veya hesap kısıtlamaları yine de oynatmayı engelleyebilir. Çerezler isteğe bağlı alternatif olup ağ sorunlarını kesin olarak çözmez.',
-  'PO Token provider ready': 'PO Token hizmeti hazır',
-  'PO Token provider unavailable — check the local service': 'PO Token hizmetine ulaşılamıyor — yerel hizmeti kontrol edin',
-  'PO Token provider is not installed in this runtime': 'Bu çalışma ortamında PO Token hizmeti kurulu değil',
-  'Uploading only stores the file. Select optional account cookies above to use it.': 'Yükleme yalnızca dosyayı kaydeder. Kullanmak için yukarıdan isteğe bağlı hesap çerezlerini seçin.',
+  'YouTube uses cookies only. Uploaded cookies are used automatically for new searches and playback. Without cookies, YouTube requests are blocked; radio and local media remain available.': 'YouTube yalnızca çerezle çalışır. Yüklenen çerezler yeni arama ve oynatma işlemlerinde otomatik kullanılır. Çerez yoksa YouTube istekleri engellenir; radyo ve yerel medya kullanılabilir.',
   'Cookie file stored — not in use': 'Çerez dosyası kayıtlı — kullanımda değil',
   'Remove': 'Kaldır',
   'Limits saved': 'Sınırlar kaydedildi',
@@ -31,6 +26,8 @@ const turkish: Record<string, string> = {
   'Save Limits': 'Sınırları kaydet',
   ...extraTurkish,
   ...operationsTurkish,
+  ...reviewTurkish,
+  ...filesTurkish,
   'Plain theme background': 'Sade tema arka planı', 'Technical grid lines': 'İnce ızgara çizgileri',
   'Subtle dot matrix': 'Hafif noktalı desen', 'Soft accent-coloured glow': 'Vurgu renginde yumuşak ışıltı',
   'Slow-moving accent gradient': 'Yavaş hareket eden renk geçişi', 'Subtle static texture': 'Hafif sabit doku',
@@ -140,7 +137,12 @@ const turkish: Record<string, string> = {
   'Bot stopped': 'Bot durduruldu', 'Failed to stop bot': 'Bot durdurulamadı',
   'Widget link': 'Bileşen bağlantısı', 'Delete bot': 'Botu sil',
   'Return home (suspend automation)': 'Ana kanala dön (otomasyonu duraklat)',
+  ...panelTurkish,
 };
+
+const normalizeUiText = (text: string) => text.trim().replace(/\s+/g, ' ');
+const normalizedCatalog = Object.fromEntries(Object.entries(turkish).map(([key, value]) => [normalizeUiText(key), value.trim()]));
+const catalogValues = new Set(Object.values(normalizedCatalog));
 
 export const useLanguageStore = create<{ language: Language; setLanguage: (language: Language) => void }>()(
   persist((set) => ({ language: 'tr', setLanguage: (language) => set({ language }) }), {
@@ -149,12 +151,32 @@ export const useLanguageStore = create<{ language: Language; setLanguage: (langu
   }),
 );
 
-export function translate(text: string): string {
-  return useLanguageStore.getState().language === 'tr' ? turkish[text] ?? text : text;
+export function translate(text: string, ...values: unknown[]): string {
+  const normalized = normalizeUiText(text);
+  const found = Object.prototype.hasOwnProperty.call(normalizedCatalog, normalized) ? normalizedCatalog[normalized] : undefined;
+  let result = useLanguageStore.getState().language === 'tr' && found !== undefined
+    ? `${text.match(/^\s*/)?.[0] ?? ''}${found}${text.match(/\s*$/)?.[0] ?? ''}` : text;
+  if (values.length) result = result.replace(/\{(\d+)\}/g, (token, index) => Number(index) < values.length ? String(values[Number(index)] ?? '') : token);
+  return result;
 }
 
 export function useTranslation() {
   const language = useLanguageStore((s) => s.language);
   useEffect(() => { document.documentElement.lang = language; }, [language]);
   return { language, t: translate };
+}
+
+/** Catalog membership, independent of active language (also accepts existing Turkish copy). */
+export function hasUiTranslation(text: string): boolean {
+  const normalized = normalizeUiText(text);
+  return Object.prototype.hasOwnProperty.call(normalizedCatalog, normalized) || catalogValues.has(normalized);
+}
+
+/** Untrusted service errors are not interface copy; never leak untranslated prose into TR. */
+export function translateUiError(text: string, fallback: string): string {
+  if (!text) return '';
+  if (useLanguageStore.getState().language === 'en' || hasUiTranslation(text)) return translate(text);
+  if (hasUiTranslation(fallback)) return translate(fallback);
+  // Caller-authored Turkish fallbacks may interpolate user-entered names.
+  return /[çğıöşüÇĞİÖŞÜ]/.test(fallback) ? fallback : translate('Something went wrong');
 }

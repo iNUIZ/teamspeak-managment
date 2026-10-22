@@ -1,6 +1,8 @@
 import { test, expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { readFileSync, readdirSync } from 'node:fs';
 import { canHandleRequest, isAppNavigation } from '../pwa/cache-policy';
+// This suite verifies the real worker even when a UI-only debugging config blocks it.
+test.use({ serviceWorkers: 'allow' });
 
 const routes = ['/dashboard', '/channels', '/clients', '/permissions', '/server-groups', '/channel-groups', '/media-bots', '/bots', '/bots/1', '/files', '/settings', '/login', '/setup', '/remote'];
 const privatePaths = ['/api', '/api/health', '/api/auth/login', '/api/auth/refresh', '/api/auth/logout', '/api/auth/me', '/api/setup/status', '/api/servers/1/clients', '/api/servers/1/files', '/api/servers/1/tokens', '/api/servers/1/bans', '/api/music-bots', '/api/bots/1/logs', '/api/iptv/playlists/upload', '/api/iptv/playlists/1/replace', '/api/listener-remote', '/api/listener-remote/exchange', '/api/listener-remote/state', '/ws', '/ws/live'];

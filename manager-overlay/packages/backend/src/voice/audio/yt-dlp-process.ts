@@ -1,7 +1,7 @@
 import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process';
 import { acquireMediaEgress, egressEnvironment } from '../egress/media-egress.js';
 import { getYtDlpPath } from './yt-dlp-path.js';
-import { poTokenArgs } from './youtube-pot.js';
+import { requireYouTubeCookies } from './youtube-cookies.js';
 import path from 'node:path';
 
 /**
@@ -72,6 +72,7 @@ export async function spawnYtDlp(
   args: readonly string[],
   options: { target: string; timeoutMs: number; detached?: boolean },
 ): Promise<YtDlpRun> {
+  requireYouTubeCookies(options.target, args);
   // The token outlives the process's own timeout a little, never indefinitely.
   const job = await acquireMediaEgress(options.target, options.timeoutMs + 30_000);
   let proc: ChildProcessWithoutNullStreams;
@@ -79,7 +80,7 @@ export async function spawnYtDlp(
     const nodePath = process.env.YT_DLP_NODE_PATH;
     if (nodePath && !path.isAbsolute(nodePath)) throw new Error('YT_DLP_NODE_PATH must be absolute');
     const runtimeArgs = nodePath ? ['--js-runtimes', `node:${nodePath}`] : [];
-    proc = spawn(getYtDlpPath(), [...YT_DLP_EGRESS_ARGS, ...runtimeArgs, ...poTokenArgs(), ...withHttpOnlyFormats(args)], {
+    proc = spawn(getYtDlpPath(), [...YT_DLP_EGRESS_ARGS, ...runtimeArgs, ...withHttpOnlyFormats(args)], {
       shell: false,
       detached: options.detached,
       env: job ? egressEnvironment(job.proxyUrl) : process.env,
