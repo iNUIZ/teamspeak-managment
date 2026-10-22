@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 /**
  * Console Music tab: Songs · Playlists · Recent requests, each with search and pager.
@@ -38,6 +39,7 @@ function useListPaging(listKey: string, search: string) {
 }
 
 export function MusicSource(ctx: ConsoleSourceContext) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const [view, setView] = useState<MusicView>('songs');
   const [search, setSearch] = useState('');
@@ -46,7 +48,7 @@ export function MusicSource(ctx: ConsoleSourceContext) {
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div role="tablist" aria-label="Music views" className="flex flex-wrap gap-1">
+        <div role="tablist" aria-label={uiText("Music views")} className="flex flex-wrap gap-1">
           {VIEWS.map((v) => (
             <button
               key={v.id}
@@ -59,7 +61,7 @@ export function MusicSource(ctx: ConsoleSourceContext) {
               )}
               onClick={() => { setView(v.id); setSearch(''); }}
             >
-              {v.label}
+              {uiText(v.label)}
             </button>
           ))}
         </div>
@@ -68,8 +70,8 @@ export function MusicSource(ctx: ConsoleSourceContext) {
       <Input
         value={search}
         onChange={(e) => setSearch(e.target.value)}
-        placeholder={view === 'songs' ? 'Search songs…' : view === 'playlists' ? 'Search playlists…' : 'Search recent requests…'}
-        aria-label={view === 'songs' ? tr("Search songs") : view === 'playlists' ? 'Search playlists' : 'Search recent requests'}
+        placeholder={view === 'songs' ? uiText("Search songs…") : view === 'playlists' ? uiText("Search playlists…") : uiText("Search recent requests…")}
+        aria-label={view === 'songs' ? tr("Search songs") : view === 'playlists' ? uiText("Search playlists") : uiText("Search recent requests")}
         className="h-11"
       />
       {view === 'songs' && <SongsView ctx={ctx} search={search} />}
@@ -80,6 +82,7 @@ export function MusicSource(ctx: ConsoleSourceContext) {
 }
 
 function SongsView({ ctx, search }: { ctx: ConsoleSourceContext; search: string }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const { page, setPage, pageSize, setPageSize } = useListPaging('console-songs', search);
   const [debouncedSearch, setDebouncedSearch] = useState(search.trim());
@@ -116,7 +119,7 @@ function SongsView({ ctx, search }: { ctx: ConsoleSourceContext; search: string 
                 size="icon"
                 className="h-11 w-11 shrink-0"
                 disabled={pending}
-                aria-label={`Play ${song.title}`}
+                aria-label={uiText("Play {0}", song.title)}
                 onClick={() => play.mutate({ botId: ctx.botId, songId: song.id })}
               >
                 <Play className="h-4 w-4" aria-hidden="true" />
@@ -126,7 +129,7 @@ function SongsView({ ctx, search }: { ctx: ConsoleSourceContext; search: string 
                 size="icon"
                 className="h-11 w-11 shrink-0"
                 disabled={pending}
-                aria-label={`Queue ${song.title}`}
+                aria-label={uiText("Queue {0}", song.title)}
                 onClick={() => enqueue.mutate({ botId: ctx.botId, songId: song.id })}
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
@@ -149,6 +152,7 @@ function SongsView({ ctx, search }: { ctx: ConsoleSourceContext; search: string 
 }
 
 function PlaylistsView({ ctx, search }: { ctx: ConsoleSourceContext; search: string }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const { page, setPage, pageSize, setPageSize } = useListPaging('console-playlists', search);
   const query = usePlaylists(ctx.serverConfigId);
@@ -178,7 +182,7 @@ function PlaylistsView({ ctx, search }: { ctx: ConsoleSourceContext; search: str
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium">{pl.name}</p>
                 <p className="text-xs text-muted-foreground">
-                  {pl.songCount} song{pl.songCount !== 1 ? 's' : ''}
+                  {pl.songCount} {uiText(" song")}{pl.songCount !== 1 ? 's' : ''}
                 </p>
               </div>
               <Button
@@ -186,7 +190,7 @@ function PlaylistsView({ ctx, search }: { ctx: ConsoleSourceContext; search: str
                 size="icon"
                 className="h-11 w-11 shrink-0"
                 disabled={pending}
-                aria-label={`Play ${pl.name}`}
+                aria-label={uiText("Play {0}", pl.name)}
                 onClick={() => load.mutate({ botId: ctx.botId, playlistId: pl.id, clearFirst: true })}
               >
                 <Play className="h-4 w-4" aria-hidden="true" />
@@ -196,7 +200,7 @@ function PlaylistsView({ ctx, search }: { ctx: ConsoleSourceContext; search: str
                 size="icon"
                 className="h-11 w-11 shrink-0"
                 disabled={pending}
-                aria-label={`Queue ${pl.name}`}
+                aria-label={uiText("Queue {0}", pl.name)}
                 onClick={() => load.mutate({ botId: ctx.botId, playlistId: pl.id, clearFirst: false })}
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
@@ -219,6 +223,7 @@ function PlaylistsView({ ctx, search }: { ctx: ConsoleSourceContext; search: str
 }
 
 function RecentView({ ctx, search }: { ctx: ConsoleSourceContext; search: string }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const { page, setPage, pageSize, setPageSize } = useListPaging('console-recent', search);
   const query = useMusicRequests(ctx.serverConfigId, ctx.botId);
@@ -250,7 +255,7 @@ function RecentView({ ctx, search }: { ctx: ConsoleSourceContext; search: string
                   {[req.artist, req.duration != null ? formatTime(req.duration) : null].filter(Boolean).join(' · ')}
                 </p>}
                 <p className="text-xs text-muted-foreground">
-                  {musicRequestSourceLabel(req.source)} · {req.status === tr("unavailable") ? 'Unavailable' : 'Available'}
+                  {musicRequestSourceLabel(req.source)} · {req.status === tr("unavailable") ? uiText("Unavailable") : uiText("Available")}
                 </p>
                 <time dateTime={req.requestedAt} className="block text-xs text-muted-foreground">
                   {new Date(req.requestedAt).toLocaleString()}
@@ -261,7 +266,7 @@ function RecentView({ ctx, search }: { ctx: ConsoleSourceContext; search: string
                 size="icon"
                 className="h-11 w-11 shrink-0"
                 disabled={pending || !ctx.botOnline || req.status === tr("unavailable")}
-                aria-label={`Play ${req.title}`}
+                aria-label={uiText("Play {0}", req.title)}
                 onClick={() => replay.mutate({ configId: ctx.serverConfigId, requestId: req.id, botId: ctx.botId, enqueue: false })}
               >
                 <Play className="h-4 w-4" aria-hidden="true" />
@@ -271,7 +276,7 @@ function RecentView({ ctx, search }: { ctx: ConsoleSourceContext; search: string
                 size="icon"
                 className="h-11 w-11 shrink-0"
                 disabled={pending || !ctx.botOnline || req.status === tr("unavailable")}
-                aria-label={`Queue again ${req.title}`}
+                aria-label={uiText("Queue again {0}", req.title)}
                 onClick={() => replay.mutate({ configId: ctx.serverConfigId, requestId: req.id, botId: ctx.botId, enqueue: true })}
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />

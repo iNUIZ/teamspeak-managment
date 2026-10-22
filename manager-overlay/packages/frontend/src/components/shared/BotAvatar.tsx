@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { useEffect, useState, type ReactNode } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Bot } from 'lucide-react';
@@ -14,6 +15,7 @@ export function BotAvatar({ botId, name, mode, md5, className, fallback }: {
   className?: string;
   fallback?: ReactNode;
 }) {
+  useUiLanguageStore(state => state.language);
   const userId = useAuthStore((s) => s.user?.id);
   const { data } = useQuery({
     queryKey: ['music-bot-avatar', botId, mode, md5, userId],
@@ -34,7 +36,7 @@ export function BotAvatar({ botId, name, mode, md5, className, fallback }: {
 
   return (
     <span className={cn('inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted text-primary', className)}>
-      {url ? <img src={url} alt={`Avatar for ${name}`} className="h-full w-full object-contain" />
+      {url ? <img src={url} alt={uiText("Avatar for {0}", name)} className="h-full w-full object-contain" />
         : fallback ?? <Bot className="h-5 w-5" aria-hidden="true" />}
     </span>
   );

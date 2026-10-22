@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -40,6 +41,7 @@ function matchesMetadata(value: string | null | undefined, selected: string): bo
 
 /** Console IPTV browser, search, and explicit stream controls. */
 export function IptvSource({ serverConfigId, botId, searchParams }: ConsoleSourceContext) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const [, setSearchParams] = useSearchParams();
   const [deepLink, setDeepLink] = useState<IptvDeepLink | null>(() => parseIptvDeepLink(searchParams.get('iptv')));
@@ -169,8 +171,7 @@ export function IptvSource({ serverConfigId, botId, searchParams }: ConsoleSourc
   if (deepLinkMode) {
     const showAll = (
       <Button type="button" variant="outline" className="min-h-11" onClick={showAllChannels}>
-        <List className="mr-1.5 h-4 w-4" aria-hidden="true" /> Show all channels
-      </Button>
+        <List className="mr-1.5 h-4 w-4" aria-hidden="true" /> {uiText(" Show all channels")}</Button>
     );
     if (!deepLinkFinished || channelsQuery.isFetching) return <p className="text-sm text-muted-foreground"> {tr("Loading channel…")}</p>;
     if (channelsQuery.isError) {
@@ -210,17 +211,17 @@ export function IptvSource({ serverConfigId, botId, searchParams }: ConsoleSourc
       {favouriteError && <p role="alert" className="text-sm text-destructive">{apiErrorMessage(favouriteError, 'Could not load favourites')}</p>}
       {filtersQuery.error && <p role="alert" className="text-sm text-destructive">{apiErrorMessage(filtersQuery.error, 'Could not load filters')}</p>}
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div role="group" aria-label="IPTV views" className="flex flex-wrap gap-1.5">
+        <div role="group" aria-label={uiText("IPTV views")} className="flex flex-wrap gap-1.5">
           {(['Favourites', 'Recent', 'Browse groups'] as const).map((name) => (
             <Button key={name} type="button" variant={currentView === name ? 'default' : 'outline'} className="min-h-11"
               aria-pressed={currentView === name} onClick={() => { setView(name); setPage(1); }}>{tr(name)}</Button>
           ))}
         </div>
-        <AddMediaLink to="/iptv" label="Add playlist" />
+        <AddMediaLink to="/iptv" label={uiText("Add playlist")} />
       </div>
       <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <div className="space-y-1.5">
-          <Label htmlFor="console-iptv-playlist">Playlist</Label>
+          <Label htmlFor="console-iptv-playlist">{uiText("Playlist")}</Label>
           <select id="console-iptv-playlist" className="h-11 w-full rounded-md border bg-background px-3 text-sm" value={playlistId ?? ''}
             onChange={(event) => selectPlaylist(event.target.value)}>
             <option value=""> {tr("All playlists")}</option>
@@ -229,7 +230,7 @@ export function IptvSource({ serverConfigId, botId, searchParams }: ConsoleSourc
         </div>
         {countries.length > 0 && (
           <div className="space-y-1.5">
-            <Label htmlFor="console-iptv-country">Country</Label>
+            <Label htmlFor="console-iptv-country">{uiText("Country")}</Label>
             <select id="console-iptv-country" className="h-11 w-full rounded-md border bg-background px-3 text-sm" value={country}
               onChange={(event) => setCountry(event.target.value)}>
               <option value=""> {tr("All countries")}</option>
@@ -239,7 +240,7 @@ export function IptvSource({ serverConfigId, botId, searchParams }: ConsoleSourc
         )}
         {languages.length > 0 && (
           <div className="space-y-1.5">
-            <Label htmlFor="console-iptv-language">Language</Label>
+            <Label htmlFor="console-iptv-language">{uiText("Language")}</Label>
             <select id="console-iptv-language" className="h-11 w-full rounded-md border bg-background px-3 text-sm" value={language}
               onChange={(event) => setLanguage(event.target.value)}>
               <option value=""> {tr("All languages")}</option>
@@ -252,7 +253,7 @@ export function IptvSource({ serverConfigId, botId, searchParams }: ConsoleSourc
           <div className="relative">
             <Search className="pointer-events-none absolute left-3 top-3 h-5 w-5 text-muted-foreground" aria-hidden="true" />
             <Input id="console-iptv-search" className="h-11 pl-10" value={search}
-              onChange={(event) => setSearch(event.target.value)} placeholder="Channel name" />
+              onChange={(event) => setSearch(event.target.value)} placeholder={uiText("Channel name")} />
           </div>
         </div>
       </div>
@@ -266,8 +267,8 @@ export function IptvSource({ serverConfigId, botId, searchParams }: ConsoleSourc
               {pageSlice(picks, picksPage, pageSize).map((pick) => pick.channel ? renderChannel(pick.channel, picksQuery.isFetching) : (
                 <div key={`${pick.playlistId}:${pick.channelKey}`} className="flex min-w-0 items-center gap-3 rounded-md border p-2.5">
                   <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{pick.name}</p><p className="text-xs text-muted-foreground"> {tr("No longer in this playlist")}</p></div>
-                  <Button type="button" variant="outline" className="min-h-11 shrink-0" aria-label={`Remove ${pick.name}`}
-                    disabled={setFavourite.isPending || picksQuery.isFetching} onClick={() => removeMissingPick(pick)}>Remove</Button>
+                  <Button type="button" variant="outline" className="min-h-11 shrink-0" aria-label={uiText("Remove {0}", pick.name)}
+                    disabled={setFavourite.isPending || picksQuery.isFetching} onClick={() => removeMissingPick(pick)}>{uiText("Remove")}</Button>
                 </div>
               ))}
               {!picksQuery.isError && picks.length === 0 && <p className="rounded-md border border-dashed p-4 text-sm text-muted-foreground"> {tr("No channels found.")}</p>}
@@ -279,7 +280,7 @@ export function IptvSource({ serverConfigId, botId, searchParams }: ConsoleSourc
       ) : openChannels ? (
         <section aria-labelledby="console-iptv-channel-heading" className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 id="console-iptv-channel-heading" className="text-sm font-semibold">{group ? group : 'Search results'}</h3>
+            <h3 id="console-iptv-channel-heading" className="text-sm font-semibold">{group ? group : uiText("Search results")}</h3>
             {group && <Button type="button" variant="ghost" className="min-h-11" onClick={() => { setGroup(''); setSearch(''); setGroupFilter(''); }}><ArrowLeft className="mr-1.5 h-4 w-4" aria-hidden="true" /> {tr("All groups")}</Button>}
           </div>
           {channelsQuery.isError && <p role="alert" className="text-sm text-destructive">{apiErrorMessage(channelsQuery.error, 'Could not load channels')}</p>}
@@ -293,7 +294,7 @@ export function IptvSource({ serverConfigId, botId, searchParams }: ConsoleSourc
       ) : (
         <section aria-labelledby="console-iptv-groups-heading" className="space-y-3">
           <h3 id="console-iptv-groups-heading" className="text-sm font-semibold"> {tr("Browse groups")}</h3>
-          <Input aria-label="Group filter" className="h-11" value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)} placeholder="Filter groups" />
+          <Input aria-label={uiText("Group filter")} className="h-11" value={groupFilter} onChange={(event) => setGroupFilter(event.target.value)} placeholder={uiText("Filter groups")} />
           {groupsQuery.isError && <p role="alert" className="text-sm text-destructive">{apiErrorMessage(groupsQuery.error, 'Could not load groups')}</p>}
           <div className="grid gap-2 sm:grid-cols-2">
             {visibleGroups.map((item) => (
@@ -317,17 +318,18 @@ function ChannelRow({ channel, onStream, busy, favourite, onToggleFavourite, fav
   channel: IptvConsoleChannel; onStream(channel: IptvConsoleChannel): void; busy: boolean;
   favourite: boolean; onToggleFavourite(channel: IptvConsoleChannel): void; favouriteBusy: boolean;
 }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   return (
     <div className="flex min-w-0 items-center gap-3 rounded-md border p-2.5">
       {channel.logo ? <img src={channel.logo} alt="" className="h-10 w-10 shrink-0 rounded object-contain" /> : <Tv className="h-10 w-10 shrink-0 rounded bg-muted p-2 text-muted-foreground" aria-hidden="true" />}
       <div className="min-w-0 flex-1"><p className="truncate text-sm font-medium">{channel.name}</p><p className="truncate text-xs text-muted-foreground">{channel.playlistName}{channel.group ? ` · ${channel.group}` : ''}</p></div>
       <Button type="button" variant="ghost" size="icon" className="h-11 w-11 shrink-0" aria-pressed={favourite}
-        aria-label={favourite ? `Remove ${channel.name} from favourites` : `Add ${channel.name} to favourites`}
+        aria-label={favourite ? uiText("Remove {0} from favourites", channel.name) : uiText("Add {0} to favourites", channel.name)}
         disabled={favouriteBusy} onClick={() => onToggleFavourite(channel)}>
         <Star className={favourite ? 'h-5 w-5 fill-current text-amber-500' : 'h-5 w-5'} aria-hidden="true" />
       </Button>
-      <Button type="button" className="min-h-11 shrink-0" aria-label={`Stream ${channel.name}`} disabled={busy} onClick={() => onStream(channel)}>Stream</Button>
+      <Button type="button" className="min-h-11 shrink-0" aria-label={uiText("Stream {0}", channel.name)} disabled={busy} onClick={() => onStream(channel)}>{uiText("Stream")}</Button>
     </div>
   );
 }

@@ -31,7 +31,7 @@ test('installer stages only a hash, claims fresh setup once, and preserves exist
     assert.equal(users[0].username, 'owner');
   } finally {
     process.chdir(original);
-    await fs.rm(directory, { recursive: true, force: true });
+    await fs.rm(directory, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   }
 });
 

@@ -1,0 +1,439 @@
+import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { DEFAULT_BOT_AUTOMATION_SETTINGS } from '@ts6/common';
+
+async function signIn(page: Page, request: APIRequestContext) {
+  await request.post('/__test/reset');
+  await request.post('/__test/docs?on');
+  await request.post('/__test/auth?on');
+  await page.goto('/login');
+  await page.getByLabel('Username').fill('admin');
+  await page.getByLabel('Password', { exact: true }).fill('test-password');
+  await page.getByRole('button', { name: 'Sign In' }).click();
+  await expect(page).toHaveURL('/dashboard');
+}
+
+const noStop = { lastMusicStop: null, lastVideoStop: null };
+
+/** Pick up the Up next row called `title` with the keyboard and drop it one place down. */
+async function moveDownWithKeyboard(page: Page, title: string, ownKey: string, nextKey: string) {
+  const handle = page.getByRole('button', { name: `Drag to reorder ${title}` });
+  await handle.scrollIntoViewIfNeeded();
+  await handle.focus();
+  // Each key waits for dnd-kit's live-region announcement of the step before it.
+  const live = page.locator('[id^="DndLiveRegion"]');
+  await page.keyboard.press('Space');
+  await expect(live).toContainText(`over droppable area ${ownKey}`);
+  await page.keyboard.press('ArrowDown');
+  await expect(live).toContainText(`over droppable area ${nextKey}`);
+  await page.keyboard.press('Space');
+}
+
+function media(now: number) {
+  return [
+    {
+      botId: 1, botName: 'Aurora Radio', serverConfigId: 1, serverName: 'Operations Voice', status: 'playing',
+      channelId: 5, channelName: 'Lounge',
+      session: { id: 'a', kind: 'music', state: 'active', botId: 1, botName: 'Aurora Radio', startedAt: now - 90_000, label: 'Neon Skyline' },
+      music: { title: 'Neon Skyline', artist: 'Midnight Transit', live: false, position: 75, duration: 214 },
+      video: null, ...noStop,
+    },
+    {
+      botId: 3, botName: 'Backup Bot', serverConfigId: 1, serverName: 'Operations Voice', status: 'stopped',
+      channelId: null, channelName: null, session: null, music: null, video: null, ...noStop,
+    },
+  ];
+}
+
+const track = (id: string, title: string) => ({ id, title, artist: 'Artist', duration: 200, source: 'local' });
+
+// Track 2 ("Neon Skyline", index 1) is playing, so Up next starts at absolute index 2.
+const state = {
+  status: 'playing', position: 75, duration: 214, volume: 60, currentIndex: 1, shuffle: false, repeat: 'off',
+  nowPlaying: track('t2', 'Neon Skyline'),
+  queue: [track('t1', 'Opening'), track('t2', 'Neon Skyline'), track('t3', 'Third Song'), track('t4', 'Fourth Song'), track('t5', 'Fifth Song')],
+};
+
+let currentState: typeof state = state;
+
+async function mockBot(page: Page) {
+  currentState = state;
+  const calls: { method: string; url: string; body: unknown }[] = [];
+  await page.route('**/api/music-bots/media', (r) => r.fulfill({ json: media(Date.now()) }));
+  await page.route('**/api/music-bots/1/state', (r) => r.fulfill({ json: currentState }));
+  await page.route('**/api/servers/1/music-library/songs/search**', (r) =>
+    r.fulfill({ json: { total: 0, page: 1, pageSize: 50, songs: [] } }));
+  await page.route('**/api/playlists**', (r) => r.fulfill({ json: [] }));
+  await page.route('**/api/servers/1/radio-stations', (r) => r.fulfill({ json: [] }));
+  await page.route('**/api/servers/1/music-requests**', (r) => r.fulfill({ json: [] }));
+  await page.route(/\/api\/music-bots\/1\/queue(\/.*)?$/, async (r) => {
+    const req = r.request();
+    calls.push({ method: req.method(), url: req.url(), body: req.postDataJSON?.() ?? null });
+    await r.fulfill({ json: { success: true } });
+  });
+  return calls;
+}
+
+test('opens a bot console from the Bot Hub', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  await mockBot(page);
+  await signIn(page, request);
+
+  await page.goto('/bot-hub');
+  await page.getByRole('link', { name: 'Open console for Aurora Radio' }).click();
+  await expect(page).toHaveURL('/bot-hub/1');
+  await expect(page.getByRole('heading', { name: 'Aurora Radio', level: 1 })).toBeVisible();
+  await expect(page.getByText('Operations Voice · #Lounge')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Now playing' })).toBeVisible();
+});
+
+test('Now playing opens Auto-DJ and 24/7', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  await mockBot(page);
+  await page.route(/\/api\/music-bots\/1$/, (r) => r.fulfill({ json: {
+    id: 1, name: 'Aurora Radio', serverConfigId: 1, automationSettings: DEFAULT_BOT_AUTOMATION_SETTINGS,
+  } }));
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+
+  await page.getByRole('button', { name: 'Auto-DJ & 24/7' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Auto-DJ & 24/7: Aurora Radio' });
+  await expect(dialog.getByRole('switch', { name: 'Enable Auto-DJ' })).toBeVisible();
+  await dialog.getByRole('button', { name: 'Cancel' }).click();
+  await expect(dialog).toBeHidden();
+});
+
+test('phone Now playing keeps Pause, Skip, and Stop fully on screen', async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockBot(page);
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+
+  const controls = [
+    page.getByRole('button', { name: 'Pause Aurora Radio' }),
+    page.getByRole('button', { name: 'Skip track on Aurora Radio' }),
+    page.getByRole('button', { name: 'Stop', exact: true }),
+  ];
+  for (const control of controls) {
+    await expect(control).toBeVisible();
+    await expect(control).toBeInViewport({ ratio: 1 });
+  }
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test('Up next lists the tracks after the playing one', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  await mockBot(page);
+  await signIn(page, request);
+
+  await page.goto('/bot-hub/1');
+  const list = page.getByRole('list', { name: 'Up next' });
+  await expect(list.getByRole('listitem')).toHaveCount(3);
+  await expect(list.getByRole('listitem').first()).toContainText('Third Song');
+});
+
+/** The queue entry the console showed at an absolute index; its ID is what the request must name. */
+function shownAt(index: number, title: string) {
+  const item = state.queue[index];
+  expect(item.title).toBe(title);
+  return item.id;
+}
+
+test('keyboard reorder, remove and play now send absolute queue indexes with the shown item ID', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1400 });
+  const calls = await mockBot(page);
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+
+  // Move "Third Song" (Up next 0 → absolute 2) down one place (absolute 3).
+  // The server refuses the edit if index 2 no longer holds that item, so the ID must be Third Song's.
+  await expect(page.getByRole('list', { name: 'Up next' }).getByRole('listitem')).toHaveCount(3);
+  await moveDownWithKeyboard(page, 'Third Song', 't3#0', 't4#0');
+  await expect.poll(() => calls.find((c) => c.method === 'PUT')?.body)
+    .toEqual({ from: 2, to: 3, id: shownAt(2, 'Third Song') });
+
+  // Remove "Fifth Song" (Up next 2 → absolute 4).
+  await page.getByRole('button', { name: 'Remove Fifth Song from the queue' }).click();
+  await expect.poll(() => {
+    const url = calls.find((c) => c.method === 'DELETE')?.url;
+    if (!url) return null;
+    const { pathname, searchParams } = new URL(url);
+    return { path: pathname.replace(/^.*\/queue\//, ''), id: searchParams.getAll('id') };
+  }).toEqual({ path: '4', id: [shownAt(4, 'Fifth Song')] });
+
+  // Play "Fourth Song" now (Up next 1 → absolute 3).
+  await page.getByRole('button', { name: 'Play Fourth Song now' }).click();
+  await expect.poll(() => {
+    const call = calls.find((c) => c.method === 'POST' && /\/queue\/\d+\/play$/.test(c.url));
+    return call && { index: call.url.match(/\/queue\/(\d+)\/play$/)![1], body: call.body };
+  }).toEqual({ index: '3', body: { id: shownAt(3, 'Fourth Song') } });
+});
+
+test('a queue refresh during a drag does not change what the drop moves', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1400 });
+  const calls = await mockBot(page);
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  await expect(page.getByRole('list', { name: 'Up next' }).getByRole('listitem')).toHaveCount(3);
+
+  const live = page.locator('[id^="DndLiveRegion"]');
+  await page.getByRole('button', { name: 'Drag to reorder Third Song' }).focus();
+  await page.keyboard.press('Space');
+  await expect(live).toContainText('over droppable area t3#0');
+
+  // Someone else queues a song mid-drag; the 2 s refresh brings it in.
+  currentState = { ...state, queue: [...state.queue, track('t6', 'Sixth Song')] };
+  await page.waitForTimeout(2600);
+
+  await page.keyboard.press('ArrowDown');
+  await expect(live).toContainText('over droppable area t4#0');
+  await page.keyboard.press('Space');
+  await expect.poll(() => calls.find((c) => c.method === 'PUT')?.body)
+    .toEqual({ from: 2, to: 3, id: shownAt(2, 'Third Song') });
+});
+
+test('radio and video streams hide an empty Up next but keep a queued one', async ({ page, request }) => {
+  await mockBot(page);
+  const radio = (now: number) => media(now).map((b) => (b.botId === 1
+    ? { ...b, music: { title: 'Lo-fi FM', artist: null, live: true, position: 30, duration: null } }
+    : b));
+  await page.route('**/api/music-bots/media', (r) => r.fulfill({ json: radio(Date.now()) }));
+  currentState = { ...state, queue: [], currentIndex: -1 };
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  await expect(page.getByRole('button', { name: 'Stop radio' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Up next' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Shuffle' })).toHaveCount(0);
+
+  currentState = state;
+  await expect(page.getByText('is kept while the radio plays')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('button', { name: 'Play queue' })).toBeVisible();
+});
+
+test('an unknown bot shows Bot not found with a way back', async ({ page, request }) => {
+  await mockBot(page);
+  await signIn(page, request);
+  await page.goto('/bot-hub/999');
+  await expect(page.getByText('Bot not found')).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Back to Bot Hub' })).toBeVisible();
+});
+
+test('an offline bot asks to be started before playing anything', async ({ page, request }) => {
+  await mockBot(page);
+  await signIn(page, request);
+  await page.goto('/bot-hub/3');
+  await expect(page.getByText('Start the bot to play something')).toBeVisible();
+});
+
+test('the console fits a phone screen', async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await mockBot(page);
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  await expect(page.getByRole('heading', { name: 'Up next' })).toBeVisible();
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
+
+test('a failed Start bot says why', async ({ page, request }) => {
+  await mockBot(page);
+  await page.route('**/api/music-bots/3/start', (r) => r.fulfill({ status: 500, json: { error: 'Server is unreachable' } }));
+  await signIn(page, request);
+  await page.goto('/bot-hub/3');
+  await page.getByRole('button', { name: 'Start bot' }).click();
+  await expect(page.getByRole('alert')).toContainText('Server is unreachable');
+});
+
+test('a failed queue load shows an error instead of an empty queue', async ({ page, request }) => {
+  await mockBot(page);
+  await page.route('**/api/music-bots/1/state', (r) => r.fulfill({ status: 500, json: { error: 'State unavailable' } }));
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  await expect(page.getByText('Could not load the queue')).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Queue is empty')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Shuffle' })).toHaveCount(0);
+});
+
+test('queue rows cannot be dragged again until a move is saved', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1400 });
+  const calls = await mockBot(page);
+  let release: () => void = () => {};
+  const saved = new Promise<void>((resolve) => { release = resolve; });
+  await page.route(/\/api\/music-bots\/1\/queue\/move$/, async (r) => {
+    calls.push({ method: r.request().method(), url: r.request().url(), body: r.request().postDataJSON() });
+    await saved;
+    await r.fulfill({ json: { success: true } });
+  });
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  await expect(page.getByRole('list', { name: 'Up next' }).getByRole('listitem')).toHaveCount(3);
+
+  const live = page.locator('[id^="DndLiveRegion"]');
+  await page.getByRole('button', { name: 'Drag to reorder Third Song' }).focus();
+  await page.keyboard.press('Space');
+  await expect(live).toContainText('over droppable area t3#0');
+  await page.keyboard.press('ArrowDown');
+  await expect(live).toContainText('over droppable area t4#0');
+  await page.keyboard.press('Space');
+  await expect.poll(() => calls.filter((c) => c.method === 'PUT').length).toBe(1);
+
+  await expect(page.getByRole('button', { name: 'Drag to reorder Fifth Song' })).toBeDisabled();
+  release();
+  await expect(page.getByRole('button', { name: 'Drag to reorder Fifth Song' })).toBeEnabled();
+  expect(calls.filter((c) => c.method === 'PUT')).toHaveLength(1);
+});
+
+test('the console shows source tabs in order', async ({ page, request }) => {
+  await mockBot(page);
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  const sources = page.getByRole('tablist', { name: 'Source' }).getByRole('tab');
+  await expect(sources).toHaveText(['Music', 'Link', 'Radio', 'IPTV']);
+  await page.getByRole('tab', { name: 'Link' }).click();
+  await expect(page.getByLabel('YouTube, Twitch, direct link, or a file already in the music folder')).toBeVisible();
+});
+
+// === Video lane (#253 Slice 3) ===
+
+const videoStatus = (now: number) => ({
+  streaming: true, streamId: 's', preset: '1080p', framerate: 30, bitrate: '4500k', startedAt: now - 30_000,
+  viewerCount: 1,
+  quality: { requested: 'auto', actual: '1080p', width: 1920, height: 1080, sourceWidth: 1920, sourceHeight: 1080, note: null },
+  encoder: { requested: 'auto', selected: 'vp8', active: 'vp8', codec: 'vp8', hardware: false, fallbackReason: null, note: null },
+  noViewer: { timeoutSec: 300, stopAt: null }, lastStop: null,
+});
+
+const queued = (id: string, title: string) => ({
+  id, title, source: `https://www.youtube.com/watch?v=${id}`, sourceMode: 'auto', addedBy: 'admin',
+});
+
+const videoQueue = {
+  current: queued('v0', 'Opening film'),
+  upNext: [queued('v1', 'First short'), queued('v2', 'Second short'), queued('v3', 'Third short')],
+  kept: false,
+};
+
+/** Bot 1 streaming a video (or idle), with its video queue mocked. */
+async function mockVideoBot(page: Page, opts: { streaming: boolean; queue: unknown }) {
+  const calls = await mockBot(page);
+  currentState = { ...state, status: 'connected', queue: [], currentIndex: -1 } as typeof state;
+  const now = Date.now();
+  await page.route('**/api/music-bots/media', (r) => r.fulfill({ json: media(now).map((b) => (b.botId !== 1 ? b : {
+    ...b,
+    status: 'connected',
+    session: opts.streaming
+      ? { id: 'v', kind: 'video', state: 'active', botId: 1, botName: 'Aurora Radio', startedAt: now - 30_000, label: 'www.youtube.com' }
+      : null,
+    music: null,
+    video: opts.streaming ? videoStatus(now) : null,
+  })) }));
+  await page.route('**/api/music-bots/1/stream/status', (r) =>
+    r.fulfill({ json: { streaming: opts.streaming, viewerCount: 0, viewers: [] } }));
+  await page.route(/\/api\/music-bots\/1\/stream\/queue(\/.*)?$/, async (r) => {
+    const req = r.request();
+    if (req.method() === 'GET') return r.fulfill({ json: opts.queue });
+    calls.push({ method: req.method(), url: req.url(), body: req.postDataJSON?.() ?? null });
+    await r.fulfill({ json: { success: true, state: opts.queue } });
+  });
+  return calls;
+}
+
+test('shows queued videos while a video streams', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1400 });
+  await mockVideoBot(page, { streaming: true, queue: videoQueue });
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+
+  const list = page.getByRole('list', { name: 'Up next' });
+  await expect(list.getByRole('listitem')).toHaveText([/First short/, /Second short/, /Third short/]);
+  await expect(page.getByRole('heading', { name: 'Up next (3)' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Skip to the next video' })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Shuffle' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Repeat/ })).toHaveCount(0);
+});
+
+test('Skip, remove and play-now call the queue routes', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1400 });
+  const calls = await mockVideoBot(page, { streaming: true, queue: videoQueue });
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  await expect(page.getByRole('list', { name: 'Up next' }).getByRole('listitem')).toHaveCount(3);
+
+  await page.getByRole('button', { name: 'Skip to the next video' }).click();
+  await expect.poll(() => calls.some((c) => c.method === 'POST' && c.url.endsWith('/stream/queue/skip'))).toBe(true);
+
+  await page.getByRole('button', { name: 'Remove Second short from the queue' }).click();
+  await expect.poll(() => calls.find((c) => c.method === 'DELETE')?.url ?? '').toMatch(/\/stream\/queue\/1$/);
+
+  await page.getByRole('button', { name: 'Play First short now' }).click();
+  await expect.poll(() => calls.some((c) => c.method === 'POST' && c.url.endsWith('/stream/queue/0/play'))).toBe(true);
+});
+
+test('keyboard reorder sends upcoming indexes', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1400 });
+  const calls = await mockVideoBot(page, { streaming: true, queue: videoQueue });
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  await expect(page.getByRole('list', { name: 'Up next' }).getByRole('listitem')).toHaveCount(3);
+
+  await moveDownWithKeyboard(page, 'First short', 'v1#0', 'v2#0');
+  await expect.poll(() => calls.find((c) => c.method === 'PUT')?.body).toEqual({ from: 0, to: 1 });
+  expect(calls.find((c) => c.method === 'PUT')?.url).toMatch(/\/stream\/queue\/move$/);
+});
+
+test('a kept video queue offers Play queue', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1400 });
+  const kept = { current: null, upNext: videoQueue.upNext, kept: true };
+  const calls = await mockVideoBot(page, { streaming: false, queue: kept });
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+
+  await expect(page.getByText('Up next (3) is kept. Nothing is streaming.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Skip to the next video' })).toBeDisabled();
+  await page.getByRole('button', { name: 'Play queue' }).click();
+  await expect.poll(() => calls.some((c) => c.method === 'POST' && c.url.endsWith('/stream/queue/play'))).toBe(true);
+});
+
+test('a video stream with nothing queued says how to add one', async ({ page, request }) => {
+  await mockVideoBot(page, { streaming: true, queue: { current: null, upNext: [], kept: false } });
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+  await expect(page.getByText('No more videos queued. Add one from the Link tab.')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Clear' })).toBeDisabled();
+});
+
+test('music Up next is unchanged with an empty video lane', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  await mockBot(page);
+  await page.route('**/api/music-bots/1/stream/queue', (r) => r.fulfill({ json: { current: null, upNext: [], kept: false } }));
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+
+  const list = page.getByRole('list', { name: 'Up next' });
+  await expect(list.getByRole('listitem')).toHaveCount(3);
+  await expect(list.getByRole('listitem').first()).toContainText('Third Song');
+  await expect(page.getByRole('button', { name: 'Shuffle' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Repeat/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Skip to the next video' })).toHaveCount(0);
+  await expect(page.getByRole('heading', { name: /^Up next/ })).toHaveCount(1);
+});
+
+test('queued videos wait as one line while music plays', async ({ page, request }) => {
+  await page.setViewportSize({ width: 1400, height: 1000 });
+  const calls = await mockBot(page);
+  const kept = { current: null, upNext: videoQueue.upNext, kept: true };
+  await page.route(/\/api\/music-bots\/1\/stream\/queue(\/.*)?$/, async (r) => {
+    const req = r.request();
+    if (req.method() === 'GET') return r.fulfill({ json: kept });
+    calls.push({ method: req.method(), url: req.url(), body: req.postDataJSON?.() ?? null });
+    await r.fulfill({ json: { success: true, state: kept } });
+  });
+  await signIn(page, request);
+  await page.goto('/bot-hub/1');
+
+  await expect(page.getByRole('list', { name: 'Up next' }).getByRole('listitem').first()).toContainText('Third Song');
+  await expect(page.getByText('3 queued videos are kept.')).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Up next/ })).toHaveCount(1);
+  await expect(page.getByText('First short')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Play video queue' }).click();
+  await expect.poll(() => calls.some((c) => c.url.endsWith('/stream/queue/play'))).toBe(true);
+});

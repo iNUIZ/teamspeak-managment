@@ -144,12 +144,18 @@ export function isTeamSpeakPermissionError(error: unknown): boolean {
 export function mapOperationalError(err: Error): AppError | null {
   const msg = err.message;
 
+  if (msg.startsWith('YouTube cookies required.')) {
+    return new AppError(422, 'YouTube cookies required',
+      'Upload a cookies.txt file in Settings → YouTube before searching or playing YouTube media.',
+      { reason: 'media_auth_required', retryable: false });
+  }
+
   // Return actionable, static copy only; raw downloader stderr can contain URLs
   // or session details and must never be exposed through the API.
   if (/yt-dlp (?:info|download|stream resolve|music search|search) failed/i.test(msg)) {
     if (/sign in to confirm|not a bot|cookies are no longer valid|cookies.*expired/i.test(msg)) {
-      return new AppError(422, 'YouTube requires authentication',
-        'Update your YouTube cookies in Settings > YouTube. Cookies may expire and do not guarantee playback.',
+      return new AppError(422, 'The media provider requires verification',
+        'Refresh your YouTube cookies in Settings → YouTube and check outbound connectivity. Cookies do not guarantee access.',
         { reason: 'media_auth_required', retryable: false });
     }
     return new AppError(502, 'The media download failed', 'Review the media diagnostics and try another source.',

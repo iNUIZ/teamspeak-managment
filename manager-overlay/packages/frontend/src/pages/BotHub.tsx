@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 /**
  * Bot hub — the one list of media bots: what each is playing (music or
@@ -46,6 +47,7 @@ function useNow(): number {
 }
 
 function BotCard({ bot, now }: { bot: BotMediaOverview; now: number }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const stopMusic = useStopPlayback();
   const stopVideo = useStopVideoStream();
@@ -66,11 +68,11 @@ function BotCard({ bot, now }: { bot: BotMediaOverview; now: number }) {
           {error && <p className="text-xs text-destructive">{apiErrorMessage(error, tr("Could not stop"))}</p>}
           <div className="flex flex-wrap gap-2">
             <Button asChild size="sm" variant="outline" className="h-9">
-              <Link to={`/bot-hub/${bot.botId}`} aria-label={`Open console for ${bot.botName}`}> {tr("Open console")}</Link>
+              <Link to={`/bot-hub/${bot.botId}`} aria-label={uiText("Open console for {0}", bot.botName)}> {tr("Open console")}</Link>
             </Button>
             {tone === 'offline' && (
               <Button size="sm" variant="ghost" className="h-9" disabled={startBot.isPending}
-                aria-label={`Start ${bot.botName}`}
+                aria-label={uiText("Start {0}", bot.botName)}
                 onClick={() => startBot.mutate(bot.botId, {
                   onSuccess: () => toast.success(tr("Bot started")),
                   onError: (err) => toast.error(apiErrorMessage(err, tr("Failed to start bot"))),
@@ -97,6 +99,7 @@ function BotCard({ bot, now }: { bot: BotMediaOverview; now: number }) {
 }
 
 export default function BotHub() {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const query = useBotMedia();
   const now = useNow();
@@ -121,7 +124,7 @@ export default function BotHub() {
         )}
       />
 
-      <nav aria-label="Bot sections" className="flex flex-wrap gap-2">
+      <nav aria-label={uiText("Bot sections")} className="flex flex-wrap gap-2">
         {SECTIONS.map((s) => (
           <Button key={s.to} asChild size="sm" variant="outline" className="h-10">
             <Link to={s.to}>
@@ -132,7 +135,7 @@ export default function BotHub() {
       </nav>
 
       {bots.length > 0 && hasNoConnections && (
-        <ConnectionRequiredNotice>New media bots need a TeamSpeak server connection.</ConnectionRequiredNotice>
+        <ConnectionRequiredNotice>{uiText("New media bots need a TeamSpeak server connection.")}</ConnectionRequiredNotice>
       )}
 
       <section aria-labelledby="hub-bots" className="space-y-3">
@@ -144,16 +147,15 @@ export default function BotHub() {
         {query.isLoading ? (
           <PageLoader />
         ) : query.isError ? (
-          <EmptyState icon={AlertTriangle} title="Could not load bot media" description={apiErrorMessage(query.error, 'Try again in a moment.')} />
+          <EmptyState icon={AlertTriangle} title={uiText("Could not load bot media")} description={apiErrorMessage(query.error, 'Try again in a moment.')} />
         ) : bots.length === 0 && hasNoConnections ? (
-          <EmptyState icon={Music} title="Connect a TeamSpeak server first" description="Media bots join a server connection. Add one in Settings → Connections, then create your first bot.">
+          <EmptyState icon={Music} title={uiText("Connect a TeamSpeak server first")} description={uiText("Media bots join a server connection. Add one in Settings → Connections, then create your first bot.")}>
             <Button size="sm" asChild><Link to={CONNECTION_SETUP_PATH}> {tr("Open connection setup")}</Link></Button>
           </EmptyState>
         ) : bots.length === 0 ? (
-          <EmptyState icon={Music} title="No media bots yet" description="Create a media bot to play music, radio, video or IPTV into a channel.">
+          <EmptyState icon={Music} title={uiText("No media bots yet")} description={uiText("Create a media bot to play music, radio, video or IPTV into a channel.")}>
             <Button size="sm" disabled={createBlocked} onClick={() => setCreateOpen(true)}>
-              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" /> Create a bot
-            </Button>
+              <Plus className="mr-1.5 h-4 w-4" aria-hidden="true" /> {uiText(" Create a bot")}</Button>
           </EmptyState>
         ) : (
           <>

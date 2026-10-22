@@ -107,7 +107,7 @@ test('Turkish GPU-less host has usable software encoders, translated diagnostics
   const oldCount = probes;
   await page.getByRole('button', { name: 'Yeniden test et', exact: true }).click();
   await expect.poll(() => probes).toBeGreaterThan(oldCount);
-  await page.getByRole('button', { name: 'English', exact: true }).click();
+  await page.getByRole('button', { name: 'İngilizce', exact: true }).click();
   await expect(page.getByText('Encoder capabilities', { exact: true })).toBeVisible();
   await expect(page.getByText('VP8 (software)', { exact: true })).toBeVisible();
 });

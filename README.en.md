@@ -31,8 +31,8 @@ not include PowerShell or npm development files.
 
 ## Components
 
-See [cookieless YouTube playback](docs/cookieless-youtube.md) for the default
-PO Token service, optional cookies, deployment requirements and limitations.
+See [cookie-only YouTube playback](docs/youtube-cookies.md) for cookie setup,
+deployment requirements and limitations.
 
 - TeamSpeak 3 Server with HTTP WebQuery
 - TeaSpeak Server

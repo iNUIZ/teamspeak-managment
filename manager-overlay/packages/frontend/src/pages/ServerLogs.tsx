@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
@@ -52,6 +53,7 @@ const LEVEL_COLORS: Record<ServerLogLevel, string> = {
 const PAGE_SIZE_OPTIONS = ['50', '100'] as const;
 
 export default function ServerLogs() {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const { selectedConfigId: c, selectedSid: s } = useServerStore();
   const { data: servers } = useServers();
@@ -223,7 +225,7 @@ export default function ServerLogs() {
 
   const scopeLabel = instanceMode
     ? 'Instance log (not scoped to the selected virtual server)'
-    : `Virtual server log · SID ${s}${virtualServer?.virtualserver_name ? ` · ${virtualServer.virtualserver_name}` : ''}`;
+    : `${tr('Virtual server log')} · #${s}${virtualServer?.virtualserver_name ? ` · ${virtualServer.virtualserver_name}` : ''}`;
 
   return (
     <div className="space-y-4" data-testid="server-logs-page">
@@ -232,12 +234,11 @@ export default function ServerLogs() {
         icon={ScrollText}
         description={(
           <div className="space-y-1">
-            <p>
-              Connection: {connection?.name ?? `config ${c}`}
+            <p> {tr("Connection:")}{' '}{connection?.name ?? uiText("config {0}", c)}
             </p>
-            <p data-testid="logs-scope-label">{scopeLabel}</p>
+            <p data-testid="logs-scope-label">{tr(scopeLabel)}</p>
             {page?.fetchedAt && (
-              <p className="text-xs"> {tr("Fetched")}{formatLocalDateTime(page.fetchedAt)}</p>
+              <p className="text-xs">{tr('Fetched')}{' '}{formatLocalDateTime(page.fetchedAt)}</p>
             )}
           </div>
         )}
@@ -257,6 +258,7 @@ export default function ServerLogs() {
         )}
       />
 
+      <p className="rounded-md border bg-card p-3 text-sm text-muted-foreground">{tr('Selected-server logs contain events for one TeamSpeak server. Service logs cover the entire process and all servers on this connection. Raw log entries retain their original language.')}</p>
       {backgroundError && (
         <StaleDataNotice
           message={backgroundError}
@@ -267,7 +269,7 @@ export default function ServerLogs() {
 
       {scopeMismatch && (
         <StaleDataNotice
-          message="Log scope response did not match the selected Instance / Virtual server mode. Refresh to reload."
+          message={uiText("Log scope response did not match the selected Instance / Virtual server mode. Refresh to reload.")}
           onRetry={retryGate}
           isRetrying={isFetchingGate}
         />
@@ -278,27 +280,27 @@ export default function ServerLogs() {
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder={tr("Filter this page…")}
-            aria-label="Filter this page"
+            aria-label={tr("Filter this page")}
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="pl-8 h-9"
           />
         </div>
         <Select value={levelFilter} onValueChange={setLevelFilter}>
-          <SelectTrigger className="h-9 w-[calc(50%-0.25rem)] min-w-28 flex-1 text-xs sm:w-[150px] sm:flex-none" aria-label="Level filter this page">
+          <SelectTrigger className="h-9 w-[calc(50%-0.25rem)] min-w-28 flex-1 text-xs sm:w-[150px] sm:flex-none" aria-label={tr("Level filter this page")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL"> {tr("All levels (this page)")}</SelectItem>
-            <SelectItem value="ERROR">Error (this page)</SelectItem>
-            <SelectItem value="WARNING">Warning (this page)</SelectItem>
-            <SelectItem value="INFO">Info (this page)</SelectItem>
-            <SelectItem value="DEBUG">Debug (this page)</SelectItem>
-            <SelectItem value="UNKNOWN">Unknown (this page)</SelectItem>
+            <SelectItem value="ERROR"> {tr("Error (this page)")}{' '}</SelectItem>
+            <SelectItem value="WARNING"> {tr("Warning (this page)")}{' '}</SelectItem>
+            <SelectItem value="INFO"> {tr("Info (this page)")}{' '}</SelectItem>
+            <SelectItem value="DEBUG"> {tr("Debug (this page)")}{' '}</SelectItem>
+            <SelectItem value="UNKNOWN"> {tr("Unknown (this page)")}{' '}</SelectItem>
           </SelectContent>
         </Select>
         <Select value={lines} onValueChange={setLines}>
-          <SelectTrigger className="h-9 w-[calc(50%-0.25rem)] min-w-28 flex-1 text-xs sm:w-[130px] sm:flex-none" aria-label="Page size">
+          <SelectTrigger className="h-9 w-[calc(50%-0.25rem)] min-w-28 flex-1 text-xs sm:w-[130px] sm:flex-none" aria-label={tr("Page size")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -308,7 +310,7 @@ export default function ServerLogs() {
           </SelectContent>
         </Select>
         <Select value={instanceMode ? 'instance' : 'vs'} onValueChange={(v) => setInstanceMode(v === 'instance')}>
-          <SelectTrigger className="h-9 w-full min-w-40 flex-1 text-xs sm:w-[200px] sm:flex-none" aria-label="Log source scope">
+          <SelectTrigger className="h-9 w-full min-w-40 flex-1 text-xs sm:w-[200px] sm:flex-none" aria-label={tr("Log source scope")}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -320,7 +322,7 @@ export default function ServerLogs() {
 
       <p className="text-xs text-muted-foreground" data-testid="logs-filter-hint"> {tr("Search and level filters apply to this page only. They do not fetch older history.")}</p>
       <p className="text-xs text-muted-foreground" data-testid="logs-timezone-hint">
-        {LOG_TIMESTAMP_ZONE_UNKNOWN_HINT}
+        {tr(LOG_TIMESTAMP_ZONE_UNKNOWN_HINT)}
       </p>
 
       <div className="flex flex-wrap items-center gap-2">
@@ -341,8 +343,8 @@ export default function ServerLogs() {
         > {tr("Older")}<ChevronRight className="h-4 w-4 ml-1" />
         </Button>
         <span className="text-xs text-muted-foreground" data-testid="logs-page-meta">
-          {cursorStack.length === 0 ? tr("Newest page") : `Older page ${cursorStack.length}`}
-          {page?.nextBeginPos ? '' : ' · end of available cursor'}
+          {cursorStack.length === 0 ? tr("Newest page") : uiText("Older page {0}", cursorStack.length)}
+          {page?.nextBeginPos ? '' : ` · ${tr('end of available cursor')}`}
         </span>
       </div>
 
@@ -351,7 +353,7 @@ export default function ServerLogs() {
           <div className="p-3 space-y-0.5 min-w-0">
             {emptyMessage ? (
               <p className="text-center text-muted-foreground text-sm py-10" data-testid="logs-empty">
-                {emptyMessage}
+                {tr(emptyMessage)}
               </p>
             ) : (
               filtered.map((entry, i) => {
@@ -389,8 +391,7 @@ export default function ServerLogs() {
       </div>
 
       <p className="text-xs text-muted-foreground" data-testid="logs-count">
-        {filtered.length} of {parsedEntries.length} entries on this page
-        {instanceMode ? ' · instance logfile' : ` · VS ${s}`}
+        {filtered.length} {uiText(" of ")}{parsedEntries.length} {tr("entries on this page")}{' '}{instanceMode ? uiText(" · instance logfile") : uiText(" · VS {0}", s)}
       </p>
     </div>
   );

@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 /**
  * Bot console (`/bot-hub/:botId`): what one bot is playing, its queue, and
@@ -68,6 +69,7 @@ function musicKeptFor(bot: BotMediaOverview): 'radio' | 'video' | null {
 
 /** Up next for an online bot: one lane owns it; the other, when it holds items, waits as a one-line strip. */
 function UpNextLanes({ bot }: { bot: BotMediaOverview }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const stateQuery = useMusicBotState(bot.botId);
   const state = stateQuery.data as PlaybackState | undefined;
@@ -93,6 +95,7 @@ function UpNextLanes({ bot }: { bot: BotMediaOverview }) {
 
 /** Render one bot's playback state, queue, and source tabs. */
 export default function BotConsole() {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const botId = Number(useParams().botId);
   const navigate = useNavigate();
@@ -119,7 +122,7 @@ export default function BotConsole() {
 
   return (
     <div className="space-y-4">
-      <nav aria-label="Breadcrumb" className="text-sm text-muted-foreground">
+      <nav aria-label={uiText("Breadcrumb")} className="text-sm text-muted-foreground">
         <Link to="/bot-hub" className="hover:text-foreground"> {tr("Bot Hub")}</Link> / <span>{bot.botName}</span>
       </nav>
       <PageHeader
@@ -131,7 +134,7 @@ export default function BotConsole() {
             <AutomationBadges bot={bot} />
           </span>
         )}
-        description={`${bot.serverName ?? `Server ${bot.serverConfigId}`}${bot.channelName ? ` · #${bot.channelName}` : ''}`}
+        description={`${bot.serverName ?? uiText("Server {0}", bot.serverConfigId)}${bot.channelName ? ` · #${bot.channelName}` : ''}`}
         actions={(
           <BotSettingsMenu botId={bot.botId} botName={bot.botName} status={bot.status} size="default"
             onDeleted={() => navigate('/bot-hub', { replace: true })} />

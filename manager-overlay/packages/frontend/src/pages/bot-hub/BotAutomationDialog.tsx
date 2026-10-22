@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -22,6 +23,7 @@ function validAutomationSettings(settings: BotAutomationSettings): boolean {
 export function BotAutomationDialog({ botId, botName, onClose }: Readonly<{
   botId: number; botName: string; onClose: () => void;
 }>) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const qc = useQueryClient();
   const bot = useQuery<MusicBotDetail>({ queryKey: ['music-bot', botId], queryFn: () => musicBotsApi.get(botId) });
@@ -46,7 +48,7 @@ export function BotAutomationDialog({ botId, botName, onClose }: Readonly<{
       qc.invalidateQueries({ queryKey: ['music-bots'] });
       qc.invalidateQueries({ queryKey: ['music-bot', botId] });
       qc.invalidateQueries({ queryKey: ['bot-media'] });
-      toast.success('Automation settings saved');
+      toast.success(uiText("Automation settings saved"));
       onClose();
     },
   });
@@ -62,7 +64,7 @@ export function BotAutomationDialog({ botId, botName, onClose }: Readonly<{
     <Dialog open onOpenChange={(open) => { if (!open && !save.isPending) onClose(); }}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Auto-DJ &amp; 24/7: {botName}</DialogTitle>
+          <DialogTitle>{uiText("Auto-DJ & 24/7: ")}{botName}</DialogTitle>
           <DialogDescription> {tr("Fill an empty request queue from a saved source. Human requests take priority.")}</DialogDescription>
         </DialogHeader>
         {bot.isError && <p role="alert" className="text-sm text-destructive">{apiErrorMessage(bot.error, tr("Could not load settings"))}</p>}
@@ -137,7 +139,7 @@ export function BotAutomationDialog({ botId, botName, onClose }: Readonly<{
             {save.isPending && <p role="status" className="text-sm text-muted-foreground"> {tr("Saving automation settings…")}</p>}
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" disabled={save.isPending} onClick={onClose}> {tr("Cancel")}</Button>
-              <Button type="submit" disabled={!valid || save.isPending}>{save.isPending ? 'Saving…' : tr("Save automation")}</Button>
+              <Button type="submit" disabled={!valid || save.isPending}>{save.isPending ? uiText("Saving…") : tr("Save automation")}</Button>
             </div>
           </form>
         )}

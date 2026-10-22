@@ -1,0 +1,45 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
+import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { complaintsApi } from '@/api/bans.api';
+import { useServerStore } from '@/stores/server.store';
+import { DataTable } from '@/components/shared/DataTable';
+import { PageLoader } from '@/components/shared/LoadingSpinner';
+import { NoServerSelectedState } from '@/components/shared/NoServerSelectedState';
+import { MessageSquareWarning } from 'lucide-react';
+import { type ColumnDef } from '@tanstack/react-table';
+import { timeAgo } from '@/lib/utils';
+
+export default function Complaints() {
+  useUiLanguageStore(state => state.language);
+  const { selectedConfigId: c, selectedSid: s } = useServerStore();
+  const { data, isLoading } = useQuery({ queryKey: ['complaints', c, s], queryFn: () => complaintsApi.list(c!, s!), enabled: !!c && !!s });
+
+  const complaints = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+  const columns: ColumnDef<any>[] = useMemo(() => [
+    { accessorKey: 'fname', header: 'Complainant' },
+    { accessorKey: 'tname', header: 'Reported user' },
+    { accessorKey: 'message', header: 'Message' },
+    { accessorKey: 'timestamp', header: 'When', cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{timeAgo(getValue() as number)}</span> },
+  ], []);
+
+  if (!c || !s) return <NoServerSelectedState pageTitle={uiText("Complaints")} icon={MessageSquareWarning} />;
+  if (isLoading) return <PageLoader />;
+
+  return (
+    <div className="space-y-5">
+      <h1 className="text-xl font-semibold">{uiText("Complaints")}</h1>
+      <DataTable
+        columns={columns}
+        data={complaints}
+        searchEnabled
+        searchLabel={uiText("Search complaints")}
+        searchPlaceholder={uiText("Search complaints...")}
+        tableLabel={uiText("Complaints table")}
+        density="comfortable"
+        emptyText={uiText("No complaints found")}
+        filteredEmptyText={uiText("No complaints match your search")}
+      />
+    </div>
+  );
+}

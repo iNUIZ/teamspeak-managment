@@ -1,3 +1,5 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
+import { RuntimeIssue } from '@/components/shared/RuntimeIssue';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 import { useState } from 'react';
 import {
@@ -43,11 +45,13 @@ export interface NowPlayingProps {
 }
 
 export function NowPlaying(props: NowPlayingProps): JSX.Element {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   return props.variant === 'full' ? <FullNowPlaying {...props} /> : <CompactNowPlaying {...props} />;
 }
 
 function CompactNowPlaying(props: NowPlayingProps): JSX.Element {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const { bot, now, footer, avatar } = props;
   const pausePlayback = usePausePlayback();
@@ -71,18 +75,18 @@ function CompactNowPlaying(props: NowPlayingProps): JSX.Element {
   return (
     <Card className={cn(tone === 'offline' && 'opacity-70')}>
       <CardContent className="space-y-3 p-4">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex min-w-0 items-center gap-2">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex min-w-0 flex-1 basis-40 items-center gap-2">
             {avatar}
             <div className="min-w-0">
               <p className="truncate font-medium">{bot.botName}</p>
               <p className="truncate text-xs text-muted-foreground">
-                {bot.serverName ?? `Server ${bot.serverConfigId}`}
+                {bot.serverName ?? uiText("Server {0}", bot.serverConfigId)}
                 {bot.channelName ? ` · #${bot.channelName}` : ''}
               </p>
             </div>
           </div>
-          <div className="flex shrink-0 flex-wrap items-center justify-end gap-1">
+          <div className="ml-auto flex max-w-full flex-wrap items-center justify-end gap-1">
             <AutomationBadges bot={bot} />
             <Badge variant={badge.variant} className="shrink-0 gap-1">
               {tone === 'live' && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true" />}
@@ -108,19 +112,14 @@ function CompactNowPlaying(props: NowPlayingProps): JSX.Element {
         <p className="text-xs text-muted-foreground">
           {tr(bot.status === 'starting' ? tr("Connecting to TeamSpeak…") : bot.clientId && bot.channelId ? tr("Connected to TeamSpeak") : tr("Bot is not connected to TeamSpeak."))}
           {bot.voiceHost ? ` · ${bot.voiceHost}:${bot.voicePort}` : ''}
-          {bot.clientId ? ` · CLID ${bot.clientId}` : ''}
+          {bot.clientId ? uiText(" · CLID {0}", bot.clientId) : ''}
         </p>
-        {bot.lastError && <div role="alert" className="break-words text-xs text-destructive">
-          {/^TS3 error 2568:/.test(bot.lastError) ? <>
-            <p>{tr('TeamSpeak denied a bot action because its identity lacks permission. This is separate from YouTube cookies.')}</p>
-            <details className="mt-1"><summary>{tr('Technical details')}</summary><p>{bot.lastError}</p></details>
-          </> : <p>{bot.lastError}</p>}
-        </div>}
+        {bot.lastError && <RuntimeIssue role="alert" message={bot.lastError} fallback="The bot reported a problem. Open technical details for the original message." className="break-words text-xs text-destructive" />}
         {bot.video?.health?.warning && (
-          <p className="flex items-start gap-1.5 text-xs text-warning">
+          <div className="flex items-start gap-1.5 text-xs text-warning">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span className="line-clamp-3">{bot.video.health.warning}</span>
-          </p>
+            <RuntimeIssue message={bot.video.health.warning} fallback="The stream reported a warning. Open technical details for the original message." />
+          </div>
         )}
         {adaptation && (
           <p className={cn('flex items-start gap-1.5 text-xs', adaptation.reduced ? 'text-warning' : 'text-muted-foreground')}>
@@ -131,13 +130,13 @@ function CompactNowPlaying(props: NowPlayingProps): JSX.Element {
         {bot.video?.encoder?.fallbackReason && (
           <p className="flex items-start gap-1.5 text-xs text-warning">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span className="line-clamp-2">Hardware encoder fell back to software: {bot.video.encoder.fallbackReason}</span>
+            <span className="line-clamp-2">{uiText("Hardware encoder fell back to software: ")}{bot.video.encoder.fallbackReason}</span>
           </p>
         )}
         {bot.video?.encoder?.decoderFallbackReason && (
           <p className="flex items-start gap-1.5 text-xs text-warning" role="status" aria-live="polite">
             <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-            <span className="line-clamp-2">AV1 GPU decoding failed, decoding on the CPU: {bot.video.encoder.decoderFallbackReason}</span>
+            <span className="line-clamp-2">{uiText("AV1 GPU decoding failed, decoding on the CPU: ")}{bot.video.encoder.decoderFallbackReason}</span>
           </p>
         )}
 
@@ -151,14 +150,14 @@ function CompactNowPlaying(props: NowPlayingProps): JSX.Element {
             />
             <div className="space-y-1 rounded-md border bg-muted/30 p-2">
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Volume</span>
+                <span>{uiText("Volume")}</span>
                 <span>{volume}%</span>
               </div>
               <Slider
                 value={[volume]}
                 max={100}
                 step={1}
-                aria-label={`Volume for ${bot.botName}`}
+                aria-label={uiText("Volume for {0}", bot.botName)}
                 onValueChange={([val]) => setDraggingVolume(val)}
                 onValueCommit={([val]) => {
                   setVolume.mutate({ botId: bot.botId, volume: val });
@@ -177,7 +176,7 @@ function CompactNowPlaying(props: NowPlayingProps): JSX.Element {
                   variant="outline"
                   size="icon"
                   className="h-8 w-8"
-                  aria-label={`Resume ${bot.botName}`}
+                  aria-label={uiText("Resume {0}", bot.botName)}
                   disabled={playbackPending}
                   onClick={() => resumePlayback.mutate(bot.botId)}
                 >
@@ -188,7 +187,7 @@ function CompactNowPlaying(props: NowPlayingProps): JSX.Element {
                   variant="outline"
                   size="icon"
                   className="h-8 w-8"
-                  aria-label={`Pause ${bot.botName}`}
+                  aria-label={uiText("Pause {0}", bot.botName)}
                   disabled={playbackPending}
                   onClick={() => pausePlayback.mutate(bot.botId)}
                 >
@@ -200,7 +199,7 @@ function CompactNowPlaying(props: NowPlayingProps): JSX.Element {
                   variant="ghost"
                   size="icon"
                   className="h-8 w-8"
-                  aria-label={`Skip track on ${bot.botName}`}
+                  aria-label={uiText("Skip track on {0}", bot.botName)}
                   disabled={playbackPending}
                   onClick={() => skipTrack.mutate(bot.botId)}
                 >
@@ -212,7 +211,7 @@ function CompactNowPlaying(props: NowPlayingProps): JSX.Element {
               value={[volume]}
               max={100}
               step={1}
-              aria-label={`Volume for ${bot.botName}`}
+              aria-label={uiText("Volume for {0}", bot.botName)}
               onValueChange={([val]) => setDraggingVolume(val)}
               onValueCommit={([val]) => {
                 setVolume.mutate({ botId: bot.botId, volume: val });
@@ -233,18 +232,19 @@ function CompactNowPlaying(props: NowPlayingProps): JSX.Element {
 function VolumeControl({ bot, volume, onDrag, onCommit }: {
   bot: BotMediaOverview; volume: number; onDrag(v: number): void; onCommit(v: number): void;
 }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>Volume</span>
+        <span>{uiText("Volume")}</span>
         <span className="font-mono tabular-nums">{volume}%</span>
       </div>
       <Slider
         value={[volume]}
         max={100}
         step={1}
-        aria-label={`Volume for ${bot.botName}`}
+        aria-label={uiText("Volume for {0}", bot.botName)}
         onValueChange={([val]) => onDrag(val)}
         onValueCommit={([val]) => onCommit(val)}
       />
@@ -258,6 +258,7 @@ function VolumeControl({ bot, volume, onDrag, onCommit }: {
  * (Up next).
  */
 function FullNowPlaying({ bot, now, footer }: NowPlayingProps): JSX.Element {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const pausePlayback = usePausePlayback();
   const resumePlayback = useResumePlayback();
@@ -302,8 +303,7 @@ function FullNowPlaying({ bot, now, footer }: NowPlayingProps): JSX.Element {
           <h2 id="now-playing" className="text-base font-semibold"> {tr("Now playing")}</h2>
           <div className="flex flex-wrap items-center gap-2">
             <Button type="button" variant="outline" size="sm" className="h-8" onClick={() => setAutomationOpen(true)}>
-              <Radio className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> Auto-DJ &amp; 24/7
-            </Button>
+              <Radio className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" /> {uiText(" Auto-DJ & 24/7")}</Button>
             <Badge variant={badge.variant} className="shrink-0 gap-1">
               {tone === 'live' && <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" aria-hidden="true" />}
               {tr(badgeLabel)}
@@ -318,7 +318,7 @@ function FullNowPlaying({ bot, now, footer }: NowPlayingProps): JSX.Element {
                 {radio ? <Radio className="h-6 w-6" aria-hidden="true" /> : <Music className="h-6 w-6" aria-hidden="true" />}
               </div>
               <div className="min-w-0">
-                <p className="truncate text-base font-semibold">{radio ? hubHeadline(bot) : (music.title ?? 'Unknown track')}</p>
+                <p className="truncate text-base font-semibold">{radio ? hubHeadline(bot) : (music.title ?? uiText("Unknown track"))}</p>
                 {subline.some(Boolean) && (
                   <p className="truncate text-sm text-muted-foreground">{subline.filter(Boolean).join(' · ')}</p>
                 )}
@@ -327,7 +327,7 @@ function FullNowPlaying({ bot, now, footer }: NowPlayingProps): JSX.Element {
 
             {!radio && music.duration ? (
               <div className="space-y-1">
-                <div className="h-1.5 rounded-full bg-muted" role="progressbar" aria-label="Track progress"
+                <div className="h-1.5 rounded-full bg-muted" role="progressbar" aria-label={uiText("Track progress")}
                   aria-valuemin={0} aria-valuemax={music.duration} aria-valuenow={music.position ?? 0}>
                   <div className="h-1.5 rounded-full bg-primary"
                     style={{ width: `${Math.min(100, ((music.position ?? 0) / music.duration) * 100)}%` }} />
@@ -341,25 +341,22 @@ function FullNowPlaying({ bot, now, footer }: NowPlayingProps): JSX.Element {
             {/* ponytail: 3 nowrap buttons overflow ~390px; Stop full-width below sm */}
             <div className={cn('grid min-w-0 gap-2', radio ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3')}>
               {isPaused ? (
-                <Button variant="outline" className="h-11 min-w-0" aria-label={`Resume ${bot.botName}`} disabled={playbackPending}
+                <Button variant="outline" className="h-11 min-w-0" aria-label={uiText("Resume {0}", bot.botName)} disabled={playbackPending}
                   onClick={() => resumePlayback.mutate(bot.botId)}>
-                  <Play className="mr-1.5 h-4 w-4" aria-hidden="true" /> Resume
-                </Button>
+                  <Play className="mr-1.5 h-4 w-4" aria-hidden="true" /> {uiText(" Resume")}</Button>
               ) : (
-                <Button variant="outline" className="h-11 min-w-0" aria-label={`Pause ${bot.botName}`} disabled={playbackPending}
+                <Button variant="outline" className="h-11 min-w-0" aria-label={uiText("Pause {0}", bot.botName)} disabled={playbackPending}
                   onClick={() => pausePlayback.mutate(bot.botId)}>
-                  <Pause className="mr-1.5 h-4 w-4" aria-hidden="true" /> Pause
-                </Button>
+                  <Pause className="mr-1.5 h-4 w-4" aria-hidden="true" /> {uiText(" Pause")}</Button>
               )}
               {!radio && (
-                <Button variant="outline" className="h-11 min-w-0" aria-label={`Skip track on ${bot.botName}`} disabled={playbackPending}
+                <Button variant="outline" className="h-11 min-w-0" aria-label={uiText("Skip track on {0}", bot.botName)} disabled={playbackPending}
                   onClick={() => skipTrack.mutate(bot.botId)}>
-                  <SkipForward className="mr-1.5 h-4 w-4" aria-hidden="true" /> Skip
-                </Button>
+                  <SkipForward className="mr-1.5 h-4 w-4" aria-hidden="true" /> {uiText(" Skip")}</Button>
               )}
               <Button variant="outline" className={cn('h-11 min-w-0 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive', !radio && 'col-span-2 sm:col-span-1')}
                 disabled={stopMusic.isPending} onClick={() => stopMusic.mutate(bot.botId)}>
-                <Square className="mr-1.5 h-4 w-4" aria-hidden="true" /> {radio ? 'Stop radio' : tr("Stop")}
+                <Square className="mr-1.5 h-4 w-4" aria-hidden="true" /> {radio ? uiText("Stop radio") : tr("Stop")}
               </Button>
             </div>
             {volumeControl}
@@ -381,8 +378,8 @@ function FullNowPlaying({ bot, now, footer }: NowPlayingProps): JSX.Element {
             {details.length > 0 && (
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 rounded-md border bg-muted/30 p-3">
                 {details.map((d) => (
-                  <div key={d.label} className="min-w-0">
-                    <dt className="text-xs text-muted-foreground">{d.label}</dt>
+                  <div key={uiText(d.label)} className="min-w-0">
+                    <dt className="text-xs text-muted-foreground">{uiText(d.label)}</dt>
                     <dd className="break-words text-sm">{d.value}</dd>
                   </div>
                 ))}
@@ -403,13 +400,13 @@ function FullNowPlaying({ bot, now, footer }: NowPlayingProps): JSX.Element {
             {bot.video?.encoder?.fallbackReason && (
               <p className="flex items-start gap-1.5 text-xs text-warning">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                <span className="line-clamp-2">Hardware encoder fell back to software: {bot.video.encoder.fallbackReason}</span>
+                <span className="line-clamp-2">{uiText("Hardware encoder fell back to software: ")}{bot.video.encoder.fallbackReason}</span>
               </p>
             )}
             {bot.video?.encoder?.decoderFallbackReason && (
               <p className="flex items-start gap-1.5 text-xs text-warning" role="status" aria-live="polite">
                 <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-                <span className="line-clamp-2">AV1 GPU decoding failed, decoding on the CPU: {bot.video.encoder.decoderFallbackReason}</span>
+                <span className="line-clamp-2">{uiText("AV1 GPU decoding failed, decoding on the CPU: ")}{bot.video.encoder.decoderFallbackReason}</span>
               </p>
             )}
             {volumeControl}

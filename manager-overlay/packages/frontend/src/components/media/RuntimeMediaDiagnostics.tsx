@@ -1,3 +1,4 @@
+import { translate as uiText, translateUiError, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { Check, Circle, Loader2, RefreshCw, X } from 'lucide-react';
 import type { RuntimeMediaDiagnosticReport, RuntimeMediaStageId, RuntimeMediaStageResult } from '@ts6/common';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ import { useTranslation } from '@/lib/i18n';
 const STAGE_ORDER: RuntimeMediaStageId[] = ['yt-dlp', 'ffmpeg', 'ffprobe', 'sidecar'];
 
 function StageIcon({ status, pending }: { status?: RuntimeMediaStageResult['status']; pending?: boolean }) {
+  useUiLanguageStore(state => state.language);
   if (pending) return <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />;
   if (status === 'ok') return <Check className="h-3 w-3 text-emerald-400" />;
   if (status === 'fail') return <X className="h-3 w-3 text-destructive" />;
@@ -46,6 +48,7 @@ export function RuntimeMediaDiagnostics({
   stageColumns = 4,
   showPrerequisite = false,
 }: RuntimeMediaDiagnosticsProps) {
+  useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const {
     report,
@@ -126,7 +129,7 @@ export function RuntimeMediaDiagnostics({
                   status === 'ok' && 'border-emerald-500/30',
                   status === 'fail' && 'border-destructive/40',
                 )}
-                title={stage?.message}
+                title={stage?.message ? translateUiError(stage.message, 'Open media diagnostics for details.') : undefined}
               >
                 <span className="mt-0.5 shrink-0">
                   <StageIcon status={status} pending={isFetching && !status} />
@@ -134,7 +137,7 @@ export function RuntimeMediaDiagnostics({
                 <span className="min-w-0">
                   <span className="block font-medium text-foreground">{runtimeMediaStageLabel(id)}</span>
                   {!compact && stage?.message && (
-                    <span className="block text-muted-foreground leading-snug">{stage.message}</span>
+                    <span className="block text-muted-foreground leading-snug">{translateUiError(stage.message, status === 'ok' ? 'Tool check passed' : 'Open media diagnostics for details.')}</span>
                   )}
                   {compact && stage?.version && status === 'ok' && (
                     <span className="block truncate text-muted-foreground">{stage.version}</span>
@@ -171,9 +174,10 @@ export function RuntimeMediaDiagnosticsReportView({
   report?: RuntimeMediaDiagnosticReport | null;
   pending?: boolean;
 }) {
+  useUiLanguageStore(state => state.language);
   const byId = new Map((report?.stages ?? []).map((s) => [s.id, s]));
   return (
-    <ol className="grid grid-cols-2 gap-1.5 text-[11px] sm:grid-cols-4" aria-label="Runtime media diagnostic stages">
+    <ol className="grid grid-cols-2 gap-1.5 text-[11px] sm:grid-cols-4" aria-label={uiText("Runtime media diagnostic stages")}>
       {STAGE_ORDER.map((id) => {
         const stage = byId.get(id);
         return (

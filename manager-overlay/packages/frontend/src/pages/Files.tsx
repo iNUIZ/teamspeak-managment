@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { filesApi } from '@/api/files.api';
 import { channelsApi } from '@/api/channels.api';
 import { useServerStore } from '@/stores/server.store';
+import { useAuthStore } from '@/stores/auth.store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,7 +37,6 @@ import {
 import {
   FILE_WRITE_READ_DOES_NOT_AUTHORIZE,
   fileBrowseErrorMessage,
-  fileDeleteConfirmDescription,
   fileWriteErrorMessage,
 } from '@/lib/action-guidance';
 import { cn, formatBytes } from '@/lib/utils';
@@ -48,10 +48,10 @@ import {
   type ChannelFileSummaryResult,
 } from '@/api/file-summary.types';
 import {
-  FolderOpen, File, Folder, ArrowLeft, FolderPlus, Trash2, Hash, HardDrive, AlertTriangle, RefreshCw,
+  FolderOpen, File, Folder, ArrowLeft, FolderPlus, Trash2, Hash, HardDrive, AlertTriangle, RefreshCw, Upload, Download,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { isTeamSpeakSshDisconnected, teamSpeakQueryRetry, teamSpeakQueryRetryDelay } from '@/lib/api-error';
+import { apiErrorMessage, isTeamSpeakSshDisconnected, teamSpeakQueryRetry, teamSpeakQueryRetryDelay } from '@/lib/api-error';
 
 interface FileEntry {
   name: string;
@@ -60,13 +60,21 @@ interface FileEntry {
   type: number; // 0 = file, 1 = directory
 }
 
+function transferErrorMessage(error: unknown, fallback: string): string {
+  const data = (error as any)?.response?.data;
+  if (data?.reason === 'ts_permission_denied') return tr('The Query identity is not allowed to transfer files in this channel.');
+  if (isTeamSpeakSshDisconnected(error)) return tr('The Query connection is temporarily disconnected. Wait and retry.');
+  return apiErrorMessage(error, fallback);
+}
+
 type SummaryQueryData = {
   summaries: ChannelFileSummaryResult[];
   observation: SummaryObservation;
 };
 
 export default function Files() {
-  useUiTranslation();
+  const { language } = useUiTranslation();
+  const canManageFiles = useAuthStore(state => state.user?.role === 'admin');
   const { selectedConfigId: c, selectedSid: s } = useServerStore();
   const qc = useQueryClient();
 
@@ -76,6 +84,8 @@ export default function Files() {
   const [newDirName, setNewDirName] = useState('');
   const [deleteTarget, setDeleteTarget] = useState<FileActionTarget | null>(null);
   const [ownerGeneration, setOwnerGeneration] = useState(0);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const uploadInput = useRef<HTMLInputElement>(null);
   const deleteTargetRef = useRef<FileActionTarget | null>(null);
   deleteTargetRef.current = deleteTarget;
 
@@ -207,8 +217,9 @@ export default function Files() {
     return fileData.map((f: any) => ({
       name: f.name,
       size: Number(f.size) || 0,
-      datetime: Number(f.datetime) || 0,
-      type: Number(f.type),
+      datetime: Number(f.datetime) > 1e12 ? Number(f.datetime) / 1000 : Number(f.datetime) || 0,
+      // ServerQuery: 0 = directory, 1 = file. Keep the UI's internal enum explicit.
+      type: Number(f.type) === 0 ? 1 : 0,
     })).sort((a: FileEntry, b: FileEntry) => {
       // Directories first, then alphabetical
       if (a.type !== b.type) return b.type - a.type;
@@ -233,7 +244,8 @@ export default function Files() {
     mutationFn: (target: FileActionTarget) =>
       filesApi.createDir(target.configId, target.sid, target.cid, target.fullPath),
     onSuccess: async (_data, target) => {
-      toast.success('Directory created');
+      toast.success(tr('Directory created'));
+      if (_data?.renamed) toast.info(`${tr('The server used a compatible name:')} ${_data.name}`);
       qc.invalidateQueries({
         queryKey: ['files', target.configId, target.sid, target.cid],
       });
@@ -260,7 +272,7 @@ export default function Files() {
     mutationFn: (target: FileActionTarget) =>
       filesApi.delete(target.configId, target.sid, target.cid, target.fullPath),
     onSuccess: async (_data, target) => {
-      toast.success('File deleted');
+      toast.success(tr('File deleted'));
       qc.invalidateQueries({
         queryKey: ['files', target.configId, target.sid, target.cid],
       });
@@ -273,6 +285,36 @@ export default function Files() {
     },
     onError: (error) => toast.error(tr(fileWriteErrorMessage(error, 'delete'))),
   });
+
+  const uploadMutation = useMutation({
+    mutationFn: ({ target, file }: { target: FileActionTarget; file: globalThis.File }) =>
+      filesApi.upload(target.configId, target.sid, target.cid, target.fullPath, file, setUploadProgress),
+    onSuccess: async (data, { target }) => {
+      toast.success(tr('File uploaded and verified'));
+      if (data?.renamed) toast.info(`${tr('The server used a compatible name:')} ${data.name}`);
+      await qc.invalidateQueries({ queryKey: ['files', target.configId, target.sid, target.cid] });
+      const key = ['file-summaries', target.configId, target.sid] as const;
+      await qc.cancelQueries({ queryKey: key }); await markExpensiveDiagnosticStale(qc, key);
+    },
+    onError: (error) => toast.error(tr(transferErrorMessage(error, 'File upload failed'))),
+    onSettled: () => setUploadProgress(0),
+  });
+  const downloadMutation = useMutation({
+    mutationFn: async (target: FileActionTarget) => ({ target, blob: await filesApi.download(target.configId, target.sid, target.cid, target.fullPath) }),
+    onSuccess: ({ target, blob }) => {
+      const url = URL.createObjectURL(blob); const link = document.createElement('a');
+      link.href = url; link.download = target.entryName; document.body.appendChild(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    },
+    onError: (error) => toast.error(tr(transferErrorMessage(error, 'File download failed'))),
+  });
+
+  const targetFor = (entryName: string, fullPath: string): FileActionTarget => ({ configId: c!, sid: s!, cid: selectedCid!, fullPath, entryName, ownerGeneration });
+  const handleUpload = (file?: globalThis.File) => {
+    if (!file || !c || !s || selectedCid == null) return;
+    if (file.size > 25 * 1024 * 1024) { toast.error(tr('File must be at most 25 MB')); return; }
+    uploadMutation.mutate({ target: targetFor(file.name, currentPath), file });
+  };
 
   const navigateTo = (entry: FileEntry) => {
     if (entry.type === 1) {
@@ -316,7 +358,7 @@ export default function Files() {
     if (!canConfirmFileAction(deleteTarget, { configId: c, sid: s, cid: selectedCid })) {
       // Context switched away from the dialog owner — do not retarget to live B.
       setDeleteTarget(null);
-      toast.error('Server context changed — delete cancelled');
+      toast.error(tr('Server context changed — delete cancelled'));
       return;
     }
     deleteMutation.mutate(deleteTarget);
@@ -331,7 +373,7 @@ export default function Files() {
 
   const formatDate = (ts: number) => {
     if (!ts) return '-';
-    return new Date(ts * 1000).toLocaleDateString('de-DE', {
+    return new Date(ts * 1000).toLocaleDateString(language === 'tr' ? 'tr-TR' : 'en-GB', {
       day: '2-digit', month: '2-digit', year: 'numeric',
       hour: '2-digit', minute: '2-digit',
     });
@@ -346,9 +388,15 @@ export default function Files() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-xl font-semibold"> {tr("File Browser")}</h1>
-        {selectedCid && (
+        {selectedCid && canManageFiles && (
+          <div className="flex flex-wrap items-center gap-2">
+          <input ref={uploadInput} type="file" aria-label={tr('Choose file to upload')} className="hidden" onChange={e => { handleUpload(e.target.files?.[0]); e.target.value = ''; }} />
+          <Button size="sm" variant="outline" onClick={() => uploadInput.current?.click()} disabled={loadingFiles || !!filesError || uploadMutation.isPending}>
+            <Upload className="h-4 w-4 mr-1" />{uploadMutation.isPending ? `${tr('Uploading and verifying…')} ${uploadProgress}%` : tr('Upload file')}
+          </Button>
           <Button size="sm" onClick={() => setShowMkdir(true)} disabled={loadingFiles || !!filesError}>
             <FolderPlus className="h-4 w-4 mr-1" /> {tr("New Folder")}</Button>
+          </div>
         )}
       </div>
 
@@ -359,7 +407,7 @@ export default function Files() {
             <CardTitle className="flex items-center justify-between text-xs font-medium uppercase tracking-wider text-muted-foreground">
               <span className="flex items-center gap-1.5"><Hash className="h-3.5 w-3.5" /> {tr("Channels")}</span>
               <span className="flex items-center gap-1">
-                {fetchingSummaries && <RefreshCw className="h-3 w-3 animate-spin text-sky-400" aria-label="Scanning storage" />}
+                {fetchingSummaries && <RefreshCw className="h-3 w-3 animate-spin text-sky-400" aria-label={tr('Scanning storage')} />}
                 <Button
                   type="button"
                   variant="ghost"
@@ -367,8 +415,8 @@ export default function Files() {
                   className="h-6 w-6"
                   onClick={refreshSummaries}
                   disabled={fetchingSummaries || channelIds.length === 0}
-                  aria-label="Refresh storage summary"
-                  title="Refresh storage summary"
+                  aria-label={tr('Refresh storage summary')}
+                  title={tr('Refresh storage summary')}
                 >
                   <RefreshCw className="h-3 w-3" />
                 </Button>
@@ -409,29 +457,29 @@ export default function Files() {
                   >
                     <span className="block truncate">{ch.name}</span>
                     <span className="mt-1 flex min-h-3.5 items-center gap-2 font-mono-data text-[9px] text-muted-foreground/80">
-                      {statusText && display.kind !== tr("partial") && display.kind !== 'stale-cached' ? (
+                      {statusText && display.kind !== 'partial' && display.kind !== 'stale-cached' ? (
                         <span className={cn(
-                          display.kind === tr("unavailable") || display.kind === 'error' ? 'text-amber-400/80' : undefined,
+                          display.kind === 'unavailable' || display.kind === 'error' ? 'text-amber-400/80' : undefined,
                         )}>
-                          {statusText}
+                          {tr(statusText)}
                         </span>
                       ) : counted ? (
                         <>
                           <span className="flex items-center gap-0.5" title={tr("Files")}><File className="h-3 w-3" />{summary.fileCount}</span>
-                          <span className="flex items-center gap-0.5" title="Folders"><Folder className="h-3 w-3" />{summary.folderCount}</span>
-                          <span className="ml-auto flex items-center gap-0.5" title="Total size"><HardDrive className="h-3 w-3" />{formatBytes(summary.totalSize)}</span>
+                          <span className="flex items-center gap-0.5" title={tr('Folders')}><Folder className="h-3 w-3" />{summary.folderCount}</span>
+                          <span className="ml-auto flex items-center gap-0.5" title={tr('Total size')}><HardDrive className="h-3 w-3" />{formatBytes(summary.totalSize)}</span>
                           {showPartial && (
-                            <span className="text-amber-400/80" title="Scan stopped before the full tree was counted">Partial</span>
+                            <span className="text-amber-400/80" title={tr('Scan stopped before the full tree was counted')}>{tr('Partial')}</span>
                           )}
                           {display.kind === 'stale-cached' && (
-                            <span className="text-amber-400/80" title="Summary may be outdated">Stale</span>
+                            <span className="text-amber-400/80" title={tr('Summary may be outdated')}>{tr('Stale')}</span>
                           )}
                         </>
                       ) : statusText ? (
                         <span className={cn(
-                          display.kind === tr("unavailable") || display.kind === 'error' ? 'text-amber-400/80' : undefined,
+                          display.kind === 'unavailable' || display.kind === 'error' ? 'text-amber-400/80' : undefined,
                         )}>
-                          {statusText}
+                          {tr(statusText)}
                         </span>
                       ) : null}
                     </span>
@@ -439,7 +487,7 @@ export default function Files() {
                   );
                 })}
                 {channels.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-4">No channels</p>
+                  <p className="text-xs text-muted-foreground text-center py-4">{tr('No channels')}</p>
                 )}
               </div>
             </ScrollArea>
@@ -452,7 +500,7 @@ export default function Files() {
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex min-w-0 items-center gap-2 overflow-x-auto">
                 {selectedCid && currentPath !== '/' && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={goUp} aria-label="Go to parent folder" title="Go to parent folder">
+                  <Button variant="ghost" size="icon" className="h-7 w-7" onClick={goUp} aria-label={tr('Go to parent folder')} title={tr('Go to parent folder')}>
                     <ArrowLeft className="h-3.5 w-3.5" />
                   </Button>
                 )}
@@ -474,7 +522,7 @@ export default function Files() {
               </div>
               {selectedCid && (
                 <Badge variant="secondary" className="text-[10px] font-mono-data">
-                  {files.length} item(s)
+                  {files.length} {tr('items')}
                 </Badge>
               )}
             </div>
@@ -497,7 +545,7 @@ export default function Files() {
                 </p>
                 <Button asChild size="sm" variant="outline"><Link to="/settings?tab=connections">{tr('Configure Query connection')}</Link></Button>
                 {(filesError as any)?.response?.data?.code != null && (
-                  <p className="text-[10px] text-muted-foreground/60 mt-1">TS error code: {(filesError as any).response.data.code}</p>
+                  <p className="text-[10px] text-muted-foreground/60 mt-1">{tr('TeamSpeak error code:')} {(filesError as any).response.data.code}</p>
                 )}
                 <Button
                   size="sm"
@@ -511,18 +559,18 @@ export default function Files() {
               </div>
             ) : (
               <ScrollArea className="h-[min(460px,55dvh)] min-h-72">
-                <div className="min-w-[36rem]">
+                <div className="min-w-0">
                 {/* File table header */}
                 <div className="grid grid-cols-12 gap-2 px-4 py-2 text-[10px] text-muted-foreground uppercase tracking-wider border-b border-border">
-                  <div className="col-span-6"> {tr("Name")}</div>
-                  <div className="col-span-2 text-right">Size</div>
-                  <div className="col-span-3">Modified</div>
-                  <div className="col-span-1"></div>
+                  <div className="col-span-6 sm:col-span-5"> {tr("Name")}</div>
+                  <div className="col-span-3 sm:col-span-2 text-right">{tr('Size')}</div>
+                  <div className="hidden sm:block col-span-3">{tr('Modified')}</div>
+                  <div className="col-span-3 sm:col-span-2"></div>
                 </div>
 
                 {files.length === 0 ? (
                   <div className="flex items-center justify-center h-[350px]">
-                    <EmptyState icon={FolderOpen} title="Empty directory" description="No files in this directory." />
+                    <EmptyState icon={FolderOpen} title={tr('Empty directory')} description={tr('No files in this directory.')} />
                   </div>
                 ) : (
                   <div className="divide-y divide-border/50">
@@ -535,29 +583,30 @@ export default function Files() {
                         )}
                         onClick={() => navigateTo(file)}
                       >
-                        <div className="col-span-6 flex items-center gap-2 truncate">
+                        <div className="col-span-6 sm:col-span-5 flex items-center gap-2 truncate">
                           {file.type === 1 ? (
                             <Folder className="h-4 w-4 text-primary/70 shrink-0" />
                           ) : (
                             <File className="h-4 w-4 text-muted-foreground shrink-0" />
                           )}
-                          <span className="truncate">{file.name}</span>
+                          {file.type === 1 ? <button className="truncate text-left" onClick={e => { e.stopPropagation(); navigateTo(file); }}>{file.name}</button> : <span className="truncate">{file.name}</span>}
                         </div>
-                        <div className="col-span-2 text-right text-xs text-muted-foreground font-mono-data">
+                        <div className="col-span-3 sm:col-span-2 text-right text-xs text-muted-foreground font-mono-data">
                           {file.type === 0 ? formatBytes(file.size) : '-'}
                         </div>
-                        <div className="col-span-3 text-xs text-muted-foreground font-mono-data">
+                        <div className="hidden sm:block col-span-3 text-xs text-muted-foreground font-mono-data">
                           {formatDate(file.datetime)}
                         </div>
-                        <div className="col-span-1 flex justify-end">
-                          <button
+                        <div className="col-span-3 sm:col-span-2 flex justify-end">
+                          {canManageFiles && file.type === 0 && <button onClick={e => { e.stopPropagation(); downloadMutation.mutate(targetFor(file.name, buildFilePath(currentPath, file.name))); }} disabled={downloadMutation.isPending} aria-label={`${tr('Download')} ${file.name}`} title={`${tr('Download')} ${file.name}`} className="flex h-8 w-8 shrink-0 items-center justify-center rounded hover:bg-muted"><Download className="h-3.5 w-3.5" /></button>}
+                          {canManageFiles && <button
                             onClick={(e) => { e.stopPropagation(); openDelete(file); }}
-                            className="touch-action-reveal flex h-8 w-8 items-center justify-center rounded text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive"
-                            aria-label={`Delete ${file.name}`}
-                            title={`Delete ${file.name}`}
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded text-muted-foreground transition-all hover:bg-destructive/10 hover:text-destructive"
+                            aria-label={`${tr('Delete')} ${file.name}`}
+                            title={`${tr('Delete')} ${file.name}`}
                           >
                             <Trash2 className="h-3.5 w-3.5" />
-                          </button>
+                          </button>}
                         </div>
                       </div>
                     ))}
@@ -571,7 +620,7 @@ export default function Files() {
       </div>
 
       {/* Info notice */}
-      <p className="text-xs text-muted-foreground text-center"> {tr("File upload/download is not available via WebQuery API. Use the TS6 client for file transfers.")}</p>
+      <p className="text-xs text-muted-foreground text-center">{tr('Files are transferred through the configured TeamSpeak Query connection and file-transfer port. Maximum file size: 25 MB. Existing files are never overwritten.')}</p>
 
       {/* Create Directory Dialog */}
       <Dialog open={showMkdir} onOpenChange={setShowMkdir}>
@@ -597,10 +646,10 @@ export default function Files() {
       <ConfirmDialog
         open={!!deleteTarget}
         onOpenChange={() => setDeleteTarget(null)}
-        title="Delete File"
+        title={tr('Delete File')}
         description={
           deleteTarget
-            ? fileDeleteConfirmDescription(deleteTarget.entryName ?? deleteTarget.fullPath, deleteTarget.fullPath)
+            ? `${tr('Permanently delete:')} ${deleteTarget.entryName ?? deleteTarget.fullPath} (${deleteTarget.fullPath}). ${tr('This cannot be undone.')}`
             : ''
         }
         confirmLabel={tr("Delete")}

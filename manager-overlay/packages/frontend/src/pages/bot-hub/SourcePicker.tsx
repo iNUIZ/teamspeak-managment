@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 import { useState, type ReactNode } from 'react';
 import { Power } from 'lucide-react';
@@ -27,6 +28,7 @@ export function SourcePicker({ tabs, ctx, initialTab }: {
   ctx: ConsoleSourceContext;
   initialTab?: ConsoleSourceTab['id'];
 }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const [active, setActive] = useState<ConsoleSourceTab['id'] | undefined>(initialTab ?? tabs[0]?.id);
   const startBot = useStartMusicBot();
@@ -47,7 +49,7 @@ export function SourcePicker({ tabs, ctx, initialTab }: {
           </div>
         ) : (
           <>
-            <div role="tablist" aria-label="Source" className="flex gap-1 overflow-x-auto rounded-lg bg-muted/40 p-1">
+            <div role="tablist" aria-label={uiText("Source")} className="flex gap-1 overflow-x-auto rounded-lg bg-muted/40 p-1">
               {tabs.map((t) => (
                 <button key={t.id} type="button" role="tab" aria-selected={t.id === current.id}
                   className={cn(

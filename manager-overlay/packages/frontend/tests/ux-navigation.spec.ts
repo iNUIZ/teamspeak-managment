@@ -24,6 +24,6 @@ test('TR menu searches both languages, clears with Escape and preserves branding
   await page.getByRole('link', { name: 'TeamSpeak sunucuları', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'TeamSpeak sunucuları', exact: true })).toBeVisible();
   await expect(page.getByText('Sanal sunucular', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'English', exact: true }).click();
+  await page.getByRole('button', { name: 'İngilizce', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'TeamSpeak servers', exact: true })).toBeVisible();
 });

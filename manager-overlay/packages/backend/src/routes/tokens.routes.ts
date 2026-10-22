@@ -3,6 +3,7 @@ import { requireRole } from '../middleware/rbac.js';
 import type { ConnectionPool } from '../ts-client/connection-pool.js';
 import { actorFromRequest, runRemoteAudited } from '../audit/index.js';
 import { AppError } from '../middleware/error-handler.js';
+import { keyFingerprint } from '../audit/privilege-key-history.js';
 
 export const tokenRoutes: Router = Router({ mergeParams: true });
 
@@ -13,8 +14,18 @@ const getClient = (req: Request) => {
 const getSid = (req: Request) => parseInt(String(req.params.sid));
 const getConnectionId = (req: Request) => parseInt(String(req.params.configId), 10);
 
+tokenRoutes.get('/history', requireRole('admin'), async (req, res, next) => {
+  try { res.json(await req.app.locals.privilegeKeyHistory.list(getConnectionId(req), getSid(req))); } catch (error) { next(error); }
+});
+tokenRoutes.put('/history', requireRole('admin'), async (req, res, next) => {
+  try {
+    if (typeof req.body?.enabled !== 'boolean') throw new AppError(400, 'Invalid capture setting');
+    res.json(await req.app.locals.privilegeKeyHistory.setEnabled(getConnectionId(req), getSid(req), req.body.enabled));
+  } catch (error) { next(error); }
+});
+
 tokenRoutes.get('/', requireRole('admin'), async (req: Request, res: Response, next) => {
-  try { res.json(await getClient(req).execute(getSid(req), 'privilegekeylist')); } catch (err) { next(err); }
+  try { const rows = await getClient(req).execute(getSid(req), 'privilegekeylist'); res.json(Array.isArray(rows) ? rows.map(row => ({ ...row, token_fingerprint: typeof row.token === 'string' ? keyFingerprint(row.token) : null })) : rows); } catch (err) { next(err); }
 });
 
 tokenRoutes.post('/', requireRole('admin'), async (req: Request, res: Response, next) => {

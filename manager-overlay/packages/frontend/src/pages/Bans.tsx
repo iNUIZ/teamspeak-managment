@@ -1,0 +1,139 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
+import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
+import { useState, useMemo } from 'react';
+import { useBans, useAddBan, useDeleteBan } from '@/hooks/use-bans';
+import { useServerStore } from '@/stores/server.store';
+import { DataTable } from '@/components/shared/DataTable';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { PageLoader } from '@/components/shared/LoadingSpinner';
+import { NoServerSelectedState } from '@/components/shared/NoServerSelectedState';
+import { formatDuration, timeAgo } from '@/lib/utils';
+import { Ban, Plus, Trash2 } from 'lucide-react';
+import { type ColumnDef } from '@tanstack/react-table';
+import { toast } from 'sonner';
+import { useTranslation } from '@/lib/i18n';
+import { apiErrorMessage } from '@/lib/api-error';
+
+export default function Bans() {
+  useUiLanguageStore(state => state.language);
+  useUiTranslation();
+  const { t, language } = useTranslation();
+  const { selectedConfigId, selectedSid } = useServerStore();
+  const { data, isLoading } = useBans();
+  const addBan = useAddBan();
+  const deleteBan = useDeleteBan();
+  const [showAdd, setShowAdd] = useState(false);
+  const [banType, setBanType] = useState<'ip' | 'name' | 'uid'>('ip');
+  const [banValue, setBanValue] = useState('');
+  const [banReason, setBanReason] = useState('');
+  const [banDuration, setBanDuration] = useState('3600');
+
+  const bans = useMemo(() => (Array.isArray(data) ? data : []), [data]);
+
+  const columns: ColumnDef<any>[] = useMemo(() => [
+    { accessorKey: 'name', header: t('Name pattern (regex)'), cell: ({ row }) => <span className="font-mono-data text-xs">{row.original.name || row.original.lastnickname || '-'}</span> },
+    { accessorKey: 'ip', header: 'IP', cell: ({ getValue }) => <span className="font-mono-data text-xs">{(getValue() as string) || '-'}</span> },
+    { accessorKey: 'uid', header: 'UID', cell: ({ getValue }) => <span className="font-mono-data text-xs truncate max-w-[120px] block">{(getValue() as string) || '-'}</span> },
+    { accessorKey: 'reason', header: tr("Reason"), cell: ({ getValue }) => <span className="text-xs">{(getValue() as string) || '-'}</span> },
+    { accessorKey: 'duration', header: tr("Duration"), cell: ({ getValue }) => <span className="font-mono-data text-xs">{formatDuration(getValue() as number)}</span> },
+    { accessorKey: 'created', header: tr("Created"), cell: ({ getValue }) => <span className="text-xs text-muted-foreground">{timeAgo(getValue() as number)}</span> },
+    { accessorKey: 'invokername', header: tr("By"), cell: ({ getValue }) => <span className="text-xs">{(getValue() as string) || '-'}</span> },
+    {
+      id: 'actions', header: () => <span className="sr-only"> {tr("Actions")}{' '}</span>,
+      cell: ({ row }) => (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-destructive hover:text-destructive"
+          disabled={deleteBan.isPending}
+          aria-label={uiText("Remove ban for {0}", row.original.lastnickname || row.original.ip || 'entry')}
+          onClick={() => {
+          if (!selectedConfigId || !selectedSid) return;
+          deleteBan.mutate({ configId: selectedConfigId, sid: selectedSid, banid: row.original.banid }, {
+            onSuccess: () => toast.success(t('Ban removed')),
+            onError: error => toast.error(apiErrorMessage(error, t('Could not remove ban'))),
+          });
+          }}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      ),
+    },
+  ], [deleteBan.mutate, deleteBan.isPending, selectedConfigId, selectedSid, language, useUiLanguageStore.getState().language]);
+
+  if (!selectedConfigId || !selectedSid) return <NoServerSelectedState pageTitle={tr("Bans")} icon={Ban} />;
+  if (isLoading) return <PageLoader />;
+
+  const handleAdd = () => {
+    const params: any = { time: parseInt(banDuration), banreason: banReason };
+    params[banType] = banValue;
+    addBan.mutate(params, {
+      onSuccess: () => { toast.success(tr("Ban added")); setShowAdd(false); setBanValue(''); setBanReason(''); },
+      onError: () => toast.error(tr("Failed to add ban")),
+    });
+  };
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="text-xl font-semibold"> {tr("Bans")}{' '}</h1>
+        <Button size="sm" onClick={() => setShowAdd(true)}><Plus className="h-4 w-4 mr-1" /> {tr("Add Ban")}{' '}</Button>
+      </div>
+
+      <DataTable
+        columns={columns}
+        data={bans}
+        searchEnabled
+        searchLabel={tr("Search bans")}
+        searchPlaceholder={tr("Search bans...")}
+        tableLabel={tr("Bans table")}
+        density="compact"
+        stickyHeader
+        emptyText={tr("No bans found")}
+        filteredEmptyText={tr("No bans match your search")}
+      />
+
+      <Dialog open={showAdd} onOpenChange={setShowAdd}>
+        <DialogContent>
+          <DialogHeader><DialogTitle> {tr("Add Ban")}{' '}</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs"> {tr("Ban Type")}{' '}</Label>
+              <Select value={banType} onValueChange={(v: any) => setBanType(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ip"> {tr("IP Address")}{' '}</SelectItem>
+                  <SelectItem value="name">{tr('Name pattern (regex)')}</SelectItem>
+                  <SelectItem value="uid"> {tr("Unique ID")}{' '}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div><Label className="text-xs"> {tr("Value")}{' '}</Label><Input value={banValue} onChange={(e) => setBanValue(e.target.value)} placeholder={banType === 'ip' ? '192.168.1.*' : banType === 'name' ? uiText(".*bad.*") : uiText("unique-id")} /></div>
+            <div><Label className="text-xs"> {tr("Reason")}{' '}</Label><Input value={banReason} onChange={(e) => setBanReason(e.target.value)} placeholder={tr("Ban reason")} /></div>
+            <div>
+              <Label className="text-xs"> {tr("Duration")}{' '}</Label>
+              <Select value={banDuration} onValueChange={setBanDuration}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="3600"> {tr("1 Hour")}{' '}</SelectItem>
+                  <SelectItem value="86400"> {tr("1 Day")}{' '}</SelectItem>
+                  <SelectItem value="604800"> {tr("1 Week")}{' '}</SelectItem>
+                  <SelectItem value="2592000"> {tr("30 Days")}{' '}</SelectItem>
+                  <SelectItem value="0"> {tr("Permanent")}{' '}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAdd(false)}> {tr("Cancel")}{' '}</Button>
+            <Button onClick={handleAdd} disabled={!banValue}> {tr("Add Ban")}{' '}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}

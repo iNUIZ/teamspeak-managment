@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 /**
  * Console Radio tab: search, mood chips from station genre tags, Play.
@@ -18,6 +19,7 @@ import { AddMediaLink } from './AddMediaLink';
 import type { ConsoleSourceContext } from './SourcePicker';
 
 export function RadioSource(ctx: ConsoleSourceContext) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const [search, setSearch] = useState('');
   const [mood, setMood] = useState<string | null>(null); // mood key; null = All
@@ -59,13 +61,13 @@ export function RadioSource(ctx: ConsoleSourceContext) {
         <Input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search stations…"
-          aria-label="Search stations"
+          placeholder={uiText("Search stations…")}
+          aria-label={uiText("Search stations")}
           className="h-11 min-w-0 flex-1 basis-48"
         />
-        <AddMediaLink to="/media-bots?tab=radio" label="Add station" />
+        <AddMediaLink to="/media-bots?tab=radio" label={uiText("Add station")} />
       </div>
-      <div className="flex flex-wrap gap-1.5" role="group" aria-label="Moods">
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={uiText("Moods")}>
         <button
           type="button"
           className={cn(
@@ -75,7 +77,7 @@ export function RadioSource(ctx: ConsoleSourceContext) {
           aria-pressed={mood === null}
           onClick={() => setMood(null)}
         >
-          All ({stations.length})
+          {uiText("All (")}{stations.length})
         </button>
         {visibleMoods.map(({ key, label, count }) => (
           <button
@@ -98,7 +100,7 @@ export function RadioSource(ctx: ConsoleSourceContext) {
             aria-expanded={showAllMoods}
             onClick={() => setShowAllMoods((v) => !v)}
           >
-            {showAllMoods ? 'Fewer moods' : `More moods (${moods.length - RADIO_MOOD_CHIP_LIMIT})`}
+            {showAllMoods ? uiText("Fewer moods") : uiText("More moods ({0})", moods.length - RADIO_MOOD_CHIP_LIMIT)}
           </button>
         )}
       </div>
@@ -122,7 +124,7 @@ export function RadioSource(ctx: ConsoleSourceContext) {
                 size="icon"
                 className="h-11 w-11 shrink-0"
                 disabled={pending}
-                aria-label={`Play ${station.name}`}
+                aria-label={uiText("Play {0}", station.name)}
                 onClick={() => playRadio.mutate({ botId: ctx.botId, stationId: station.id })}
               >
                 <Play className="h-4 w-4" aria-hidden="true" />
@@ -142,8 +144,7 @@ export function RadioSource(ctx: ConsoleSourceContext) {
         onPageSizeChange={setPageSize}
       />
       <p className="text-xs text-muted-foreground">
-        Moods come from each station&apos;s genre. Set or change it under Media Library → Radio stations.
-      </p>
+        {uiText("Moods come from each station's genre. Set or change it under Media Library → Radio stations.")}</p>
     </div>
   );
 }

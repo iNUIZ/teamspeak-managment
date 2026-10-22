@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
@@ -17,6 +18,7 @@ type BotExtensions = { serverConfigId: number; disabledCommands: string[];
   custom: { name: string; description: string; enabled: boolean }[] };
 
 export function BotExtensionsDialog({ botId, botName, onClose }: { botId: number; botName: string; onClose: () => void }) {
+  useUiLanguageStore(state => state.language);
   const { language, t } = useTranslation();
   const tr = language === 'tr';
   const [search, setSearch] = useState('');
@@ -27,27 +29,27 @@ export function BotExtensionsDialog({ botId, botName, onClose }: { botId: number
     mutationFn: (disabledCommands: string[]) => api.put(`/music-bots/${botId}/extensions`, { disabledCommands }),
     onSuccess: (_response, disabledCommands) => {
       qc.setQueryData<BotExtensions>(queryKey, previous => previous ? { ...previous, disabledCommands } : previous);
-      toast.success(tr ? 'Bu botun komut ayarı kaydedildi' : 'Command setting saved for this bot');
+      toast.success(tr ? uiText("Bu botun komut ayarı kaydedildi") : uiText("Command setting saved for this bot"));
     },
-    onError: () => toast.error(tr ? 'Komut ayarı kaydedilemedi' : 'Could not save command setting'),
+    onError: () => toast.error(tr ? uiText("Komut ayarı kaydedilemedi") : uiText("Could not save command setting")),
   });
   const commands = [...(query.data?.builtin ?? []).filter(c => c.name === c.canonical && c.name !== 'say').map(c => ({ name: c.name, usage: c.usage, enabled: true })),
     ...(query.data?.custom ?? []).map(c => ({ ...c, usage: `!${c.name}` }))].filter(c => c.name.includes(search.toLowerCase().replace(/^!/, '')));
   return <Dialog open onOpenChange={open => { if (!open) onClose(); }}>
     <DialogContent className="max-w-4xl">
-      <DialogHeader className="pr-10 text-left"><DialogTitle className="break-words leading-snug">{botName} · {tr ? 'Eklentiler ve komutlar' : 'Extensions and commands'}</DialogTitle></DialogHeader>
-      <p className="text-sm text-muted-foreground">{tr ? 'Botun özelliklerini buradan yönetin. Komut anahtarları yalnızca bu botu etkiler; TTS dil ve ses ayarları da bota özeldir.' : 'Manage this bot’s features here. Command switches and TTS voice settings apply only to this bot.'}</p>
-      {query.isPending ? <p>{tr ? 'Yükleniyor…' : 'Loading…'}</p> : query.isError ? <div><p role="alert">{tr ? 'Eklentiler yüklenemedi.' : 'Could not load extensions.'}</p><Button onClick={() => void query.refetch()}>{tr ? 'Tekrar dene' : 'Retry'}</Button></div> : <Tabs defaultValue="commands" onValueChange={tab => { if (tab === 'commands') void query.refetch(); }}>
+      <DialogHeader className="pr-10 text-left"><DialogTitle className="break-words leading-snug">{botName} · {tr ? uiText("Eklentiler ve komutlar") : uiText("Extensions and commands")}</DialogTitle></DialogHeader>
+      <p className="text-sm text-muted-foreground">{tr ? uiText("Botun özelliklerini buradan yönetin. Komut anahtarları yalnızca bu botu etkiler; TTS dil ve ses ayarları da bota özeldir.") : uiText("Manage this bot’s features here. Command switches and TTS voice settings apply only to this bot.")}</p>
+      {query.isPending ? <p>{tr ? uiText("Yükleniyor…") : uiText("Loading…")}</p> : query.isError ? <div><p role="alert">{tr ? uiText("Eklentiler yüklenemedi.") : uiText("Could not load extensions.")}</p><Button onClick={() => void query.refetch()}>{tr ? uiText("Tekrar dene") : uiText("Retry")}</Button></div> : <Tabs defaultValue="commands" onValueChange={tab => { if (tab === 'commands') void query.refetch(); }}>
         <TabsList className="w-full flex-wrap h-auto">
-          <TabsTrigger value="commands">{tr ? 'Komutlar' : 'Commands'}</TabsTrigger>
-          <TabsTrigger value="tts">{tr ? 'Sesli okuma (TTS)' : 'Text to speech (TTS)'}</TabsTrigger>
-          <TabsTrigger value="custom">{tr ? 'Özel komut kitaplığı' : 'Custom command library'}</TabsTrigger>
-          <TabsTrigger value="packages">{tr ? 'Eklenti paketleri' : 'Extension packages'}</TabsTrigger>
+          <TabsTrigger value="commands">{tr ? uiText("Komutlar") : uiText("Commands")}</TabsTrigger>
+          <TabsTrigger value="tts">{tr ? uiText("Sesli okuma (TTS)") : uiText("Text to speech (TTS)")}</TabsTrigger>
+          <TabsTrigger value="custom">{tr ? uiText("Özel komut kitaplığı") : uiText("Custom command library")}</TabsTrigger>
+          <TabsTrigger value="packages">{tr ? uiText("Eklenti paketleri") : uiText("Extension packages")}</TabsTrigger>
         </TabsList>
         <TabsContent value="commands" className="space-y-3">
-          <Input aria-label={tr ? 'Komutlarda ara' : 'Search commands'} placeholder={tr ? 'Komutlarda ara…' : 'Search commands…'} value={search} onChange={e => setSearch(e.target.value)} />
-          <p className="text-xs text-muted-foreground">{tr ? 'Takma komutlar aynı anahtarı kullanır (ör. !skip ve !next). !say, Sesli okuma sekmesinden yönetilir.' : 'Aliases share one switch (e.g. !skip and !next). Configure !say in the text-to-speech tab.'}</p>
-          {commands.length === 0 && <p>{tr ? 'Eşleşen komut yok.' : 'No matching commands.'}</p>}
+          <Input aria-label={tr ? uiText("Komutlarda ara") : uiText("Search commands")} placeholder={tr ? uiText("Komutlarda ara…") : uiText("Search commands…")} value={search} onChange={e => setSearch(e.target.value)} />
+          <p className="text-xs text-muted-foreground">{tr ? uiText("Takma komutlar aynı anahtarı kullanır (ör. !skip ve !next). !say, Sesli okuma sekmesinden yönetilir.") : uiText("Aliases share one switch (e.g. !skip and !next). Configure !say in the text-to-speech tab.")}</p>
+          {commands.length === 0 && <p>{tr ? uiText("Eşleşen komut yok.") : uiText("No matching commands.")}</p>}
           <div className="grid gap-2 sm:grid-cols-2">{commands.map(c => <div key={c.name} className="flex min-w-0 items-center justify-between gap-3 rounded-lg border p-3">
             <code className="break-all text-sm">{t(c.usage)}</code>
             <Switch aria-label={`!${c.name}`} disabled={toggle.isPending || !c.enabled} checked={c.enabled && !query.data!.disabledCommands.includes(c.name)} onCheckedChange={enabled => toggle.mutate(enabled ? query.data!.disabledCommands.filter(n => n !== c.name) : [...query.data!.disabledCommands, c.name])} />
@@ -55,11 +57,11 @@ export function BotExtensionsDialog({ botId, botName, onClose }: { botId: number
         </TabsContent>
         <TabsContent value="tts"><BotTtsSettings key={botId} botId={botId} /></TabsContent>
         <TabsContent value="custom">
-          <p className="my-3 rounded-md border p-3 text-sm">{tr ? 'Bu kitaplıktaki tanımlar aynı TeamSpeak bağlantısındaki botlar arasında ortaktır. Bir komutu yalnızca bu botta kapatmak için Komutlar sekmesini kullanın.' : 'Definitions in this library are shared by bots on the same TeamSpeak connection. Use the Commands tab to disable one only for this bot.'}</p>
+          <p className="my-3 rounded-md border p-3 text-sm">{tr ? uiText("Bu kitaplıktaki tanımlar aynı TeamSpeak bağlantısındaki botlar arasında ortaktır. Bir komutu yalnızca bu botta kapatmak için Komutlar sekmesini kullanın.") : uiText("Definitions in this library are shared by bots on the same TeamSpeak connection. Use the Commands tab to disable one only for this bot.")}</p>
           <CommandsTab fixedConfigId={query.data!.serverConfigId} />
         </TabsContent>
         <TabsContent value="packages">
-          <p className="my-3 rounded-md border p-3 text-sm">{tr ? 'Paket kurma ve kaldırma bu sunucu bağlantısının ortak kitaplığını değiştirir. Paket komutlarını bu botta Komutlar sekmesinden açıp kapatabilirsiniz.' : 'Installing or removing packages changes the shared connection library. Enable or disable their commands for this bot in the Commands tab.'}</p>
+          <p className="my-3 rounded-md border p-3 text-sm">{tr ? uiText("Paket kurma ve kaldırma bu sunucu bağlantısının ortak kitaplığını değiştirir. Paket komutlarını bu botta Komutlar sekmesinden açıp kapatabilirsiniz.") : uiText("Installing or removing packages changes the shared connection library. Enable or disable their commands for this bot in the Commands tab.")}</p>
           <ExtensionsTab fixedConfigId={query.data!.serverConfigId} />
         </TabsContent>
       </Tabs>}

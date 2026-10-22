@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 /**
  * New bot / Edit bot dialog, shared by the Bot Hub and each bot's console.
@@ -97,6 +98,7 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
   /** Pre-selected server for a new bot (usually the header's selection). */
   defaultServerId?: number | null;
 }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const queryClient = useQueryClient();
   const { data: servers } = useServers();
@@ -124,7 +126,7 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
 
   const handleCreate = async () => {
     const configId = parseInt(form.serverConfigId);
-    if (!configId) { toast.error('Please select a server'); return; }
+    if (!configId) { toast.error(uiText("Please select a server")); return; }
     const createdName = form.name;
     // Bots that exist before this create, to recognise ours if the response is lost.
     let known = queryClient.getQueryData<MusicBotSummary[]>(['music-bots']);
@@ -150,7 +152,7 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
       autoStart: form.autoStart,
       connectAfterCreate: true,
     }, {
-      onSuccess: () => { toast.success('Media bot created'); void queryClient.invalidateQueries({ queryKey: ['bot-media'] }); onClose(); },
+      onSuccess: () => { toast.success(uiText("Media bot created")); void queryClient.invalidateQueries({ queryKey: ['bot-media'] }); onClose(); },
       onError: async (err) => {
         // Proxy/client often abort (499 / timeout) while the bot row already exists.
         if (isMusicBotCreateTransportFailure(err)) {
@@ -164,7 +166,7 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
               (b: MusicBotSummary) => b.name === createdName && !knownIds.has(b.id),
             );
             if (appeared) {
-              toast.success('Media bot created');
+              toast.success(uiText("Media bot created"));
               void queryClient.invalidateQueries({ queryKey: ['bot-media'] });
               onClose();
               return;
@@ -173,7 +175,7 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
             // fall through to failure toast
           }
         }
-        toast.error('Failed to create bot');
+        toast.error(uiText("Failed to create bot"));
       },
     });
   };
@@ -192,8 +194,8 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
       volume: form.volume,
       autoStart: form.autoStart,
     }}, {
-      onSuccess: () => { toast.success('Bot updated'); void queryClient.invalidateQueries({ queryKey: ['bot-media'] }); onClose(); },
-      onError: () => toast.error('Failed to update bot'),
+      onSuccess: () => { toast.success(uiText("Bot updated")); void queryClient.invalidateQueries({ queryKey: ['bot-media'] }); onClose(); },
+      onError: () => toast.error(uiText("Failed to update bot")),
     });
   };
 
@@ -204,10 +206,9 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
         <div className="space-y-3">
           <div>
             <Label className="text-xs"> {tr("Name")}</Label>
-            <Input type="text" aria-label="Bot name and TeamSpeak nickname" aria-required="true" aria-invalid={nameLengthError} aria-describedby="bot-nickname-hint" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={tr("My Media Bot")} maxLength={MAX_BOT_NICKNAME_LENGTH} />
+            <Input type="text" aria-label={uiText("Bot name and TeamSpeak nickname")} aria-required="true" aria-invalid={nameLengthError} aria-describedby="bot-nickname-hint" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={tr("My Media Bot")} maxLength={MAX_BOT_NICKNAME_LENGTH} />
             <p id="bot-nickname-hint" className={`text-[10px] mt-1 ${nameLengthError ? 'text-destructive' : 'text-muted-foreground'}`}>
-              Also the bot's TeamSpeak nickname: {MIN_BOT_NICKNAME_LENGTH}-{MAX_BOT_NICKNAME_LENGTH} characters
-              {nameLengthError && ` (now ${form.name.trim().length})`}.
+              {uiText("Also the bot's TeamSpeak nickname: ")}{MIN_BOT_NICKNAME_LENGTH}-{MAX_BOT_NICKNAME_LENGTH} {uiText(" characters")}{nameLengthError && uiText(" (now {0})", form.name.trim().length)}.
             </p>
           </div>
           {!bot && (
@@ -242,12 +243,10 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
               <Input
                 value={form.commandChannelsText}
                 onChange={(e) => setForm({ ...form, commandChannelsText: e.target.value })}
-                placeholder="e.g. 12, 45 — channel IDs where !commands work"
+                placeholder={uiText("e.g. 12, 45 — channel IDs where !commands work")}
               />
               <p className="text-[10px] text-muted-foreground mt-1">
-                Leave empty to use same-channel voice commands plus the SSH roaming helper.
-                Pin IDs only if you need fixed command rooms. Requires ServerQuery SSH.
-              </p>
+                {uiText("Leave empty to use same-channel voice commands plus the SSH roaming helper. Pin IDs only if you need fixed command rooms. Requires ServerQuery SSH.")}</p>
             </div>
           )}
           <div>
@@ -264,7 +263,7 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
             <Input type="password" value={form.channelPassword} onChange={(e) => setForm({ ...form, channelPassword: e.target.value })} placeholder={tr("Leave empty if none")} />
           </div>
           <div>
-            <Label className="text-xs">Volume ({form.volume}%)</Label>
+            <Label className="text-xs">{uiText("Volume (")}{form.volume}%)</Label>
             <Slider value={[form.volume]} max={100} step={1} onValueChange={([v]) => setForm({ ...form, volume: v })} />
           </div>
           <div className="flex items-center gap-2">

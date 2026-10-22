@@ -1,0 +1,176 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
+import { useState } from 'react';
+import { BOT_TEMPLATES, TEMPLATE_CATEGORIES, templateConfigError, type BotTemplate } from '@/data/bot-templates';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface TemplateGalleryProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSelect: (name: string, description: string, flowData: { nodes: any[]; edges: any[] }) => void;
+}
+
+export function TemplateGallery({ open, onOpenChange, onSelect }: TemplateGalleryProps) {
+  useUiLanguageStore(state => state.language);
+  const [selected, setSelected] = useState<BotTemplate | null>(null);
+  const [config, setConfig] = useState<Record<string, string>>({});
+
+  const handleBack = () => {
+    setSelected(null);
+    setConfig({});
+  };
+
+  const handleClose = (v: boolean) => {
+    if (!v) {
+      setSelected(null);
+      setConfig({});
+    }
+    onOpenChange(v);
+  };
+
+  const handleSelectTemplate = (template: BotTemplate) => {
+    setSelected(template);
+    // Initialize default values
+    const defaults: Record<string, string> = {};
+    for (const field of template.configFields) {
+      if (field.defaultValue) defaults[field.key] = field.defaultValue;
+    }
+    setConfig(defaults);
+  };
+
+  const configError = selected ? templateConfigError(selected, config) : null;
+
+  const handleCreate = () => {
+    if (!selected || configError) return;
+    const flowData = selected.flowDataFactory(config);
+    onSelect(uiText(selected.name), uiText(selected.description), flowData);
+    handleClose(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent className="max-w-2xl !grid-rows-none !block p-0 overflow-hidden">
+        <div className="p-6 pb-0">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {selected && (
+                <Button variant="ghost" size="icon" className="h-6 w-6 mr-1" onClick={handleBack} aria-label={uiText("Back to templates")} title={uiText("Back to templates")}>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+              )}
+              {selected ? uiText("Configure: {0}", uiText(selected.name)) : uiText("Flow Templates")}
+            </DialogTitle>
+          </DialogHeader>
+        </div>
+
+        {!selected ? (
+          <div className="overflow-y-auto max-h-[60vh] px-6">
+            <div className="space-y-6 pb-4">
+              {TEMPLATE_CATEGORIES.map((cat) => {
+                const templates = BOT_TEMPLATES.filter(t => t.category === cat.id);
+                if (templates.length === 0) return null;
+                return (
+                  <div key={cat.id}>
+                    <div className="mb-2">
+                      <p className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">{uiText(cat.label)}</p>
+                      <p className="text-[10px] text-muted-foreground">{uiText(cat.description)}</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {templates.map((tpl) => {
+                        const Icon = tpl.icon;
+                        return (
+                          <button
+                            key={tpl.id}
+                            className={cn(
+                              'flex items-start gap-3 rounded-lg border border-border bg-card/50 p-3 text-left transition-colors',
+                              'hover:border-primary/40 hover:bg-primary/5',
+                            )}
+                            onClick={() => handleSelectTemplate(tpl)}
+                          >
+                            <div className="mt-0.5 rounded-md bg-primary/10 p-1.5">
+                              <Icon className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="text-xs font-medium">{uiText(tpl.name)}</p>
+                              <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">{uiText(tpl.description)}</p>
+                              {tpl.configFields.length > 0 && (
+                                <div className="flex gap-1 mt-1.5 flex-wrap">
+                                  {tpl.configFields.filter(f => f.required).map(f => (
+                                    <Badge key={f.key} variant="secondary" className="text-[8px] px-1 py-0">{uiText(f.label)}</Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="overflow-y-auto max-h-[60vh] px-6">
+              <div className="space-y-4 pb-2">
+                <p className="text-xs text-muted-foreground">{uiText(selected.description)}</p>
+
+                {selected.configFields.length === 0 ? (
+                  <p className="text-xs text-muted-foreground/60">{uiText("No configuration needed — ready to create.")}</p>
+                ) : (
+                  <div className="space-y-3">
+                    {selected.configFields.map((field) => (
+                      <div key={field.key}>
+                        <Label htmlFor={`template-${field.key}`} className="text-[10px] text-muted-foreground">
+                          {uiText(field.label)} {field.required && <span className="text-destructive">*</span>}
+                        </Label>
+                        {field.type === 'select' ? (
+                          <Select
+                            value={config[field.key] || field.defaultValue || ''}
+                            onValueChange={(v) => setConfig(prev => ({ ...prev, [field.key]: v }))}
+                          >
+                            <SelectTrigger id={`template-${field.key}`} className="h-7 text-xs mt-1"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {field.options?.map(opt => (
+                                <SelectItem key={opt.value} value={opt.value}>{uiText(opt.label)}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <Input
+                            id={`template-${field.key}`}
+                            type={field.type === 'number' ? 'number' : 'text'}
+                            className="h-7 text-xs mt-1 font-mono-data"
+                            placeholder={field.placeholder ? uiText(field.placeholder) : undefined}
+                            value={config[field.key] || ''}
+                            onChange={(e) => setConfig(prev => ({ ...prev, [field.key]: e.target.value }))}
+                          />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="p-6 pt-2">
+              {configError && <p role="alert" className="text-[10px] text-destructive mb-2">{configError}</p>}
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={handleBack}>{uiText("Back")}</Button>
+                <Button size="sm" onClick={handleCreate} disabled={!!configError}>
+                  {uiText("Create Bot")}</Button>
+              </DialogFooter>
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}

@@ -11,8 +11,7 @@ import rateLimit from 'express-rate-limit';
 import fs from 'fs';
 import path from 'path';
 import { AppError } from '../middleware/error-handler.js';
-import { setYtCookieFile, getYtCookieFile, getYouTubeAuthMode, setYouTubeAuthMode } from '../voice/audio/youtube.js';
-import { poTokenStatus, YOUTUBE_AUTH_MODE_KEY } from '../voice/audio/youtube-pot.js';
+import { setYtCookieFile, getYtCookieFile } from '../voice/audio/youtube.js';
 import {
   MAX_VIDEO_DURATION_KEY,
   MAX_PLAYLIST_IMPORT_KEY,
@@ -93,32 +92,14 @@ settingsRoutes.get('/yt-cookies', requireAdmin, ytCookiesLimiter, async (_req: R
     exists,
     removable: fs.existsSync(COOKIE_PATH),
     size: fs.existsSync(COOKIE_PATH) ? fs.statSync(COOKIE_PATH).size : exists ? fs.statSync(savedPath).size : 0,
-    mode: getYouTubeAuthMode(),
-    provider: await poTokenStatus(),
+    mode: 'cookies',
   });
   } catch (err) { next(err); }
 });
 
-// Storing a cookie never enables account access implicitly. The admin opts in.
+// Retired API: stale clients must not re-enable the removed provider.
 settingsRoutes.put('/yt-cookies/mode', requireAdmin, ytCookiesLimiter, async (req, res, next) => {
-  try {
-    const mode = req.body?.mode;
-    if (mode !== 'po-token' && mode !== 'cookies') throw new AppError(400, 'Invalid YouTube authentication mode');
-    const savedPath = fs.existsSync(COOKIE_PATH) ? COOKIE_PATH : process.env.YT_COOKIE_FILE;
-    if (mode === 'cookies' && (!savedPath || !fs.existsSync(savedPath))) {
-      throw new AppError(400, 'Upload a cookie file before enabling optional cookies');
-    }
-    await recordLocalSuccess(req.app.locals.prisma, {
-      actor: actorFromRequest(req.user), action: 'settings.youtube_auth_mode_changed',
-      target: { type: 'settings', id: 'youtube-auth-mode' },
-    }, (tx) => tx.appSetting.upsert({
-      where: { key: YOUTUBE_AUTH_MODE_KEY },
-      create: { key: YOUTUBE_AUTH_MODE_KEY, value: mode }, update: { value: mode },
-    }));
-    if (savedPath) setYtCookieFile(savedPath);
-    setYouTubeAuthMode(mode);
-    res.json({ success: true, mode });
-  } catch (err) { next(err); }
+  next(new AppError(410, 'YouTube uses cookies only. Upload or remove cookies in Settings → YouTube.'));
 });
 
 // POST /api/settings/yt-cookies — Upload cookie file
@@ -167,15 +148,11 @@ settingsRoutes.delete('/yt-cookies', requireAdmin, ytCookiesLimiter, async (req:
         target: { type: 'settings', id: 'yt-cookies' },
       },
       async () => {
-        await prisma.appSetting.upsert({
-          where: { key: YOUTUBE_AUTH_MODE_KEY }, create: { key: YOUTUBE_AUTH_MODE_KEY, value: 'po-token' },
-          update: { value: 'po-token' },
-        });
         if (fs.existsSync(COOKIE_PATH)) {
           fs.unlinkSync(COOKIE_PATH);
         }
-        setYtCookieFile(null);
-        setYouTubeAuthMode('po-token');
+        // An operator-managed environment file is not deleted by the panel.
+        setYtCookieFile(process.env.YT_COOKIE_FILE || null);
       },
     );
     console.log('[yt-dlp] Cookie file removed');

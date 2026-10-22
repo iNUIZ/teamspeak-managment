@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 import { useRef, useState } from 'react';
 import type { ServerIcon } from '@ts6/common';
@@ -12,6 +13,7 @@ import { fileBrowseErrorMessage } from '@/lib/action-guidance';
 import { Link } from 'react-router-dom';
 
 function IconImage({ id }: Readonly<{ id: number }>) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const { url, failed } = useServerIconImage(id);
   if (url) return <img src={url} alt="" className="h-6 w-6 object-contain" />;
@@ -24,6 +26,7 @@ function IconImage({ id }: Readonly<{ id: number }>) {
  * `value` is the icon id (0 = no icon) the channel stores.
  */
 export function ServerIconPicker({ value, onSelect }: Readonly<{ value: number; onSelect: (id: number) => void }>) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const input = useRef<HTMLInputElement>(null);
   const icons = useServerIcons(true);
@@ -42,13 +45,13 @@ export function ServerIconPicker({ value, onSelect }: Readonly<{ value: number; 
           <p className="text-xs font-medium"> {tr("Server icons")}</p>
           <p className="text-[10px] text-muted-foreground"> {tr("Icons stored on this TeamSpeak server. Click one to use it for this channel.")}</p>
         </div>
-        <input ref={input} type="file" accept="image/png,image/jpeg,image/gif" aria-label="Upload icon"
+        <input ref={input} type="file" accept="image/png,image/jpeg,image/gif" aria-label={uiText("Upload icon")}
           className="hidden" disabled={upload.isPending} onChange={(e) => {
             const file = e.target.files?.[0];
             e.target.value = '';
             if (!file) return;
             upload.mutate(file, {
-              onSuccess: (icon) => { onSelect(icon.id); toast.success('Icon uploaded and selected'); },
+              onSuccess: (icon) => { onSelect(icon.id); toast.success(uiText("Icon uploaded and selected")); },
             });
           }} />
         <Button type="button" size="sm" variant="outline" className="h-8 text-xs" disabled={upload.isPending || !data}
@@ -73,13 +76,13 @@ export function ServerIconPicker({ value, onSelect }: Readonly<{ value: number; 
             const selected = icon.id === value;
             return (
               <li key={icon.id} className="relative">
-                <button type="button" aria-pressed={selected} aria-label={`${selected ? 'Selected icon' : 'Use icon'} ${icon.id}`}
-                  title={`Icon ${icon.id}`} onClick={() => onSelect(icon.id)}
+                <button type="button" aria-pressed={selected} aria-label={`${selected ? uiText("Selected icon") : uiText("Use icon")} ${icon.id}`}
+                  title={uiText("Icon {0}", icon.id)} onClick={() => onSelect(icon.id)}
                   className={cn('flex h-10 w-10 items-center justify-center rounded border bg-muted/40',
                     selected ? 'ring-2 ring-primary' : 'hover:border-primary/60')}>
                   <IconImage id={icon.id} />
                 </button>
-                <button type="button" aria-label={`Delete icon ${icon.id}`} title="Delete icon"
+                <button type="button" aria-label={uiText("Delete icon {0}", icon.id)} title={uiText("Delete icon")}
                   className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border bg-background text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => { remove.reset(); setDeleteTarget(icon); }}>
                   <Trash2 className="h-3 w-3" />
@@ -90,11 +93,11 @@ export function ServerIconPicker({ value, onSelect }: Readonly<{ value: number; 
         </ul>
       )}
       {data && value !== 0 && !known && (
-        <p className="text-[10px] text-muted-foreground">Icon {value} is not in this server's icon list{data.truncated ? ' shown here' : ''}.</p>
+        <p className="text-[10px] text-muted-foreground">{uiText("Icon ")}{value} {uiText(" is not in this server's icon list")}{data.truncated ? uiText(" shown here") : ''}.</p>
       )}
-      {data?.truncated && <p className="text-[10px] text-muted-foreground">Showing the newest {data.icons.length} icons.</p>}
+      {data?.truncated && <p className="text-[10px] text-muted-foreground">{uiText("Showing the newest ")}{data.icons.length} {uiText(" icons.")}</p>}
 
-      <p className="text-[10px] text-muted-foreground">PNG, JPEG or GIF, at most {maxKb} KB. TeamSpeak shows icons at 16×16.</p>
+      <p className="text-[10px] text-muted-foreground">{uiText("PNG, JPEG or GIF, at most ")}{maxKb} {uiText(" KB. TeamSpeak shows icons at 16×16.")}</p>
       {upload.error && <p role="alert" className="text-[10px] text-destructive">{apiErrorMessage(upload.error, 'Could not upload icon')}</p>}
 
       <ConfirmDialog
@@ -113,7 +116,7 @@ export function ServerIconPicker({ value, onSelect }: Readonly<{ value: number; 
             onSuccess: () => {
               if (target.id === value) onSelect(0);
               setDeleteTarget(null);
-              toast.success('Icon deleted');
+              toast.success(uiText("Icon deleted"));
             },
           });
         }}

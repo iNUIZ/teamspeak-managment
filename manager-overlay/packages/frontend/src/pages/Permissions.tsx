@@ -1,8 +1,13 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 import { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import { useQuery, useQueries, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import Instance from './Instance';
+import { ServiceTabs } from '@/components/shared/ServiceTabs';
 import { permissionsApi } from '@/api/permissions.api';
+import { permissionLabel } from '@/lib/permission-labels';
 import { useServerStore } from '@/stores/server.store';
 import { useUiStore } from '@/stores/ui.store';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -47,12 +52,7 @@ function getCategoryKey(permsid: string): string {
 }
 
 function getSimplePermissionLabel(permission: PermDef): string {
-  const description = permission.permdesc.trim();
-  if (description.length >= 3 && description.toLowerCase() !== permission.permsid.toLowerCase()) {
-    return description;
-  }
-  const readable = permission.permsid.replace(/^[bi]_/, '').replace(/_/g, ' ').trim();
-  return readable ? readable.charAt(0).toUpperCase() + readable.slice(1) : permission.permsid;
+  return permissionLabel(permission);
 }
 
 type PermLayer = 'server-group' | 'channel-group' | 'channel' | 'client';
@@ -192,10 +192,10 @@ interface CompareColumn {
 }
 
 function describePermissionValue(value: PermValue | undefined): string {
-  if (!value) return 'Unset';
-  const parts = [`Value ${value.permvalue}`];
-  if (value.permskip) parts.push('Skip');
-  if (value.permnegated) parts.push('Negate');
+  if (!value) return uiText('Unset');
+  const parts = [uiText('Value {0}',value.permvalue)];
+  if (value.permskip) parts.push(uiText('Skip'));
+  if (value.permnegated) parts.push(uiText('Negate'));
   return parts.join(', ');
 }
 
@@ -208,6 +208,7 @@ function PermissionCompare({
   columns: CompareColumn[];
   labelMode: 'simple' | 'technical';
 }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const [search, setSearch] = useState('');
   const [setOnAny, setSetOnAny] = useState(false);
@@ -239,18 +240,16 @@ function PermissionCompare({
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex min-h-9 items-center gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={setOnAny} onChange={event => setSetOnAny(event.target.checked)} />
-          Set on any
-        </label>
+          {uiText("Set on any")}</label>
         <label className="flex min-h-9 items-center gap-2 text-xs text-muted-foreground">
           <input type="checkbox" checked={differencesOnly} onChange={event => setDifferencesOnly(event.target.checked)} />
-          Differences only
-        </label>
+          {uiText("Differences only")}</label>
         <div className="relative min-w-0 flex-1 sm:min-w-64">
           <Search className="absolute left-2 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
           <Input
             value={search}
             onChange={event => setSearch(event.target.value)}
-            placeholder="Search compared permissions..."
+            placeholder={uiText("Search compared permissions...")}
             className="h-9 pl-7 text-xs"
           />
         </div>
@@ -259,7 +258,7 @@ function PermissionCompare({
         <table className="w-full border-collapse text-left text-xs" style={{ minWidth: `${Math.max(720, 260 + columns.length * 180)}px` }}>
           <thead className="bg-muted/40">
             <tr>
-              <th scope="col" className="sticky left-0 z-10 w-64 border-b border-r border-border bg-muted px-3 py-2">Permission</th>
+              <th scope="col" className="sticky left-0 z-10 w-64 border-b border-r border-border bg-muted px-3 py-2">{uiText("Permission")}</th>
               {normalizedColumns.map(column => (
                 <th key={column.id} scope="col" className="min-w-44 border-b border-border px-3 py-2 align-top">
                   <span className="block font-semibold text-foreground">{column.name}</span>
@@ -267,7 +266,7 @@ function PermissionCompare({
                   {column.isError && (
                     <span className="mt-1 flex items-center gap-1 text-destructive" role="status">
                       <AlertTriangle className="h-3 w-3" />
-                      {column.errorStatus === 429 ? 'Query cooldown active' : 'Failed to load'}
+                      {column.errorStatus === 429 ? uiText("Query cooldown active") : uiText("Failed to load")}
                     </span>
                   )}
                 </th>
@@ -292,18 +291,18 @@ function PermissionCompare({
                   const failureDescription = column.errorStatus === 429 ? 'Query cooldown active' : 'Failed to load';
                   const description = column.isError ? failureDescription : column.isLoading ? 'Loading' : describePermissionValue(value);
                   return (
-                    <td key={column.id} aria-label={`${column.name}: ${description}`} className="px-3 py-2 align-top">
+                    <td key={column.id} aria-label={`${column.name}: ${uiText(description)}`} className="px-3 py-2 align-top">
                       {column.isError ? (
-                        <span className="font-medium text-destructive">{failureDescription}</span>
+                        <span className="font-medium text-destructive">{uiText(failureDescription)}</span>
                       ) : column.isLoading ? (
-                        <span className="text-muted-foreground">Loading…</span>
+                        <span className="text-muted-foreground">{uiText("Loading…")}</span>
                       ) : !value ? (
-                        <Badge variant="outline">Unset</Badge>
+                        <Badge variant="outline">{uiText("Unset")}</Badge>
                       ) : (
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="font-mono-data font-medium">{value.permvalue}</span>
-                          {!!value.permskip && <Badge variant="secondary">Skip</Badge>}
-                          {!!value.permnegated && <Badge variant="destructive">Negate</Badge>}
+                          {!!value.permskip && <Badge variant="secondary">{uiText("Skip")}</Badge>}
+                          {!!value.permnegated && <Badge variant="destructive">{uiText("Negate")}</Badge>}
                         </div>
                       )}
                     </td>
@@ -314,7 +313,7 @@ function PermissionCompare({
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <p className="p-8 text-center text-sm text-muted-foreground">No permissions match the Compare filters</p>
+          <p className="p-8 text-center text-sm text-muted-foreground">{uiText("No permissions match the Compare filters")}</p>
         )}
       </div>
     </div>
@@ -322,6 +321,12 @@ function PermissionCompare({
 }
 
 export default function Permissions() {
+  useUiLanguageStore(state => state.language);
+  const [params] = useSearchParams(); const groups = params.get('tab') === 'service-groups';
+  return <div className="space-y-4"><ServiceTabs kind="permissions" selected={groups ? 'groups' : 'permissions'} />{groups ? <Instance section="groups" /> : <PermissionMatrix />}</div>;
+}
+function PermissionMatrix() {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const { selectedConfigId: c, selectedSid: s, setServer } = useServerStore();
   const { permissionLabelMode, setPermissionLabelMode } = useUiStore();
@@ -597,7 +602,7 @@ export default function Permissions() {
         return next;
       }
       if (current.length >= 4) {
-        toast.warning('Compare is limited to 4 entities');
+        toast.warning(uiText("Compare is limited to 4 entities"));
         return current;
       }
       return [...current, selectedEntityId];
@@ -636,20 +641,20 @@ export default function Permissions() {
     onSuccess: ({ snapshot, completed }) => {
       clearCompletedChanges(snapshot, completed);
       void invalidateSavedContext(snapshot.owner);
-      toast.success('Permissions saved to the original draft context');
+      toast.success(uiText("Permissions saved to the original draft context"));
     },
     onError: (error) => {
       if (!(error instanceof PermissionSaveError)) {
-        toast.error('Permission save failed. The draft was retained.');
+        toast.error(uiText("Permission save failed. The draft was retained."));
         return;
       }
       clearCompletedChanges(error.snapshot, error.completed);
       void invalidateSavedContext(error.snapshot.owner);
       const remaining = error.snapshot.mutations.length - error.completed.length;
       if (error.completed.length === 0) {
-        toast.error(`No permission changes were saved. ${remaining} ${remaining === 1 ? 'change remains' : 'changes remain'}.`);
+        toast.error(uiText("No permission changes were saved. {0} {1}.", remaining, remaining === 1 ? uiText("change remains") : uiText("changes remain")));
       } else {
-        toast.error(`${error.completed.length} of ${error.snapshot.mutations.length} permission changes saved. ${remaining} ${remaining === 1 ? 'change remains' : 'changes remain'}.`);
+        toast.error(uiText("{0} of {1} permission changes saved. {2} {3}.", error.completed.length, error.snapshot.mutations.length, remaining, remaining === 1 ? uiText("change remains") : uiText("changes remain")));
       }
     },
     onSettled: () => { saveLock.current = false; },
@@ -723,7 +728,7 @@ export default function Permissions() {
             size="sm"
             className="min-h-10 sm:min-h-8"
             disabled={compareSelection.length < 2}
-            aria-label={`Compare ${compareSelection.length} selected entities`}
+            aria-label={uiText("Compare {0} selected entities", compareSelection.length)}
             onClick={() => setShowCompare(true)}
           >
             <Columns3 className="mr-1 h-3.5 w-3.5" /> {tr('Compare')} ({compareSelection.length})
@@ -735,7 +740,7 @@ export default function Permissions() {
         {isDirty && (
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="font-mono-data" role="status">
-              {changes.size} unsaved {changes.size === 1 ? 'change' : 'changes'}
+              {changes.size} {uiText(" unsaved ")}{changes.size === 1 ? uiText("change") : uiText("changes")}
             </Badge>
             <Button variant="outline" size="sm" className="min-h-10 sm:min-h-8" onClick={() => setDraft(null)}>
               <X className="h-3.5 w-3.5 mr-1" /> {tr("Discard")}</Button>
@@ -770,11 +775,11 @@ export default function Permissions() {
         <Card className="lg:col-span-3">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Select {LAYERS.find((l) => l.key === layer)?.label.replace(/s$/, '')}
+              {uiText('Select {0}', uiText(LAYERS.find((l) => l.key === layer)?.label ?? 'Entity'))}
             </CardTitle>
             {layer === 'client' && (
               <Input
-                placeholder="Search online/offline clients..."
+                placeholder={uiText("Search online/offline clients...")}
                 value={clientSearch}
                 onChange={(e) => setClientSearch(e.target.value)}
                 className="h-8 text-xs mt-2"
@@ -801,12 +806,12 @@ export default function Permissions() {
                       )}
                     >
                       <span className="min-w-0 flex-1 truncate">{ent.name}</span>
-                      {entityId === ent.id && <Badge variant="secondary" className="h-5 text-[9px]">Editing</Badge>}
+                      {entityId === ent.id && <Badge variant="secondary" className="h-5 text-[9px]">{uiText("Editing")}</Badge>}
                       <span className="shrink-0 font-mono-data text-[10px] text-muted-foreground">#{ent.id}</span>
                     </button>
                     <button
                       type="button"
-                      aria-label={`Select ${ent.name} for Compare`}
+                      aria-label={uiText("Select {0} for Compare", ent.name)}
                       aria-pressed={compareSelection.includes(ent.id)}
                       onClick={() => toggleCompareEntity(ent.id)}
                       className={cn(
@@ -819,7 +824,7 @@ export default function Permissions() {
                   </div>
                 ))}
                 {entities.length === 0 && (
-                  <p className="text-xs text-muted-foreground text-center py-4">No entities found</p>
+                  <p className="text-xs text-muted-foreground text-center py-4">{uiText("No entities found")}</p>
                 )}
               </div>
             </ScrollArea>
@@ -835,10 +840,10 @@ export default function Permissions() {
               </CardTitle>
               {(entityId || showCompare) && (
                 <div className="flex w-full flex-wrap items-center gap-3 sm:w-auto">
-                  <div className="flex rounded-md border border-border p-0.5" aria-label="Permission label style">
+                  <div className="flex rounded-md border border-border p-0.5" aria-label={uiText("Permission label style")}>
                     <button
                       type="button"
-                      aria-label="Simple labels"
+                      aria-label={uiText("Simple labels")}
                       aria-pressed={permissionLabelMode === 'simple'}
                       onClick={() => setPermissionLabelMode('simple')}
                       className={cn(
@@ -846,11 +851,10 @@ export default function Permissions() {
                         permissionLabelMode === 'simple' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
                       )}
                     >
-                      Simple
-                    </button>
+                      {uiText("Simple")}</button>
                     <button
                       type="button"
-                      aria-label="Technical labels"
+                      aria-label={uiText("Technical labels")}
                       aria-pressed={permissionLabelMode === 'technical'}
                       onClick={() => setPermissionLabelMode('technical')}
                       className={cn(
@@ -858,8 +862,7 @@ export default function Permissions() {
                         permissionLabelMode === 'technical' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground',
                       )}
                     >
-                      Technical
-                    </button>
+                      {uiText("Technical")}</button>
                   </div>
                   {!showCompare && (
                     <>
@@ -868,15 +871,14 @@ export default function Permissions() {
                           type="checkbox"
                           checked={showSetOnly}
                           onChange={(e) => setShowSetOnly(e.target.checked)}
-                          title="Show currently set permissions and staged changes"
+                          title={uiText("Show currently set permissions and staged changes")}
                           className="rounded border-border"
                         />
-                        Set only
-                      </label>
+                        {uiText("Set only")}</label>
                       <div className="relative min-w-0 flex-1 sm:w-64 sm:flex-none">
                         <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-muted-foreground" />
                         <Input
-                          placeholder="Search permissions..."
+                          placeholder={uiText("Search permissions...")}
                           value={search}
                           onChange={(e) => setSearch(e.target.value)}
                           className="pl-7 h-8 text-xs"
@@ -895,7 +897,7 @@ export default function Permissions() {
               <ScrollArea className="h-[min(500px,60dvh)] min-h-72">
               {!entityId ? (
                 <div className="flex h-[min(400px,50dvh)] min-h-64 items-center justify-center">
-                  <p className="text-sm text-muted-foreground">Select an entity from the left panel</p>
+                  <p className="text-sm text-muted-foreground">{uiText("Select an entity from the left panel")}</p>
                 </div>
               ) : loadingPerms ? (
                 <div className="flex h-[min(400px,50dvh)] min-h-64 items-center justify-center">
@@ -911,17 +913,17 @@ export default function Permissions() {
                         className="flex items-center gap-1.5 w-full px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors rounded"
                       >
                         {expandedCats.has(catKey) ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                        {PERM_CATEGORIES[catKey] || catKey}
+                        {uiText(PERM_CATEGORIES[catKey] || 'Other permissions')}
                         <Badge variant="secondary" className="text-[9px] h-4 ml-1">{perms.length}</Badge>
                       </button>
                       {expandedCats.has(catKey) && (
                         <div className="ml-4 border-l border-border/50 pl-2">
                           {/* Header */}
                           <div className="grid grid-cols-12 gap-2 px-2 py-1 text-[10px] text-muted-foreground uppercase tracking-wider">
-                            <div className="col-span-5">Permission</div>
-                            <div className="col-span-2 text-center">Value</div>
-                            <div className="col-span-1 text-center">Skip</div>
-                            <div className="col-span-1 text-center">Negate</div>
+                            <div className="col-span-5">{uiText("Permission")}</div>
+                            <div className="col-span-2 text-center">{uiText("Value")}</div>
+                            <div className="col-span-1 text-center">{uiText("Skip")}</div>
+                            <div className="col-span-1 text-center">{uiText("Negate")}</div>
                             <div className="col-span-3"></div>
                           </div>
                           {perms.map((perm) => {
@@ -939,7 +941,7 @@ export default function Permissions() {
                                   isSet ? 'text-foreground' : 'text-muted-foreground',
                                 )}
                               >
-                                <div className="col-span-5 min-w-0" title={`${getSimplePermissionLabel(perm)} (${perm.permsid})`}>
+                                <div className="col-span-5 min-w-0" title={permissionLabelMode === 'simple' ? `${getSimplePermissionLabel(perm)} (${perm.permsid})` : `${uiText('Technical output (original language)')}: ${perm.permdesc} (${perm.permsid})`}>
                                   {permissionLabelMode === 'simple' ? (
                                     <>
                                       <span className="block truncate text-[11px] font-medium">{getSimplePermissionLabel(perm)}</span>
@@ -952,7 +954,7 @@ export default function Permissions() {
                                 <div className="col-span-2 flex justify-center">
                                   {isBoolean ? (
                                     <button
-                                      aria-label={`${getSimplePermissionLabel(perm)} permission`}
+                                      aria-label={uiText("{0} permission", getSimplePermissionLabel(perm))}
                                       aria-pressed={isSet}
                                       onClick={() => {
                                         if (isSet) removePerm(perm.permsid);
@@ -970,7 +972,7 @@ export default function Permissions() {
                                   ) : (
                                     <Input
                                       type="number"
-                                      aria-label={`${getSimplePermissionLabel(perm)} value`}
+                                      aria-label={uiText("{0} value", getSimplePermissionLabel(perm))}
                                       className="h-6 w-20 text-xs text-center font-mono-data px-1"
                                       value={effective?.permvalue ?? ''}
                                       placeholder="—"
@@ -988,7 +990,7 @@ export default function Permissions() {
                                 <div className="col-span-1 flex justify-center">
                                   {!isBoolean && (
                                     <button
-                                      aria-label={`${getSimplePermissionLabel(perm)} Skip`}
+                                      aria-label={uiText("{0} Skip", getSimplePermissionLabel(perm))}
                                       aria-pressed={!!(isSet && effective?.permskip)}
                                       disabled={!isSet}
                                       onClick={() => {
@@ -1002,7 +1004,7 @@ export default function Permissions() {
                                           ? 'border-warning bg-warning/20 text-warning'
                                           : 'border-border/50',
                                       )}
-                                      title="Skip"
+                                      title={uiText("Skip")}
                                     >
                                       {isSet && effective?.permskip ? 'S' : ''}
                                     </button>
@@ -1011,7 +1013,7 @@ export default function Permissions() {
                                 <div className="col-span-1 flex justify-center">
                                   {!isBoolean && (
                                     <button
-                                      aria-label={`${getSimplePermissionLabel(perm)} Negate`}
+                                      aria-label={uiText("{0} Negate", getSimplePermissionLabel(perm))}
                                       aria-pressed={!!(isSet && effective?.permnegated)}
                                       disabled={!isSet}
                                       onClick={() => {
@@ -1025,7 +1027,7 @@ export default function Permissions() {
                                           ? 'bg-destructive/20 border-destructive text-destructive'
                                           : 'border-border/50',
                                       )}
-                                      title="Negate"
+                                      title={uiText("Negate")}
                                     >
                                       {isSet && effective?.permnegated ? 'N' : ''}
                                     </button>
@@ -1035,15 +1037,15 @@ export default function Permissions() {
                                   {isSet && (
                                     <button
                                       onClick={() => removePerm(perm.permsid)}
-                                      aria-label={`Remove ${getSimplePermissionLabel(perm)}`}
+                                      aria-label={uiText("Remove {0}", getSimplePermissionLabel(perm))}
                                       className="flex h-10 w-10 items-center justify-center rounded text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive sm:h-7 sm:w-7"
-                                      title="Remove permission"
+                                      title={uiText("Remove permission")}
                                     >
                                       <Minus className="h-3 w-3" />
                                     </button>
                                   )}
                                   {isChanged && (
-                                    <span className="text-[9px] text-primary font-mono-data">Staged</span>
+                                    <span className="text-[9px] text-primary font-mono-data">{uiText("Staged")}</span>
                                   )}
                                 </div>
                               </div>
@@ -1055,7 +1057,7 @@ export default function Permissions() {
                   ))}
                   {categories.size === 0 && (
                     <div className="flex items-center justify-center h-[300px]">
-                      <p className="text-sm text-muted-foreground">No permissions match your search</p>
+                      <p className="text-sm text-muted-foreground">{uiText("No permissions match your search")}</p>
                     </div>
                   )}
                 </div>
@@ -1070,10 +1072,10 @@ export default function Permissions() {
         onOpenChange={(open) => {
           if (!open) setPendingTransition(null);
         }}
-        title="Unsaved permission changes"
-        description={pendingTransition?.description || 'Discard this permission draft?'}
-        cancelLabel="Stay"
-        confirmLabel="Discard & continue"
+        title={uiText("Unsaved permission changes")}
+        description={pendingTransition?.description || uiText("Discard this permission draft?")}
+        cancelLabel={uiText("Stay")}
+        confirmLabel={uiText("Discard & continue")}
         destructive
         onConfirm={() => {
           const transition = pendingTransition;

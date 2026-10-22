@@ -42,7 +42,11 @@ export default function Tokens() {
   });
   const groupRows = (keyType === '0' ? sg.data : cg.data) ?? [];
   const { data, isLoading } = useQuery({ queryKey: ['tokens', c, s], queryFn: () => tokensApi.list(c!, s!), enabled: !!c && !!s });
+  const history = useQuery({ queryKey: ['key-use-history', c, s], queryFn: () => tokensApi.history(c!, s!), enabled: !!c && !!s, refetchInterval: 5000 });
   const qc = useQueryClient();
+  const capture = useMutation({ mutationFn: (target: { c: number; s: number; enabled: boolean }) => tokensApi.capture(target.c, target.s, target.enabled),
+    onSuccess: (_data, target) => { void qc.invalidateQueries({ queryKey: ['key-use-history', target.c, target.s] }); },
+    onError: error => toast.error(apiErrorMessage(error, t('Could not change key tracking'))) });
   const deleteToken = useMutation({ mutationFn: (token: string) => tokensApi.delete(c!, s!, token), onSuccess: () => qc.invalidateQueries({ queryKey: ['tokens'] }) });
 
   const tokens = useMemo(() => (Array.isArray(data) ? data : []), [data]);
@@ -63,9 +67,10 @@ export default function Tokens() {
     )},
     { accessorKey: 'token_type', header: t('Type'), cell: ({ getValue }) => <span className="text-xs">{Number(getValue()) === 0 ? tr("Server Group") : tr("Channel Group")}</span> },
     { accessorKey: 'token_id1', header: t('Group ID'), cell: ({ getValue }) => <span className="font-mono-data text-xs">{getValue() as number}</span> },
+    { accessorKey: 'token_fingerprint', header: t('Key fingerprint'), cell: ({ getValue }) => String(getValue() || '—').slice(0, 12) },
     { accessorKey: 'token_description', header: t('Description'), cell: ({ getValue }) => <span className="text-xs">{(getValue() as string) || '-'}</span> },
     { id: 'actions', header: () => <span className="sr-only"> {tr("Actions")}</span>, cell: ({ row }) => (
-      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label={tr("Delete privilege key")} onClick={() => deleteToken.mutate(row.original.token, { onSuccess: () => toast.success('Token deleted') })}>
+      <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" aria-label={tr("Delete privilege key")} onClick={() => deleteToken.mutate(row.original.token, { onSuccess: () => toast.success(tr("Token deleted")) })}>
         <Trash2 className="h-3.5 w-3.5" />
       </Button>
     )},
@@ -76,6 +81,7 @@ export default function Tokens() {
 
   return (
     <div className="space-y-5">
+      <p className="rounded-md border bg-card p-3 text-sm text-muted-foreground">{t('Keys grant a group once and then disappear. Enable usage tracking below to record future redemptions. Missing keys alone do not prove who used them.')}</p>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold"> {tr("Privilege Keys")}</h1>
         <Button onClick={() => { setKeyType('0'); setGroupId(''); setChannelId(''); setDescription(''); setCreatedKey(''); createKey.reset(); setCreating(true); }}>{t('Create privilege key')}</Button>
@@ -105,6 +111,7 @@ export default function Tokens() {
           </form>}
         </DialogContent>
       </Dialog>
+      <p className="text-xs text-muted-foreground">{t('The table shows currently available keys, not a usage history. Never share a Server Admin key publicly.')}</p>
       <DataTable
         columns={columns}
         data={tokens}
@@ -117,6 +124,20 @@ export default function Tokens() {
         emptyText={tr("No privilege keys found")}
         filteredEmptyText={tr("No privilege keys match your search")}
       />
+      <section className="space-y-3 rounded-md border bg-card p-4" aria-label={t('Key usage history')}>
+        <div className="flex flex-wrap items-center justify-between gap-2"><h2 className="font-semibold">{t('Key usage history')}</h2>
+          <Button disabled={capture.isPending || history.isLoading || history.isError} onClick={() => capture.mutate({ c, s, enabled: !history.data?.enabled })}>{t(history.data?.enabled ? 'Stop key tracking' : 'Start key tracking')}</Button></div>
+        <p className="text-sm text-muted-foreground">{t('Records observed key redemptions from now on. No raw keys are stored. Retention: 30 days / 200 events per server. Earlier usage cannot be reconstructed.')}</p>
+        {history.isError ? <p role="alert">{apiErrorMessage(history.error, t('Could not load key usage history'))}</p> : <>
+          <p role="status" className="text-sm">{t('Status')}: {t(history.data?.status === 'capturing' ? 'Capturing' : history.data?.status === 'connecting' ? 'Waiting for Query notifications' : history.data?.status === 'gap' ? 'Capture has gaps — check Query connection' : 'Disabled')}</p>
+          <DataTable columns={[
+            { accessorKey: 'observedAt', header: t('Date'), cell: ({ getValue }) => new Date(String(getValue())).toLocaleString(language === 'tr' ? 'tr-TR' : 'en-GB') },
+            { accessorKey: 'fingerprint', header: t('Key fingerprint'), cell: ({ getValue }) => String(getValue()).slice(0, 12) },
+            { accessorKey: 'nickname', header: t('User'), cell: ({ row }: { row: { original: { nickname?: string; clientId: number } } }) => row.original.nickname || `#${row.original.clientId}` },
+            { accessorKey: 'uniqueId', header: 'UID' }, { accessorKey: 'databaseId', header: t('Database ID') },
+          ]} data={Array.isArray(history.data?.items) ? history.data.items : []} emptyText={t('No observed key redemptions yet')} />
+        </>}
+      </section>
     </div>
   );
 }

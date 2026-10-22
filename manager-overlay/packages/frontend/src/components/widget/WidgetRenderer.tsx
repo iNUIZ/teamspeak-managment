@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import type { WidgetData, WidgetChannelNode as WidgetChannelNodeType, WidgetTheme } from '@ts6/common';
 import { WIDGET_THEMES } from '@ts6/common';
 import { Github } from 'lucide-react';
@@ -15,6 +16,7 @@ function formatUptime(seconds: number): string {
 }
 
 function SpacerChannel({ node, theme }: { node: WidgetChannelNodeType; theme: WidgetTheme }) {
+  useUiLanguageStore(state => state.language);
   const t = WIDGET_THEMES[theme];
 
   if (node.spacerType === 'line' || node.spacerType === 'dashline' || node.spacerType === 'dotline') {
@@ -57,6 +59,7 @@ function ChannelNode({ node, depth, showClients, theme }: {
   showClients: boolean;
   theme: WidgetTheme;
 }) {
+  useUiLanguageStore(state => state.language);
   const t = WIDGET_THEMES[theme];
   const indent = depth * 16;
 
@@ -106,8 +109,8 @@ function ChannelNode({ node, depth, showClients, theme }: {
           }} />
           <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {client.nickname}
-            {client.isAway && <span style={{ color: t.textSecondary }}> [away]</span>}
-            {client.isMuted && <span style={{ color: t.textSecondary }}> [muted]</span>}
+            {client.isAway && <span style={{ color: t.textSecondary }}> {uiText(" [away]")}</span>}
+            {client.isMuted && <span style={{ color: t.textSecondary }}> {uiText(" [muted]")}</span>}
           </span>
         </div>
       ))}
@@ -121,6 +124,7 @@ function ChannelNode({ node, depth, showClients, theme }: {
 }
 
 export function WidgetRenderer({ data }: { data: WidgetData }) {
+  useUiLanguageStore(state => state.language);
   const t = WIDGET_THEMES[data.theme] || WIDGET_THEMES.dark;
 
   const joinUrl = data.serverHost
@@ -158,7 +162,7 @@ export function WidgetRenderer({ data }: { data: WidgetData }) {
                 marginRight: '8px',
                 textDecoration: 'none',
               }}
-              title="Click to join server"
+              title={uiText("Click to join server")}
             >
               {data.serverName}
             </a>
@@ -186,8 +190,7 @@ export function WidgetRenderer({ data }: { data: WidgetData }) {
             flexShrink: 0,
             letterSpacing: '0.5px',
           }}>
-            ONLINE
-          </span>
+            {uiText("ONLINE")}</span>
         </div>
         <div style={{
           marginTop: '6px',
@@ -196,8 +199,8 @@ export function WidgetRenderer({ data }: { data: WidgetData }) {
           display: 'flex',
           gap: '14px',
         }}>
-          <span>{data.onlineUsers} / {data.maxClients} users</span>
-          <span>{formatUptime(data.uptime)} uptime</span>
+          <span>{data.onlineUsers} / {data.maxClients} {uiText(" users")}</span>
+          <span>{formatUptime(data.uptime)} {uiText(" uptime")}</span>
         </div>
       </div>
 
@@ -231,8 +234,8 @@ export function WidgetRenderer({ data }: { data: WidgetData }) {
           href={APP_REPOSITORY_URL}
           target="_blank"
           rel="noopener noreferrer"
-          title="View ts6-manager on GitHub"
-          aria-label="Open ts6-manager on GitHub"
+          title={uiText("View ts6-manager on GitHub")}
+          aria-label={uiText("Open ts6-manager on GitHub")}
           style={{
             display: 'inline-flex',
             alignItems: 'center',

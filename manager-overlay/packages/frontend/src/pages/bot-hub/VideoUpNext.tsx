@@ -1,3 +1,4 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { translate as tr, useTranslation as useUiTranslation } from '@/lib/i18n';
 import { useEffect, useMemo, useState } from 'react';
 import { DndContext, closestCenter, type DragEndEvent } from '@dnd-kit/core';
@@ -18,12 +19,13 @@ const NO_ITEMS: VideoQueueItemInfo[] = [];
 function KeptStrip({ text, label, disabled, starting, onPlay }: {
   text: string; label?: string; disabled: boolean; starting: boolean; onPlay(): void;
 }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   return (
     <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-dashed p-2 text-sm text-muted-foreground">
       <span>{text}</span>
       <Button variant="outline" size="sm" className="h-9" disabled={disabled} aria-label={label} onClick={onPlay}>
-        {starting ? tr("Starting…") : 'Play queue'}
+        {starting ? tr("Starting…") : uiText("Play queue")}
       </Button>
     </div>
   );
@@ -31,13 +33,14 @@ function KeptStrip({ text, label, disabled, starting, onPlay }: {
 
 /** Up next before the video queue has loaded, or when it could not be. */
 function QueueNotLoaded({ loadError }: { loadError: unknown }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   return (
     <section aria-labelledby="up-next" className="space-y-3 border-t pt-4">
       <h2 id="up-next" className="text-sm font-semibold"> {tr("Up next")}</h2>
       {loadError ? (
         <p role="alert" className="text-sm text-destructive">
-          Could not load the video queue. {apiErrorMessage(loadError, 'Try again in a moment.')}
+          {uiText("Could not load the video queue. ")}{apiErrorMessage(loadError, 'Try again in a moment.')}
         </p>
       ) : (
         <p className="text-sm text-muted-foreground"> {tr("Loading the queue…")}</p>
@@ -60,6 +63,7 @@ export function VideoUpNext({ botId, state, streaming, loadError, stripOnly = fa
   /** The music lane owns Up next: show this queue as its one-line kept strip only. */
   stripOnly?: boolean;
 }) {
+  useUiLanguageStore(state => state.language);
   useUiTranslation();
   const move = useMoveQueuedVideo();
   const remove = useRemoveQueuedVideo();
@@ -95,7 +99,7 @@ export function VideoUpNext({ botId, state, streaming, loadError, stripOnly = fa
     if (items.length === 0) return null;
     return (
       <KeptStrip text={items.length === 1 ? '1 queued video is kept.' : `${items.length} queued videos are kept.`}
-        label="Play video queue" disabled={busy} starting={playQueue.isPending} onPlay={startQueue} />
+        label={uiText("Play video queue")} disabled={busy} starting={playQueue.isPending} onPlay={startQueue} />
     );
   }
 
@@ -110,24 +114,23 @@ export function VideoUpNext({ botId, state, streaming, loadError, stripOnly = fa
     <section aria-labelledby="up-next" className="space-y-3 border-t pt-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-baseline gap-2">
-          <h2 id="up-next" className="text-sm font-semibold">Up next ({items.length})</h2>
+          <h2 id="up-next" className="text-sm font-semibold">{uiText("Up next (")}{items.length})</h2>
           {items.length > 1 && <span className="text-xs text-muted-foreground"> {tr("Drag to reorder")}</span>}
         </div>
         <div className="flex flex-wrap gap-1">
           <Button variant="outline" size="sm" className="h-9" disabled={!streaming || busy}
-            aria-label="Skip to the next video" onClick={() => skip.mutate({ botId })}>
-            <SkipForward className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> {skip.isPending ? 'Skipping…' : 'Skip'}
+            aria-label={uiText("Skip to the next video")} onClick={() => skip.mutate({ botId })}>
+            <SkipForward className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> {skip.isPending ? uiText("Skipping…") : uiText("Skip")}
           </Button>
           <Button variant="ghost" size="sm" className="h-9" disabled={items.length === 0 || busy}
             onClick={() => clear.mutate({ botId })}>
-            <Trash2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> Clear
-          </Button>
+            <Trash2 className="mr-1 h-3.5 w-3.5" aria-hidden="true" /> {uiText(" Clear")}</Button>
         </div>
       </div>
 
       {loadError != null && (
         <p role="alert" className="text-sm text-destructive">
-          Could not refresh the video queue. {apiErrorMessage(loadError, 'Try again in a moment.')}
+          {uiText("Could not refresh the video queue. ")}{apiErrorMessage(loadError, 'Try again in a moment.')}
         </p>
       )}
       {failed != null && (

@@ -1,0 +1,67 @@
+import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
+import { useChannelGroups } from '@/hooks/use-groups';
+import { useServerStore } from '@/stores/server.store';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { PageLoader } from '@/components/shared/LoadingSpinner';
+import { EmptyState } from '@/components/shared/EmptyState';
+import { NoServerSelectedState } from '@/components/shared/NoServerSelectedState';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { ShieldCheck } from 'lucide-react';
+
+export default function ChannelGroups() {
+  useUiLanguageStore(state => state.language);
+  const { selectedConfigId, selectedSid } = useServerStore();
+  const { data, isLoading, error, refetch, isFetching } = useChannelGroups();
+
+  if (!selectedConfigId || !selectedSid) return <NoServerSelectedState pageTitle={uiText("Channel Groups")} icon={ShieldCheck} />;
+  if (isLoading) return <PageLoader />;
+  if (error) {
+    return (
+      <div className="space-y-4">
+        <EmptyState
+          icon={ShieldCheck}
+          title={uiText("Connection failed")}
+          description={(error as any)?.response?.data?.error || (error as any)?.message || uiText("Could not load channel groups from the TeamSpeak server.")}
+        />
+        <div className="flex justify-center">
+          <Button size="sm" variant="outline" onClick={() => refetch()} disabled={isFetching}>
+            {isFetching ? uiText("Retrying…") : uiText("Retry")}
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  const groups = Array.isArray(data) ? data : [];
+
+  return (
+    <div className="space-y-5">
+      <h1 className="text-xl font-semibold">{uiText("Channel Groups")}</h1>
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm font-medium text-muted-foreground">{uiText("Groups (")}{groups.length})</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <ScrollArea className="h-[min(500px,calc(100dvh-13rem))] min-h-72">
+            <div className="space-y-1">
+              {groups.map((g: any) => (
+                <div key={g.cgid} className="flex items-center justify-between rounded-md px-3 py-2.5 hover:bg-muted/30 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">{g.name}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary" className="text-[10px] font-mono-data">{uiText("CGID: ")}{g.cgid}</Badge>
+                    <Badge variant="outline" className="text-[10px] font-mono-data">{uiText("Type: ")}{g.type}</Badge>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
