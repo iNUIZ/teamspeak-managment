@@ -24,6 +24,14 @@ import { AutomationController, type AutomationRuntimeState } from './automation-
 import { readAutomationSettings } from './automation-settings.js';
 import { createWebQueryClient } from '../ts-client/webquery-client.js';
 import { resolveBotVoicePort } from './voice-port.js';
+import { parseExternalHost, resolveExternalServer } from './external-server.js';
+
+/** Initial voice target; a nickname is looked up again on every start. */
+function voiceTarget(externalHost: string | null | undefined, connectionHost: string, voicePort: number | null | undefined) {
+  const external = parseExternalHost(externalHost);
+  if (external) return { serverHost: external.host, serverPort: external.port ?? 9987 };
+  return { serverHost: connectionHost, serverPort: voicePort ?? 9987 };
+}
 
 type SavedVideoQueue = { items: VideoQueueItem[]; options: VideoQueueSessionOptions | null };
 
@@ -106,8 +114,7 @@ export class VoiceBotManager extends EventEmitter {
         id: dbBot.id,
         serverConfigId: dbBot.serverConfigId,
         name: dbBot.name,
-        serverHost: dbBot.serverConfig.host,
-        serverPort: dbBot.voicePort ?? 9987,
+        ...voiceTarget(dbBot.externalHost, dbBot.serverConfig.host, dbBot.voicePort),
         nickname: dbBot.nickname,
         serverPassword: dbBot.serverPassword ?? undefined,
         defaultChannel: dbBot.defaultChannel ?? undefined,
@@ -381,6 +388,7 @@ export class VoiceBotManager extends EventEmitter {
     serverConfigId: number;
     nickname?: string;
     serverPassword?: string;
+    externalHost?: string | null;
     defaultChannel?: string;
     channelPassword?: string;
     commandChannelIds?: string[];
@@ -420,9 +428,11 @@ export class VoiceBotManager extends EventEmitter {
         serverConfigId: data.serverConfigId,
         nickname: data.nickname ?? 'MediaBot',
         serverPassword: data.serverPassword,
+        externalHost: data.externalHost ?? null,
         defaultChannel: data.defaultChannel,
         channelPassword: data.channelPassword,
-        commandChannelIds: serializeCommandChannelIds(data.commandChannelIds ?? []),
+        // Command channels are ServerQuery listeners of the connection, not the external server.
+        commandChannelIds: serializeCommandChannelIds(data.externalHost ? [] : data.commandChannelIds ?? []),
         virtualServerId: data.virtualServerId ?? 1,
         voicePort: data.voicePort ?? 0,
         volume: data.volume ?? 50,
@@ -437,8 +447,7 @@ export class VoiceBotManager extends EventEmitter {
       id: dbBot.id,
       serverConfigId: data.serverConfigId,
       name: dbBot.name,
-      serverHost: serverConfig.host,
-      serverPort: dbBot.voicePort ?? 9987,
+      ...voiceTarget(dbBot.externalHost, serverConfig.host, dbBot.voicePort),
       nickname: dbBot.nickname,
       serverPassword: dbBot.serverPassword ?? undefined,
       defaultChannel: dbBot.defaultChannel ?? undefined,
@@ -651,7 +660,16 @@ export class VoiceBotManager extends EventEmitter {
     this.clearReconnect(id);
     const saved = await this.prisma.musicBot.findUnique({ where: { id }, include: { serverConfig: true } });
     if (!saved) throw new Error('Bot configuration not found');
-    if (!saved.voicePort) {
+    if (saved.externalHost) {
+      // No Query on another server: resolve the address the way a TeamSpeak client does.
+      try {
+        const target = await resolveExternalServer(saved.externalHost);
+        bot.updateConfig({ serverHost: target.host, serverPort: target.port });
+      } catch (error: any) {
+        bot.reportConnectionError(error?.message || 'External server address could not be resolved');
+        throw error;
+      }
+    } else if (!saved.voicePort) {
       const server = saved.serverConfig;
       const query = createWebQueryClient(server.host, server.webqueryPort, decrypt(server.apiKey), server.useHttps);
       try {

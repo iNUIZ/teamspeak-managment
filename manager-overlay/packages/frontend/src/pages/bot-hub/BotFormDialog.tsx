@@ -46,6 +46,9 @@ function isMusicBotCreateTransportFailure(err: unknown): boolean {
 interface BotForm {
   name: string;
   serverConfigId: string;
+  /** Join another TeamSpeak server as a plain voice client (no ServerQuery there). */
+  external: boolean;
+  externalHost: string;
   serverPassword: string;
   defaultChannel: string;
   commandChannelsText: string;
@@ -59,6 +62,8 @@ interface BotForm {
 const EMPTY_FORM: BotForm = {
   name: '',
   serverConfigId: '',
+  external: false,
+  externalHost: '',
   serverPassword: '',
   defaultChannel: '',
   commandChannelsText: '',
@@ -73,6 +78,8 @@ function formFor(bot: MusicBotSummary): BotForm {
   return {
     name: bot.name,
     serverConfigId: String(bot.serverConfigId),
+    external: !!bot.externalHost,
+    externalHost: bot.externalHost || '',
     serverPassword: bot.serverPassword || '',
     defaultChannel: bot.defaultChannel || '',
     commandChannelsText: (bot.commandChannelIds ?? []).join(', '),
@@ -123,6 +130,9 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
 
   // A saved bot can predate the limit, so its name may already be too long.
   const nameLengthError = form.name !== '' && !isBotNicknameLengthOk(form.name);
+  const externalHostMissing = form.external && !form.externalHost.trim();
+  const errorText = (err: unknown, fallback: string) =>
+    axios.isAxiosError(err) && typeof err.response?.data?.error === 'string' ? uiText(err.response.data.error) : uiText(fallback);
 
   const handleCreate = async () => {
     const configId = parseInt(form.serverConfigId);
@@ -143,6 +153,7 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
       serverConfigId: configId,
       nickname: form.name.trim() || 'MediaBot',
       serverPassword: form.serverPassword || undefined,
+      externalHost: form.external ? form.externalHost.trim() : undefined,
       defaultChannel: form.defaultChannel || undefined,
       // Empty = same-channel voice cmds + SSH roaming helper (no create-time pin).
       virtualServerId: form.virtualServerId,
@@ -175,7 +186,7 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
             // fall through to failure toast
           }
         }
-        toast.error(uiText("Failed to create bot"));
+        toast.error(errorText(err, "Failed to create bot"));
       },
     });
   };
@@ -186,8 +197,9 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
       name: form.name,
       nickname: form.name.trim(),
       serverPassword: form.serverPassword || undefined,
+      externalHost: form.external ? form.externalHost.trim() : '',
       defaultChannel: form.defaultChannel || undefined,
-      commandChannelIds: parseCommandChannelsInput(form.commandChannelsText),
+      commandChannelIds: form.external ? [] : parseCommandChannelsInput(form.commandChannelsText),
       virtualServerId: form.virtualServerId,
       channelPassword: form.channelPassword || undefined,
       voicePort: form.voicePort,
@@ -195,7 +207,7 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
       autoStart: form.autoStart,
     }}, {
       onSuccess: () => { toast.success(uiText("Bot updated")); void queryClient.invalidateQueries({ queryKey: ['bot-media'] }); onClose(); },
-      onError: () => toast.error(uiText("Failed to update bot")),
+      onError: (err) => toast.error(errorText(err, "Failed to update bot")),
     });
   };
 
@@ -224,11 +236,28 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
               </Select>
             </div>
           )}
-          <div>
-            <Label className="text-xs"> {tr("Voice Port")}</Label>
-            <Input type="number" min={0} max={65535} value={form.voicePort} onChange={(e) => setForm({ ...form, voicePort: parseInt(e.target.value) || 0 })} placeholder="0" />
-            <p className="mt-1 text-xs text-muted-foreground">{tr('Use 0 to discover the voice port automatically. For NAT, enter the externally reachable port.')}</p>
+          <div className="space-y-2 rounded-md border p-2">
+            <div className="flex items-center gap-2">
+              <Switch id="bot-external-server" checked={form.external} onCheckedChange={(v) => setForm({ ...form, external: v })} />
+              <Label htmlFor="bot-external-server" className="text-xs">{tr("Join another TeamSpeak server")}</Label>
+            </div>
+            {form.external ? (
+              <div>
+                <Label htmlFor="bot-external-host" className="text-xs">{tr("TeamSpeak address")}</Label>
+                <Input id="bot-external-host" value={form.externalHost} aria-invalid={externalHostMissing} onChange={(e) => setForm({ ...form, externalHost: e.target.value })} placeholder={tr("e.g. 25krs, ts.example.com or 203.0.113.5:9987")} />
+                <p className="mt-1 text-xs text-muted-foreground">{tr("The bot joins like a normal user, without ServerQuery. Commands work in its own channel; channel lists and cross-channel commands are not available. The selected server still provides radios, playlists and command permissions.")}</p>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">{tr("Off: the bot joins the selected server above.")}</p>
+            )}
           </div>
+          {!form.external && (
+            <div>
+              <Label className="text-xs"> {tr("Voice Port")}</Label>
+              <Input type="number" min={0} max={65535} value={form.voicePort} onChange={(e) => setForm({ ...form, voicePort: parseInt(e.target.value) || 0 })} placeholder="0" />
+              <p className="mt-1 text-xs text-muted-foreground">{tr('Use 0 to discover the voice port automatically. For NAT, enter the externally reachable port.')}</p>
+            </div>
+          )}
           <div>
             <Label className="text-xs"> {tr("Server Password")}</Label>
             <Input type="password" value={form.serverPassword} onChange={(e) => setForm({ ...form, serverPassword: e.target.value })} placeholder={tr("Leave empty if none")} />
@@ -237,7 +266,7 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
             <Label className="text-xs"> {tr("Default Channel")}</Label>
             <Input value={form.defaultChannel} onChange={(e) => setForm({ ...form, defaultChannel: e.target.value })} placeholder={tr("Channel name or ID (playback channel)")} />
           </div>
-          {bot && (
+          {bot && !form.external && (
             <div>
               <Label className="text-xs"> {tr("Command channels (optional)")}</Label>
               <Input
@@ -249,15 +278,17 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
                 {uiText("Leave empty to use same-channel voice commands plus the SSH roaming helper. Pin IDs only if you need fixed command rooms. Requires ServerQuery SSH.")}</p>
             </div>
           )}
-          <div>
-            <Label className="text-xs"> {tr("Virtual server ID")}</Label>
-            <Input
-              type="number"
-              min={1}
-              value={form.virtualServerId}
-              onChange={(e) => setForm({ ...form, virtualServerId: parseInt(e.target.value, 10) || 1 })}
-            />
-          </div>
+          {!form.external && (
+            <div>
+              <Label className="text-xs"> {tr("Virtual server ID")}</Label>
+              <Input
+                type="number"
+                min={1}
+                value={form.virtualServerId}
+                onChange={(e) => setForm({ ...form, virtualServerId: parseInt(e.target.value, 10) || 1 })}
+              />
+            </div>
+          )}
           <div>
             <Label className="text-xs"> {tr("Channel Password")}</Label>
             <Input type="password" value={form.channelPassword} onChange={(e) => setForm({ ...form, channelPassword: e.target.value })} placeholder={tr("Leave empty if none")} />
@@ -274,7 +305,7 @@ export function BotFormDialog({ open, bot, onClose, defaultServerId }: {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}> {tr("Cancel")}</Button>
-          <Button onClick={() => { if (bot) handleUpdate(); else void handleCreate(); }} disabled={!isBotNicknameLengthOk(form.name) || (!bot && !form.serverConfigId) || createBot.isPending || updateBot.isPending}>
+          <Button onClick={() => { if (bot) handleUpdate(); else void handleCreate(); }} disabled={!isBotNicknameLengthOk(form.name) || (!bot && !form.serverConfigId) || externalHostMissing || createBot.isPending || updateBot.isPending}>
             {bot ? tr("Save") : tr("Create")}
           </Button>
         </DialogFooter>

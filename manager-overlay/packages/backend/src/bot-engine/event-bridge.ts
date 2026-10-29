@@ -119,6 +119,8 @@ export class EventBridge extends EventEmitter {
    *          false when the config is missing credentials / not found (WebQuery-only).
    */
   async connectServer(configId: number, sid: number): Promise<boolean> {
+    // Bots on an external server use a negative scope; it never names a virtual server.
+    if (!Number.isInteger(sid) || sid < 1) return false;
     const key = this.makeKey(configId, sid);
     const pending = this.connecting.get(key);
     if (pending) return pending;
@@ -386,6 +388,7 @@ export class EventBridge extends EventEmitter {
    * Reuses the same connection used for event listening — no extra server slots.
    */
   async executeCommand(configId: number, sid: number, command: string): Promise<string> {
+    if (!Number.isInteger(sid) || sid < 1) throw new Error('No ServerQuery for this virtual server');
     const key = this.makeKey(configId, sid);
     let client = this.connections.get(key);
 

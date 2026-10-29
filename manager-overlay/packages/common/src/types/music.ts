@@ -58,6 +58,8 @@ export interface MusicBotSummary {
   serverConfig?: { id: number; name: string; host: string };
   nickname: string;
   serverPassword: string | null;
+  /** Set when the bot joins another TeamSpeak server as a plain voice client. */
+  externalHost?: string | null;
   defaultChannel: string | null;
   commandChannelIds?: string[];
   virtualServerId?: number;
@@ -84,6 +86,7 @@ export interface CreateMusicBotRequest {
   serverConfigId: number;
   nickname?: string;
   serverPassword?: string;
+  externalHost?: string;
   defaultChannel?: string;
   commandChannelIds?: string[];
   virtualServerId?: number;
@@ -97,6 +100,8 @@ export interface UpdateMusicBotRequest {
   name?: string;
   nickname?: string;
   serverPassword?: string;
+  /** Empty string returns the bot to the connection's own server. */
+  externalHost?: string;
   defaultChannel?: string;
   commandChannelIds?: string[];
   virtualServerId?: number;
