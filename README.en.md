@@ -32,14 +32,16 @@ not include PowerShell or npm development files.
 ## Components
 
 See [cookie-only YouTube playback](docs/youtube-cookies.md) for cookie setup,
-deployment requirements and limitations.
+deployment requirements and limitations; export cookies for a dedicated bot account.
+`!ara` can also search the Spotify catalogue: [Spotify search](docs/spotify-search.md).
 
 - TeamSpeak 3 Server with HTTP WebQuery
 - TeaSpeak Server
 - TeamSpeak 6 Server with WebQuery
 - TS6 Manager web panel
-- Manager music bot support
-- Mixed `!ara` music search plus safe custom-command and extension management
+- Manager music bot support; a bot can also join another TeamSpeak server by address
+  (for example `25krs` or `ts.example.com:9987`) as a plain client, without Query
+- Mixed `!ara` music search (YouTube Music, YouTube, optional Spotify) plus safe custom-command and extension management
 - Service control, logs, backup, and data-preserving updates
 
 Every deployment starts with clean Docker volumes. The repository contains no

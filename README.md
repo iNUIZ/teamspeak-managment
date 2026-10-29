@@ -27,8 +27,9 @@ PowerShell ve npm geliştirme dosyalarını içermez.
 
 ## Bileşenler
 
-YouTube yalnızca yönetici tarafından yüklenen çerez dosyasıyla çalışır:
-[oynatma kılavuzu](docs/youtube-cookies.md).
+YouTube yalnızca yönetici tarafından yüklenen çerez dosyasıyla çalışır; çerez bot için
+ayrı bir hesaptan alınmalıdır: [oynatma kılavuzu](docs/youtube-cookies.md).
+`!ara` isteğe bağlı olarak Spotify kataloğunda da arar: [Spotify araması](docs/spotify-search.md).
 
 Panelin yeni logosu, TR/EN arayüzü, otomatik bot portu ve isteğe bağlı
 `!say` konuşma sentezi için [panel ve TTS kılavuzunu](docs/panel-and-tts.md) okuyun.
@@ -37,8 +38,9 @@ Panelin yeni logosu, TR/EN arayüzü, otomatik bot portu ve isteğe bağlı
 - TeaSpeak Server
 - TeamSpeak 6 Server ve WebQuery
 - TS6 Manager web paneli
-- Manager müzik botu desteği
-- `!ara` ile karma müzik araması ve güvenli özel komut/eklenti yönetimi
+- Manager müzik botu desteği; bot, Query gerekmeden başka bir TeamSpeak sunucusuna da
+  adresiyle (ör. `25krs` veya `ts.ornek.com:9987`) normal kullanıcı gibi girebilir
+- `!ara` ile karma müzik araması (YouTube Music, YouTube, isteğe bağlı Spotify) ve güvenli özel komut/eklenti yönetimi
 - Servis yönetimi, log görüntüleme, yedekleme ve güvenli güncelleme
 
 Kurulumlar temiz Docker volume'larında oluşturulur. Repo; parola, API anahtarı,

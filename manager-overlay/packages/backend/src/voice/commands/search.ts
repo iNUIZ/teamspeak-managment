@@ -1,13 +1,17 @@
 import type { VoiceBot } from '../voice-bot.js';
 import type { YouTubeSearchResult } from '../audio/youtube.js';
 import { getYtCookieFile, searchYouTube, searchYouTubeMusic } from '../audio/youtube.js';
+import { searchSpotifyTracks, spotifyCredentials, type SpotifyTrackResult } from '../audio/spotify-search.js';
 import type { CommandContext } from './context.js';
 
 const SEARCH_SESSION_MS = 5 * 60 * 1000;
 const MAX_QUERY_LENGTH = 160;
 
-type SearchSource = 'YouTube Music' | 'YouTube' | 'Spotify match';
-type RankedResult = YouTubeSearchResult & { sourceLabel: SearchSource; score: number };
+/** 'Spotify' is the real catalogue; 'Spotify match' is the YouTube fallback without Spotify credentials. */
+type SearchSource = 'YouTube Music' | 'YouTube' | 'Spotify' | 'Spotify match';
+/** `url` is what gets queued: a YouTube watch page, or a Spotify track matched on YouTube at play time. */
+type Candidate = YouTubeSearchResult & { url?: string };
+type RankedResult = Candidate & { sourceLabel: SearchSource; score: number; url: string };
 type SearchSession = { query: string; results: RankedResult[]; expiresAt: number };
 
 const sessions = new Map<string, SearchSession>();
@@ -27,7 +31,7 @@ export function qualityScore(item: YouTubeSearchResult, query: string, sourceLab
   const terms = normalise(query).split(' ').filter(Boolean);
   const matchedTerms = terms.filter((term) => haystack.includes(term)).length;
   let score = terms.length ? (matchedTerms / terms.length) * 60 : 0;
-  if (sourceLabel === 'YouTube Music') score += 18;
+  if (sourceLabel === 'YouTube Music' || sourceLabel === 'Spotify') score += 18;
   if (sourceLabel === 'Spotify match') score += 12;
   if (/official|topic|vevo|audio|provided to youtube/i.test(`${item.artist} ${item.title}`)) score += 12;
   if (item.duration >= 75 && item.duration <= 480) score += 8;
@@ -37,16 +41,22 @@ export function qualityScore(item: YouTubeSearchResult, query: string, sourceLab
 
 function mergeAndRank(
   query: string,
-  groups: Array<{ sourceLabel: SearchSource; items: YouTubeSearchResult[] }>,
+  groups: Array<{ sourceLabel: SearchSource; items: Candidate[] }>,
 ): RankedResult[] {
   const unique = new Map<string, RankedResult>();
   for (const group of groups) {
     for (const item of group.items) {
       if (!item.id || unique.has(item.id)) continue;
-      unique.set(item.id, { ...item, sourceLabel: group.sourceLabel, score: qualityScore(item, query, group.sourceLabel) });
+      const url = item.url ?? `https://www.youtube.com/watch?v=${item.id}`;
+      unique.set(item.id, { ...item, url, sourceLabel: group.sourceLabel, score: qualityScore(item, query, group.sourceLabel) });
     }
   }
   return [...unique.values()].sort((a, b) => b.score - a.score || a.title.localeCompare(b.title)).slice(0, 10);
+}
+
+/** Spotify ids cannot collide with YouTube ids in the merged list. */
+function spotifyCandidate(track: SpotifyTrackResult): Candidate {
+  return { id: `spotify:${track.id}`, title: track.title, artist: track.artist, duration: track.duration, thumbnail: '', url: track.url };
 }
 
 function formatResults(query: string, results: RankedResult[]): string {
@@ -76,22 +86,29 @@ export async function handleSearch(
     await context.reply(bot, userClid, 'YouTube çerezleri gerekli. Yönetici, panelde Ayarlar → YouTube bölümünden cookies.txt yüklemeli.');
     return;
   }
-  await context.reply(bot, userClid, 'YouTube Music ve YouTube aranıyor; sonuçlar başlık, sanatçı ve sürüm uyumuna göre sıralanıyor...');
+  const spotify = spotifyCredentials() !== null;
+  await context.reply(bot, userClid, spotify
+    ? 'YouTube Music, YouTube ve Spotify aranıyor; sonuçlar başlık, sanatçı ve sürüm uyumuna göre sıralanıyor...'
+    : 'YouTube Music ve YouTube aranıyor; sonuçlar başlık, sanatçı ve sürüm uyumuna göre sıralanıyor...');
   const signal = AbortSignal.timeout(180_000);
-  const settled = await Promise.allSettled([
+  const settled = await Promise.allSettled<Candidate[]>([
     searchYouTubeMusic(query, 8, signal),
     searchYouTube(query, 8, signal),
-    // Credential-free fallback for Spotify catalogue wording. A future Spotify
-    // provider extension can replace this group without changing chat routing.
-    searchYouTube(`${query} spotify official audio`, 8, signal),
+    // Without Spotify credentials, a YouTube search phrased like the Spotify release stands in.
+    spotify
+      ? searchSpotifyTracks(query, 5, signal).then((tracks) => tracks.map(spotifyCandidate))
+      : searchYouTube(`${query} spotify official audio`, 8, signal),
   ]);
-  const items = (index: number): YouTubeSearchResult[] => settled[index]?.status === 'fulfilled'
+  const items = (index: number): Candidate[] => settled[index]?.status === 'fulfilled'
     ? settled[index].value
     : [];
+  if (spotify && settled[2]?.status === 'rejected') {
+    console.warn(`[MusicCmd] Spotify search failed: ${settled[2].reason instanceof Error ? settled[2].reason.message : settled[2].reason}`);
+  }
   const results = mergeAndRank(query, [
     { sourceLabel: 'YouTube Music', items: items(0) },
     { sourceLabel: 'YouTube', items: items(1) },
-    { sourceLabel: 'Spotify match', items: items(2) },
+    { sourceLabel: spotify ? 'Spotify' : 'Spotify match', items: items(2) },
   ]);
   if (!results.length) {
     await context.reply(bot, userClid, `“${query}” için sonuç bulunamadı.`);
@@ -125,7 +142,7 @@ export async function handleSearchChoice(
   sessions.delete(key);
   await context.reply(bot, userClid, `Hazırlanıyor: ${selected.artist} - ${selected.title}`);
   try {
-    await context.enqueueMediaUrl(botId, bot, userClid, `https://www.youtube.com/watch?v=${selected.id}`);
+    await context.enqueueMediaUrl(botId, bot, userClid, selected.url);
   } catch (error) {
     // Do not leak downloader paths, proxy credentials or cookie locations to chat.
     const blocked = /sign in to confirm|not a bot|bot.check/i.test(error instanceof Error ? error.message : '');

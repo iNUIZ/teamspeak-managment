@@ -45,6 +45,17 @@ describe('mixed !ara ranking', () => {
         > qualityScore(item('b', 'Song slowed reverb reaction'), 'song', 'YouTube'),
     );
   });
+  it('labels real Spotify results and queues their Spotify link for YouTube matching', () => {
+    const ranked = searchInternals.mergeAndRank('kuzu kuzu', [
+      { sourceLabel: 'Spotify', items: [{ ...item('spotify:abc', 'Kuzu Kuzu', 'Tarkan'), url: 'https://open.spotify.com/track/abc' }] },
+      { sourceLabel: 'YouTube', items: [item('yt1', 'Kuzu Kuzu', 'Tarkan')] },
+    ]);
+    const spotify = ranked.find((result) => result.sourceLabel === 'Spotify')!;
+    assert.equal(spotify.url, 'https://open.spotify.com/track/abc');
+    assert.equal(ranked.find((result) => result.id === 'yt1')!.url, 'https://www.youtube.com/watch?v=yt1');
+    assert.match(searchInternals.formatResults('kuzu kuzu', ranked), /\[Spotify\] Tarkan - Kuzu Kuzu/);
+  });
+
   it('shows duration and does not claim a YouTube match is Spotify audio', () => {
     const results = searchInternals.mergeAndRank('song', [{ sourceLabel: 'Spotify match', items: [item('1', 'Song')] }]);
     const text = searchInternals.formatResults('song', results);
