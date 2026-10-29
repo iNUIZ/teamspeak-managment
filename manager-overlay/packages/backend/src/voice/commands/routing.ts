@@ -11,6 +11,7 @@ import { handleSearchChoice } from './search.js';
 import { handleSay } from './tts.js';
 import { canonicalBotCommand, readBotExtensions } from '../bot-extension-settings.js';
 import { handleListenerRemote, revokeDepartedRemote } from './listener-remote.js';
+import { describeChatCommand } from '../bot-activity.js';
 const CMD_PREFIX = '!';
 const MUSIC_COMMANDS = new Set<string>(BUILTIN_CHAT_COMMANDS);
 const loggableMessage = (message: string) => /^\s*!(remote|say)(?:\s|$)/i.test(message) ? message.split(/\s/)[0] + ' [redacted]' : message;
@@ -404,6 +405,9 @@ export async function onTextMessage(
     if (!await checkMediaCommand(context, bot, userClid, command, args, data.invokeruid)) return;
     if (bot.floodHoldActive) { bot.noteIgnoredCommand(); return; }
     console.log(`[MusicCmd] Bot ${botId}: !${command} ${command === 'say' ? '[redacted]' : args} (from clid=${userClid})`);
+    void context.voiceBotManager.activity?.record(botId, {
+      via: 'teamspeak', who: data.invokername, action: describeChatCommand(command, args, searchChoice),
+    });
     try {
       if (searchChoice !== null) {
         await handleSearchChoice(context, botId, bot, userClid, searchChoice);

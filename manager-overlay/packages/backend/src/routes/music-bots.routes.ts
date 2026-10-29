@@ -9,6 +9,8 @@ import type { VoiceBotManager } from '../voice/voice-bot-manager.js';
 import type { VoiceBot } from '../voice/voice-bot.js';
 import { serializeCommandChannelIds, parseCommandChannelIds } from '../voice/music-command-channels.js';
 import { normalizeExternalHost, parseExternalHost } from '../voice/external-server.js';
+import { searchMusic } from '../voice/commands/search.js';
+import { getYtCookieFile } from '../voice/audio/youtube-cookies.js';
 
 /** undefined = unchanged, null = the connection's own server. */
 function externalHostInput(value: unknown): string | null | undefined {
@@ -37,6 +39,44 @@ import { botExtensionsKey, canonicalBotCommand, parseBotExtensions, readBotExten
 import { BUILTIN_COMMAND_HELP } from '../voice/chat-commands.js';
 
 export const musicBotRoutes: Router = Router();
+
+/**
+ * Panel control actions, written to the bot's activity log in the same command form a
+ * TeamSpeak user would type, so one list answers "who did what" for both.
+ */
+function panelActivityAction(path: string, body: Record<string, unknown>): string | null {
+  const url = typeof body.url === 'string' ? body.url.slice(0, 120) : '';
+  switch (path) {
+    case 'pause': return '!pause';
+    case 'resume': return '!pause (devam)';
+    case 'skip': return '!skip';
+    case 'previous': return '!prev';
+    case 'stop-playback': return '!stop';
+    case 'volume': return Number.isFinite(Number(body.volume)) ? `!vol ${Math.round(Number(body.volume))}` : '!vol';
+    case 'play-url': return body.enqueue === true ? `!add ${url}` : `!play ${url}`;
+    case 'play-radio': return `!radio ${body.stationId ?? ''}`.trim();
+    case 'queue/repeat': return `!repeat ${body.mode ?? ''}`.trim();
+    case 'queue/shuffle': return `!shuffle ${body.enabled ? 'on' : 'off'}`;
+    case 'automation': return body.enabled === true ? 'Auto-DJ: on' : 'Auto-DJ: off';
+    case 'start': return 'start';
+    case 'stop': return 'stop';
+    default: return null;
+  }
+}
+
+musicBotRoutes.use('/:id', (req: Request, res: Response, next) => {
+  if (req.method !== 'POST' && req.method !== 'PUT') return next();
+  const botId = Number(req.params.id);
+  const action = Number.isSafeInteger(botId) ? panelActivityAction(req.path.replace(/^\/+|\/+$/g, ''), req.body ?? {}) : null;
+  if (action) {
+    res.on('finish', () => {
+      if (res.statusCode >= 400) return;
+      const manager: VoiceBotManager | undefined = req.app.locals.voiceBotManager;
+      void manager?.activity?.record(botId, { via: 'panel', who: req.user?.username ?? 'panel', action });
+    });
+  }
+  next();
+});
 
 /**
  * TeamSpeak refuses a nickname outside 3-30 characters at connect (error 1541),
@@ -852,6 +892,33 @@ musicBotRoutes.get('/:id/state', async (req: Request, res: Response, next) => {
       repeat: bot.queue.repeat,
       isStreaming: bot.isStreaming,
       videoStream: bot.videoStreamStatus,
+    });
+  } catch (err) { next(err); }
+});
+
+// GET /:id/activity — who did what on this bot (TeamSpeak chat and panel), newest first.
+musicBotRoutes.get('/:id/activity', async (req: Request, res: Response, next) => {
+  try {
+    const manager: VoiceBotManager = req.app.locals.voiceBotManager;
+    const id = parseInt(req.params.id as string);
+    if (!manager.getBot(id)) throw new AppError(404, 'Music bot not found');
+    res.json(await manager.activity.list(id));
+  } catch (err) { next(err); }
+});
+
+// POST /:id/search — the same ranked YouTube Music / YouTube / Spotify search as !ara.
+musicBotRoutes.post('/:id/search', async (req: Request, res: Response, next) => {
+  try {
+    const manager: VoiceBotManager = req.app.locals.voiceBotManager;
+    if (!manager.getBot(parseInt(req.params.id as string))) throw new AppError(404, 'Music bot not found');
+    const query = typeof req.body?.query === 'string' ? req.body.query.trim() : '';
+    if (query.length < 2) throw new AppError(400, 'Enter at least 2 characters to search');
+    const results = await searchMusic(query, AbortSignal.timeout(120_000));
+    res.json({
+      cookies: !!getYtCookieFile(),
+      results: results.map(({ title, artist, duration, url, sourceLabel }) => ({
+        title, artist, duration, url, source: sourceLabel === 'Spotify match' ? 'YouTube' : sourceLabel,
+      })),
     });
   } catch (err) { next(err); }
 });

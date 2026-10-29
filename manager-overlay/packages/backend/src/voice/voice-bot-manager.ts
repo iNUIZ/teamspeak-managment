@@ -25,6 +25,7 @@ import { readAutomationSettings } from './automation-settings.js';
 import { createWebQueryClient } from '../ts-client/webquery-client.js';
 import { resolveBotVoicePort } from './voice-port.js';
 import { parseExternalHost, resolveExternalServer } from './external-server.js';
+import { BotActivityLog } from './bot-activity.js';
 
 /** Initial voice target; a nickname is looked up again on every start. */
 function voiceTarget(externalHost: string | null | undefined, connectionHost: string, voicePort: number | null | undefined) {
@@ -61,11 +62,15 @@ export class VoiceBotManager extends EventEmitter {
   /** Each bot's video lane (queued videos), kept for the bot's lifetime. */
   private videoQueues = new Map<number, VideoQueueController>();
 
+  /** Who did what on each bot, from TeamSpeak chat and the panel. */
+  readonly activity: BotActivityLog;
+
   constructor(
     private prisma: PrismaClient,
     private wss: WebSocketServer,
   ) {
     super();
+    this.activity = new BotActivityLog(prisma);
   }
 
   setMusicCommandHandler(handler: MusicCommandHandler): void {
