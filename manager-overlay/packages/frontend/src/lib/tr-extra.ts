@@ -1,6 +1,13 @@
 /** UI copy only: never translate user-provided names, IDs, commands, or permission identifiers. */
 export const extraTurkish: Record<string, string> = {
   'Use 0 to discover the voice port automatically. For NAT, enter the externally reachable port.': 'Ses portunu otomatik öğrenmek için 0 yazın. NAT kullanıyorsanız dışarıdan erişilen portu girin.',
+  'Join another TeamSpeak server': 'Başka bir TeamSpeak sunucusuna gir',
+  'TeamSpeak address': 'TeamSpeak adresi',
+  'e.g. 25krs, ts.example.com or 203.0.113.5:9987': 'ör. 25krs, ts.ornek.com veya 203.0.113.5:9987',
+  'The bot joins like a normal user, without ServerQuery. Commands work in its own channel; channel lists and cross-channel commands are not available. The selected server still provides radios, playlists and command permissions.':
+    'Bot, ServerQuery olmadan normal bir kullanıcı gibi girer. Komutlar botun kendi kanalında çalışır; kanal listesi ve başka kanallardan komut kullanılamaz. Radyolar, oynatma listeleri ve komut izinleri yine seçili sunucudan gelir.',
+  'Off: the bot joins the selected server above.': 'Kapalı: bot yukarıda seçili sunucuya girer.',
+  'Enter a TeamSpeak address such as 25krs, ts.example.com or 203.0.113.5:9987': '25krs, ts.ornek.com veya 203.0.113.5:9987 gibi bir TeamSpeak adresi girin',
   'Create Widget': 'Bileşen oluştur', 'Edit Widget': 'Bileşeni düzenle', 'Server Widgets': 'Sunucu bileşenleri',
   'New Widget': 'Yeni bileşen', 'Embed Code': 'Yerleştirme kodu', 'Back to widget list': 'Bileşen listesine dön',
   Name: 'Ad', Server: 'Sunucu', 'Virtual Server ID': 'TeamSpeak sunucu kimliği', Theme: 'Tema',

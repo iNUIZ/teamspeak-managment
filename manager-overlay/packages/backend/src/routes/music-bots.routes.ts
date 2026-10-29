@@ -8,6 +8,14 @@ import { AppError } from '../middleware/error-handler.js';
 import type { VoiceBotManager } from '../voice/voice-bot-manager.js';
 import type { VoiceBot } from '../voice/voice-bot.js';
 import { serializeCommandChannelIds, parseCommandChannelIds } from '../voice/music-command-channels.js';
+import { normalizeExternalHost, parseExternalHost } from '../voice/external-server.js';
+
+/** undefined = unchanged, null = the connection's own server. */
+function externalHostInput(value: unknown): string | null | undefined {
+  if (value === undefined) return undefined;
+  try { return normalizeExternalHost(value); }
+  catch { throw new AppError(400, 'Enter a TeamSpeak address such as 25krs, ts.example.com or 203.0.113.5:9987'); }
+}
 import { playerWidgetToken } from './widget-public.routes.js';
 import { parseStreamStartOptions } from '../voice/streaming/start-options.js';
 import { parseReplaceSessionIds } from '../voice/media-session.js';
@@ -253,6 +261,7 @@ musicBotRoutes.get('/', async (req: Request, res: Response, next) => {
         serverConfigId: b.serverConfigId,
         serverConfig: b.serverConfig,
         nickname: b.nickname,
+        externalHost: b.externalHost ?? null,
         defaultChannel: b.defaultChannel,
         commandChannelIds: parseCommandChannelIds(b.commandChannelIds),
         virtualServerId: b.virtualServerId,
@@ -371,6 +380,7 @@ musicBotRoutes.post('/', async (req: Request, res: Response, next) => {
     const { name, serverConfigId, nickname, serverPassword, defaultChannel, channelPassword, commandChannelIds, virtualServerId, voicePort, volume, autoStart } = req.body;
     if (!name || !serverConfigId) throw new AppError(400, 'name and serverConfigId are required');
     const checkedNickname = validNickname(nickname);
+    const externalHost = externalHostInput(req.body.externalHost);
 
     const parsedCommandChannels = Array.isArray(commandChannelIds)
       ? commandChannelIds.map(String)
@@ -383,6 +393,7 @@ musicBotRoutes.post('/', async (req: Request, res: Response, next) => {
       serverConfigId: parseInt(serverConfigId),
       nickname: checkedNickname,
       serverPassword,
+      externalHost,
       defaultChannel,
       channelPassword,
       commandChannelIds: parsedCommandChannels,
@@ -406,6 +417,7 @@ musicBotRoutes.put('/:id', async (req: Request, res: Response, next) => {
     const id = parseInt(req.params.id as string);
     const { name, serverPassword, defaultChannel, channelPassword, commandChannelIds, virtualServerId, voicePort, volume, autoStart } = req.body;
     const nickname = validNickname(req.body.nickname);
+    const externalHost = externalHostInput(req.body.externalHost);
 
     const commandChannelData =
       commandChannelIds !== undefined
@@ -426,14 +438,18 @@ musicBotRoutes.put('/:id', async (req: Request, res: Response, next) => {
         ...(name != null && { name }),
         ...(nickname != null && { nickname }),
         ...(serverPassword !== undefined && { serverPassword }),
+        ...(externalHost !== undefined && { externalHost }),
         ...(defaultChannel !== undefined && { defaultChannel }),
         ...(channelPassword !== undefined && { channelPassword }),
         ...commandChannelData,
+        // Command channels belong to the connection's ServerQuery, which an external server lacks.
+        ...(externalHost && { commandChannelIds: serializeCommandChannelIds([]) }),
         ...(virtualServerId != null && { virtualServerId: parseInt(virtualServerId, 10) }),
         ...(voicePort != null && { voicePort: parseInt(voicePort) }),
         ...(volume != null && { volume: parseInt(volume) }),
         ...(autoStart != null && { autoStart }),
       },
+      include: { serverConfig: { select: { host: true } } },
     });
 
     await manager.refreshMusicCommandChannels(id);
@@ -450,6 +466,13 @@ musicBotRoutes.put('/:id', async (req: Request, res: Response, next) => {
         ...(voicePort != null && { serverPort: parseInt(voicePort) }),
         ...(volume != null && { volume: parseInt(volume) }),
       });
+      // The next start connects there; a nickname is resolved again at that point.
+      if (externalHost !== undefined) {
+        const external = parseExternalHost(dbBot.externalHost);
+        bot.updateConfig(external
+          ? { serverHost: external.host, serverPort: external.port ?? 9987 }
+          : { serverHost: dbBot.serverConfig.host, serverPort: dbBot.voicePort || 9987 });
+      }
     }
 
     res.json({ success: true });
