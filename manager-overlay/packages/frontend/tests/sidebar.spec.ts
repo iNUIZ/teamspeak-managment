@@ -16,7 +16,7 @@ const destinations = [
   'Complaints',
   'Messages',
   'Reports and diagnostics',
-  'Bot Hub',
+  'Bot control',
   'Bot Flows',
   'Media Library',
   'IPTV',

@@ -11,7 +11,7 @@ const MAX_QUERY_LENGTH = 160;
 type SearchSource = 'YouTube Music' | 'YouTube' | 'Spotify' | 'Spotify match';
 /** `url` is what gets queued: a YouTube watch page, or a Spotify track matched on YouTube at play time. */
 type Candidate = YouTubeSearchResult & { url?: string };
-type RankedResult = Candidate & { sourceLabel: SearchSource; score: number; url: string };
+export type RankedResult = Candidate & { sourceLabel: SearchSource; score: number; url: string };
 type SearchSession = { query: string; results: RankedResult[]; expiresAt: number };
 
 const sessions = new Map<string, SearchSession>();
@@ -86,11 +86,22 @@ export async function handleSearch(
     await context.reply(bot, userClid, 'YouTube çerezleri gerekli. Yönetici, panelde Ayarlar → YouTube bölümünden cookies.txt yüklemeli.');
     return;
   }
-  const spotify = spotifyCredentials() !== null;
-  await context.reply(bot, userClid, spotify
+  await context.reply(bot, userClid, spotifyCredentials() !== null
     ? 'YouTube Music, YouTube ve Spotify aranıyor; sonuçlar başlık, sanatçı ve sürüm uyumuna göre sıralanıyor...'
     : 'YouTube Music ve YouTube aranıyor; sonuçlar başlık, sanatçı ve sürüm uyumuna göre sıralanıyor...');
-  const signal = AbortSignal.timeout(180_000);
+  const results = await searchMusic(query, AbortSignal.timeout(180_000));
+  if (!results.length) {
+    await context.reply(bot, userClid, `“${query}” için sonuç bulunamadı.`);
+    return;
+  }
+  sessions.set(sessionKey(botId, userClid), { query, results, expiresAt: Date.now() + SEARCH_SESSION_MS });
+  await context.reply(bot, userClid, formatResults(query, results));
+}
+
+/** The ranked mixed search behind `!ara` and the panel search box. Each result carries the URL to queue. */
+export async function searchMusic(rawQuery: string, signal?: AbortSignal): Promise<RankedResult[]> {
+  const query = rawQuery.trim().slice(0, MAX_QUERY_LENGTH);
+  const spotify = spotifyCredentials() !== null;
   const settled = await Promise.allSettled<Candidate[]>([
     searchYouTubeMusic(query, 8, signal),
     searchYouTube(query, 8, signal),
@@ -105,17 +116,11 @@ export async function handleSearch(
   if (spotify && settled[2]?.status === 'rejected') {
     console.warn(`[MusicCmd] Spotify search failed: ${settled[2].reason instanceof Error ? settled[2].reason.message : settled[2].reason}`);
   }
-  const results = mergeAndRank(query, [
+  return mergeAndRank(query, [
     { sourceLabel: 'YouTube Music', items: items(0) },
     { sourceLabel: 'YouTube', items: items(1) },
     { sourceLabel: spotify ? 'Spotify' : 'Spotify match', items: items(2) },
   ]);
-  if (!results.length) {
-    await context.reply(bot, userClid, `“${query}” için sonuç bulunamadı.`);
-    return;
-  }
-  sessions.set(sessionKey(botId, userClid), { query, results, expiresAt: Date.now() + SEARCH_SESSION_MS });
-  await context.reply(bot, userClid, formatResults(query, results));
 }
 
 /** Returns true only when a live search session consumed the number. */

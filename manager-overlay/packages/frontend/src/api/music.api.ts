@@ -9,6 +9,22 @@ import type {
   VideoStreamStatus,
 } from '@ts6/common';
 
+/** One "who did what" line; `who` is a TeamSpeak nickname or panel username. */
+export interface BotActivityEntry {
+  at: string;
+  via: 'teamspeak' | 'panel';
+  who: string;
+  action: string;
+}
+
+export interface BotSearchResult {
+  title: string;
+  artist: string;
+  duration: number;
+  url: string;
+  source: 'YouTube Music' | 'YouTube' | 'Spotify';
+}
+
 // === Music Bot API ===
 
 export const musicBotsApi = {
@@ -54,6 +70,11 @@ export const musicBotsApi = {
   seek: (id: number, seconds: number) => api.post(`/music-bots/${id}/seek`, { seconds }).then((r) => r.data),
   volume: (id: number, volume: number) => api.post(`/music-bots/${id}/volume`, { volume }).then((r) => r.data),
   state: (id: number) => api.get(`/music-bots/${id}/state`).then((r) => r.data),
+  /** Who did what on the bot, from TeamSpeak chat and the panel, newest first. */
+  activity: (id: number): Promise<BotActivityEntry[]> => api.get(`/music-bots/${id}/activity`).then((r) => r.data),
+  /** The same ranked YouTube Music / YouTube / Spotify search as !ara. */
+  search: (id: number, query: string): Promise<{ cookies: boolean; results: BotSearchResult[] }> =>
+    api.post(`/music-bots/${id}/search`, { query }, { timeout: 130000 }).then((r) => r.data),
 
   // Queue
   queue: (id: number) => api.get(`/music-bots/${id}/queue`).then((r) => r.data),
