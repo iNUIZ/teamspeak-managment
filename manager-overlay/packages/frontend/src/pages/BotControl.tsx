@@ -10,12 +10,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import axios from 'axios';
 import {
-  Music2, Pause, Play, Plus, Power, Radio, Repeat, Search, Settings2, SkipBack, SkipForward, Square, Trash2, VolumeX, Volume2,
+  Music2, Pause, Play, Plus, Power, PowerOff, Radio, Repeat, Search, Settings2, SkipBack, SkipForward, Square, Trash2, VolumeX, Volume2,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DEFAULT_BOT_AUTOMATION_SETTINGS, type BotAutomationSettings, type MusicBotSummary } from '@ts6/common';
 import { musicBotsApi, radioStationsApi, type BotSearchResult } from '@/api/music.api';
-import { useMusicBots, useMusicBotState, useStartMusicBot } from '@/hooks/use-music-bots';
+import { useMusicBots, useMusicBotState, useStartMusicBot, useStopMusicBot } from '@/hooks/use-music-bots';
+import { BotSettingsMenu } from '@/pages/bot-hub/BotSettingsMenu';
 import { PageHeader } from '@/components/shared/PageHeader';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -84,6 +85,7 @@ export default function BotControl() {
     enabled: !!bot?.serverConfigId,
   });
   const startBot = useStartMusicBot();
+  const stopBot = useStopMusicBot();
 
   const [volume, setVolume] = useState<number | null>(null);
   useEffect(() => { setVolume(null); }, [botId]);
@@ -192,11 +194,19 @@ export default function BotControl() {
                     </>
                   )}
                 </div>
-                {!online && (
-                  <Button size="sm" onClick={() => startBot.mutate(bot.id, { onError: (err) => toast.error(errorText(err, 'Could not start the bot.')) })}>
-                    <Power className="mr-1 h-4 w-4" aria-hidden="true" />{tr('Start bot')}
-                  </Button>
-                )}
+                <div className="flex shrink-0 items-center gap-2">
+                  {online ? (
+                    <Button size="sm" variant="outline" onClick={() => stopBot.mutate(bot.id, { onError: (err) => toast.error(errorText(err, 'Failed to stop bot')) })}>
+                      <PowerOff className="mr-1 h-4 w-4" aria-hidden="true" />{tr('Stop bot')}
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={() => startBot.mutate(bot.id, { onError: (err) => toast.error(errorText(err, 'Could not start the bot.')) })}>
+                      <Power className="mr-1 h-4 w-4" aria-hidden="true" />{tr('Start bot')}
+                    </Button>
+                  )}
+                  {/* Edit, Auto-DJ, extensions, widget link and delete, as in Bot Hub. */}
+                  <BotSettingsMenu botId={bot.id} botName={bot.name} status={status} onDeleted={() => setSelectedId(null)} />
+                </div>
               </div>
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
