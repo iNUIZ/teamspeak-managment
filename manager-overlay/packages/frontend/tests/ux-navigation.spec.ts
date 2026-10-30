@@ -21,6 +21,9 @@ test('TR menu searches both languages, clears with Escape and preserves branding
   await expect(search).toHaveValue('');
   await search.fill('kanal');
   await page.getByRole('button', { name: 'Aramayı temizle', exact: true }).click();
+  await expect(search).toHaveValue('');
+  // TeamSpeak servers lives in the collapsed System section; search reaches it from anywhere.
+  await search.fill('teamspeak');
   await page.getByRole('link', { name: 'TeamSpeak sunucuları', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'TeamSpeak sunucuları', exact: true })).toBeVisible();
   await expect(page.getByText('Sanal sunucular', { exact: true })).toHaveCount(0);

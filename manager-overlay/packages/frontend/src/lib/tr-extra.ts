@@ -2,6 +2,12 @@
 export const extraTurkish: Record<string, string> = {
   'Use 0 to discover the voice port automatically. For NAT, enter the externally reachable port.': 'Ses portunu otomatik öğrenmek için 0 yazın. NAT kullanıyorsanız dışarıdan erişilen portu girin.',
   'Bot control': 'Bot kontrol', 'Advanced bot settings': 'Gelişmiş bot ayarları', 'Asked by': 'İsteyen',
+  'Server control': 'Sunucu kontrol',
+  'Everyone on the server, by channel. Click a name to move, poke, message, kick or ban.':
+    'Sunucudaki herkes, kanal kanal. Taşımak, dürtmek, mesaj atmak, atmak veya yasaklamak için isme tıkla.',
+  online: 'çevrimiçi', 'Channels and people': 'Kanallar ve kişiler', away: 'uzakta', muted: 'sessiz',
+  Move: 'Taşı', 'Choose a channel': 'Kanal seç', 'Reason (optional)': 'Sebep (isteğe bağlı)',
+  'A ban without an end date stays until you remove it under Bans.': 'Bitiş tarihi olmayan yasak, Yasaklar bölümünden kaldırılana kadar sürer.',
   'Play music, control the bots and see who did what.': 'Müzik çal, botları yönet ve kimin ne yaptığını gör.',
   'Add bot': 'Bot ekle',
   'No bots yet. Add one to start playing music.': 'Henüz bot yok. Müzik çalmak için bir bot ekle.',

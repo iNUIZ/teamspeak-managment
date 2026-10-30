@@ -41,7 +41,7 @@ const navSections: NavSection[] = [
     label: 'Overview',
     items: [
       { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-      { to: '/servers', icon: Server, label: 'Virtual Servers', adminOnly: true },
+      { to: '/server-control', icon: Users, label: 'Server control', adminOnly: true },
     ],
   },
   {
@@ -79,6 +79,7 @@ const navSections: NavSection[] = [
     label: 'System',
     adminOnly: true,
     items: [
+      { to: '/servers', icon: Server, label: 'Virtual Servers', adminOnly: true },
       { to: '/reports', icon: ScrollText, label: 'Reports and diagnostics', adminOnly: true },
     ],
   },
