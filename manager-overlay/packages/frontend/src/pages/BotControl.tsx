@@ -10,7 +10,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import axios from 'axios';
 import {
-  Music2, Pause, Play, Plus, Power, PowerOff, Radio, Repeat, Search, Settings2, SkipBack, SkipForward, Square, Trash2, VolumeX, Volume2,
+  Hash, ListPlus, Loader2, Music2, Pause, Play, Plus, Power, PowerOff, Radio, Repeat, Search, Settings2, SkipBack, SkipForward, Square, Trash2, VolumeX, Volume2, X,
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { DEFAULT_BOT_AUTOMATION_SETTINGS, type BotAutomationSettings, type MusicBotSummary } from '@ts6/common';
@@ -23,6 +23,8 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { BotFormDialog } from '@/pages/bot-hub/BotFormDialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { flattenChannels } from '@/lib/channel-tree';
 
 type QueueEnd = 'quiet' | 'radio' | 'repeat';
 
@@ -54,6 +56,44 @@ function statusLabel(status: string): string {
 
 function where(bot: MusicBotSummary): string {
   return bot.externalHost || bot.serverConfig?.name || '';
+}
+
+function statusDot(status: string): string {
+  if (status === 'playing') return 'bg-emerald-500';
+  if (status === 'paused' || status === 'starting') return 'bg-amber-500';
+  if (status === 'connected') return 'bg-sky-500';
+  if (status === 'error') return 'bg-red-500';
+  return 'bg-muted-foreground/40';
+}
+
+/** One search hit: big readable title, artist and length underneath, two clear buttons. */
+function ResultRow({ result, index, onPlay, onQueue }: {
+  result: BotSearchResult; index: number; onPlay: () => void; onQueue: () => void;
+}) {
+  const spotify = result.source === 'Spotify';
+  return (
+    <li className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/60">
+      <span className="w-5 shrink-0 text-right text-xs tabular-nums text-muted-foreground">{index + 1}</span>
+      <span
+        className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-md ${spotify ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400' : 'bg-red-500/15 text-red-600 dark:text-red-400'}`}
+        title={result.source}
+      ><Music2 className="h-5 w-5" aria-hidden="true" /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate font-medium" title={result.title}>{result.title}</span>
+        <span className="block truncate text-xs text-muted-foreground">
+          {result.artist}{result.duration ? ` · ${clock(result.duration)}` : ''} · {result.source}
+        </span>
+      </span>
+      <span className="flex shrink-0 gap-1">
+        <Button size="sm" onClick={onPlay} aria-label={`${tr('Play')}: ${result.artist} - ${result.title}`}>
+          <Play className="h-4 w-4 sm:mr-1" aria-hidden="true" /><span className="hidden sm:inline">{tr('Play')}</span>
+        </Button>
+        <Button size="sm" variant="outline" onClick={onQueue} aria-label={tr('Add to queue')} title={tr('Add to queue')}>
+          <ListPlus className="h-4 w-4 sm:mr-1" aria-hidden="true" /><span className="hidden sm:inline">{tr('Add to queue')}</span>
+        </Button>
+      </span>
+    </li>
+  );
 }
 
 export default function BotControl() {
@@ -95,8 +135,23 @@ export default function BotControl() {
   const [searching, setSearching] = useState(false);
   const [results, setResults] = useState<BotSearchResult[]>([]);
   const [searchNote, setSearchNote] = useState('');
+  const [searchedFor, setSearchedFor] = useState('');
+  useEffect(() => { setResults([]); setSearchNote(''); setSearchedFor(''); }, [botId]);
+
+  const { data: channelData } = useQuery({
+    queryKey: ['music-bot-channels', botId],
+    queryFn: () => musicBotsApi.channels(botId!),
+    enabled: !!botId && !!bot && bot.status !== 'stopped' && bot.status !== 'error',
+    refetchInterval: 5000,
+  });
+  const channels = useMemo(
+    () => flattenChannels((channelData?.channels ?? []).map((c) => ({ cid: c.cid, pid: c.parentId, name: c.name }))),
+    [channelData],
+  );
+  const currentChannel = channelData?.current ?? 0;
 
   const refresh = () => {
+    void queryClient.invalidateQueries({ queryKey: ['music-bot-channels', botId] });
     void queryClient.invalidateQueries({ queryKey: ['music-bot-state', botId] });
     void queryClient.invalidateQueries({ queryKey: ['music-bot-activity', botId] });
   };
@@ -128,10 +183,11 @@ export default function BotControl() {
     const text = query.trim();
     if (!botId || text.length < 2) return;
     if (isLink(text)) { setResults([]); setSearchNote(''); return; }
-    setSearching(true); setSearchNote('');
+    setSearching(true); setSearchNote(''); setResults([]);
     try {
       const found = await musicBotsApi.search(botId, text);
       setResults(found.results);
+      setSearchedFor(text);
       if (!found.results.length) setSearchNote(found.cookies ? tr('No results.') : tr('YouTube cookies are missing. Upload them in Settings → YouTube.'));
     } catch (err) {
       setResults([]); setSearchNote(errorText(err, 'Search failed. Try again.'));
@@ -165,8 +221,11 @@ export default function BotControl() {
               aria-current={b.id === botId}
               className={`w-full rounded-md border p-3 text-left transition-colors ${b.id === botId ? 'border-primary bg-primary/10' : 'hover:bg-muted'}`}
             >
-              <div className="font-medium">{b.name}</div>
-              <div className="text-xs text-muted-foreground">{statusLabel(b.status)}{where(b) ? ` · ${where(b)}` : ''}</div>
+              <div className="flex items-center gap-2 font-medium">
+                <span className={`h-2 w-2 shrink-0 rounded-full ${statusDot(b.status)}`} aria-hidden="true" />
+                <span className="truncate">{b.name}</span>
+              </div>
+              <div className="mt-0.5 truncate pl-4 text-xs text-muted-foreground">{statusLabel(b.status)}{where(b) ? ` · ${where(b)}` : ''}</div>
             </button>
           ))}
           <Button variant="outline" className="w-full" onClick={() => setCreateOpen(true)}><Plus className="mr-1 h-4 w-4" aria-hidden="true" />{tr('Add bot')}</Button>
@@ -178,9 +237,9 @@ export default function BotControl() {
           <div className="space-y-4 min-w-0">
             <section className="rounded-md border p-4" aria-label={tr('Now playing')}>
               <div className="flex items-start gap-3">
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-md bg-muted"><Music2 className="h-6 w-6 text-muted-foreground" aria-hidden="true" /></div>
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-primary/10"><Music2 className="h-7 w-7 text-primary" aria-hidden="true" /></div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-medium">{nowPlaying ? `${nowPlaying.artist ? `${nowPlaying.artist} - ` : ''}${nowPlaying.title}` : tr('Nothing is playing')}</div>
+                  <div className="truncate text-lg font-semibold">{nowPlaying ? `${nowPlaying.artist ? `${nowPlaying.artist} - ` : ''}${nowPlaying.title}` : tr('Nothing is playing')}</div>
                   <div className="text-xs text-muted-foreground">
                     {statusLabel(status)}
                     {nowPlaying && lastRequest ? ` · ${tr('Asked by')}: ${lastRequest.who}` : ''}
@@ -237,38 +296,83 @@ export default function BotControl() {
                   ><Icon className="mr-1 h-3.5 w-3.5" aria-hidden="true" />{tr(label)}</Button>
                 ))}
               </div>
+
+              {online && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">{tr('Channel')}:</span>
+                  <Select
+                    value={currentChannel ? String(currentChannel) : undefined}
+                    onValueChange={(value) => {
+                      const target = channels.find((c) => String(c.cid) === value);
+                      void run(() => musicBotsApi.join(bot.id, Number(value), target?.name), 'Bot moved');
+                    }}
+                  >
+                    <SelectTrigger className="h-8 w-auto min-w-[200px] max-w-full" aria-label={tr('Bot channel')}>
+                      <Hash className="mr-1 h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" /><SelectValue placeholder={tr('Choose a channel')} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {channels.map((c) => (
+                        <SelectItem key={c.cid} value={String(c.cid)}>{`${'\u00a0\u00a0\u00a0'.repeat(c.depth)}${c.name}`}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <span className="text-xs text-muted-foreground">{tr('In TeamSpeak, send the bot a private message with !here and it comes to your channel.')}</span>
+                </div>
+              )}
             </section>
 
             <section className="rounded-md border p-4" aria-label={tr('Search')}>
+              <h2 className="mb-2 text-sm font-medium">{tr('Find a song')}</h2>
               <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); void doSearch(); }}>
-                <Input
-                  value={query} onChange={(e) => setQuery(e.target.value)} aria-label={tr('Song name or link')}
-                  placeholder={tr('Song name, YouTube or Spotify link')}
-                />
+                <div className="relative flex-1">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <Input
+                    value={query} onChange={(e) => setQuery(e.target.value)} aria-label={tr('Song name or link')}
+                    placeholder={tr('Song name, YouTube or Spotify link')} className="h-10 pl-9 pr-9"
+                  />
+                  {query && (
+                    <button
+                      type="button" aria-label={tr('Clear search')}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+                      onClick={() => { setQuery(''); setResults([]); setSearchNote(''); setSearchedFor(''); }}
+                    ><X className="h-4 w-4" aria-hidden="true" /></button>
+                  )}
+                </div>
                 {isLink(query) ? (
                   <>
                     <Button type="button" onClick={() => run(() => musicBotsApi.playUrl(bot.id, query.trim()), 'Playing')}>{tr('Play')}</Button>
                     <Button type="button" variant="outline" onClick={() => run(() => musicBotsApi.playUrl(bot.id, query.trim(), { enqueue: true }), 'Added to queue')}>{tr('Add to queue')}</Button>
                   </>
                 ) : (
-                  <Button type="submit" disabled={searching || query.trim().length < 2}><Search className="mr-1 h-4 w-4" aria-hidden="true" />{searching ? tr('Searching…') : tr('Search')}</Button>
+                  <Button type="submit" className="h-10" disabled={searching || query.trim().length < 2}>
+                    {searching ? <Loader2 className="mr-1 h-4 w-4 animate-spin" aria-hidden="true" /> : <Search className="mr-1 h-4 w-4" aria-hidden="true" />}{tr('Search')}
+                  </Button>
                 )}
               </form>
-              {searchNote && <p className="mt-2 text-sm text-muted-foreground">{searchNote}</p>}
-              {results.length > 0 && (
-                <ul className="mt-3 divide-y" aria-label={tr('Search results')}>
-                  {results.map((r) => (
-                    <li key={r.url} className="flex items-center justify-between gap-2 py-2 text-sm">
-                      <span className="min-w-0 truncate">
-                        {r.artist} - {r.title} <span className="text-muted-foreground">· {r.source}{r.duration ? ` · ${clock(r.duration)}` : ''}</span>
-                      </span>
-                      <span className="flex shrink-0 gap-1">
-                        <Button size="sm" onClick={() => run(() => musicBotsApi.playUrl(bot.id, r.url), 'Playing')}>{tr('Play')}</Button>
-                        <Button size="sm" variant="outline" onClick={() => run(() => musicBotsApi.playUrl(bot.id, r.url, { enqueue: true }), 'Added to queue')}>{tr('Add to queue')}</Button>
-                      </span>
+              {searchNote && <p className="mt-3 text-sm text-muted-foreground">{searchNote}</p>}
+              {searching && (
+                <ul className="mt-3 space-y-2" aria-hidden="true">
+                  {[0, 1, 2, 3].map((i) => (
+                    <li key={i} className="flex items-center gap-3 px-2 py-2">
+                      <span className="h-10 w-10 animate-pulse rounded-md bg-muted" />
+                      <span className="flex-1 space-y-1.5"><span className="block h-3.5 w-2/3 animate-pulse rounded bg-muted" /><span className="block h-3 w-1/3 animate-pulse rounded bg-muted" /></span>
                     </li>
                   ))}
                 </ul>
+              )}
+              {results.length > 0 && (
+                <>
+                  <p className="mt-3 px-2 text-xs text-muted-foreground">{tr('Results for')} “{searchedFor}”</p>
+                  <ul className="mt-1" aria-label={tr('Search results')}>
+                    {results.map((r, i) => (
+                      <ResultRow
+                        key={r.url} result={r} index={i}
+                        onPlay={() => run(() => musicBotsApi.playUrl(bot.id, r.url), 'Playing')}
+                        onQueue={() => run(() => musicBotsApi.playUrl(bot.id, r.url, { enqueue: true }), 'Added to queue')}
+                      />
+                    ))}
+                  </ul>
+                </>
               )}
             </section>
 

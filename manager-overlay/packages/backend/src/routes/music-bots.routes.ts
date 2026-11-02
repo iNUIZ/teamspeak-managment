@@ -58,6 +58,8 @@ function panelActivityAction(path: string, body: Record<string, unknown>): strin
     case 'queue/repeat': return `!repeat ${body.mode ?? ''}`.trim();
     case 'queue/shuffle': return `!shuffle ${body.enabled ? 'on' : 'off'}`;
     case 'automation': return body.enabled === true ? 'Auto-DJ: on' : 'Auto-DJ: off';
+    case 'join': return typeof body.name === 'string' && body.name
+      ? `!here → ${body.name.slice(0, 60)}` : `!here → #${body.cid ?? ''}`;
     case 'start': return 'start';
     case 'stop': return 'stop';
     default: return null;
@@ -563,6 +565,32 @@ musicBotRoutes.post('/:id/home', async (req: Request, res: Response, next) => {
   } catch (err) { next(err); }
 });
 
+// GET /:id/channels — channels the bot itself can see (works for external servers too).
+musicBotRoutes.get('/:id/channels', async (req: Request, res: Response, next) => {
+  try {
+    const manager: VoiceBotManager = req.app.locals.voiceBotManager;
+    const bot = manager.getBot(parseInt(req.params.id as string));
+    if (!bot) throw new AppError(404, 'Music bot not found');
+    res.json({ current: bot.getCurrentChannelId(), channels: bot.listChannels() });
+  } catch (err) { next(err); }
+});
+
+// POST /:id/join — move the bot into any channel; it plays there until moved again.
+musicBotRoutes.post('/:id/join', async (req: Request, res: Response, next) => {
+  try {
+    const manager: VoiceBotManager = req.app.locals.voiceBotManager;
+    const id = parseInt(req.params.id as string);
+    const bot = manager.getBot(id);
+    if (!bot) throw new AppError(404, 'Music bot not found');
+    const cid = Number(req.body?.cid);
+    if (!Number.isSafeInteger(cid) || cid <= 0) throw new AppError(400, 'Choose a channel');
+    if (!['connected', 'playing', 'paused'].includes(bot.status)) throw new AppError(409, 'Bot is not connected');
+    bot.joinChannel(cid);
+    await manager.refreshMusicCommandChannels(id);
+    res.json({ success: true, current: bot.getCurrentChannelId() });
+  } catch (err) { next(err); }
+});
+
 // POST /:id/restart — Restart bot
 musicBotRoutes.post('/:id/restart', async (req: Request, res: Response, next) => {
   try {
@@ -906,7 +934,7 @@ musicBotRoutes.get('/:id/activity', async (req: Request, res: Response, next) =>
   } catch (err) { next(err); }
 });
 
-// POST /:id/search — the same ranked YouTube Music / YouTube / Spotify search as !ara.
+// POST /:id/search — the same ranked YouTube / Spotify search as !ara.
 musicBotRoutes.post('/:id/search', async (req: Request, res: Response, next) => {
   try {
     const manager: VoiceBotManager = req.app.locals.voiceBotManager;
@@ -916,8 +944,8 @@ musicBotRoutes.post('/:id/search', async (req: Request, res: Response, next) => 
     const results = await searchMusic(query, AbortSignal.timeout(120_000));
     res.json({
       cookies: !!getYtCookieFile(),
-      results: results.map(({ title, artist, duration, url, sourceLabel }) => ({
-        title, artist, duration, url, source: sourceLabel === 'Spotify match' ? 'YouTube' : sourceLabel,
+      results: results.map(({ title, artist, duration, url, sourceLabel, thumbnail }) => ({
+        title, artist, duration, url, source: sourceLabel, thumbnail: thumbnail || undefined,
       })),
     });
   } catch (err) { next(err); }

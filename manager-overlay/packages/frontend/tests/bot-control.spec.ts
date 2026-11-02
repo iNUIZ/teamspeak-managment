@@ -37,6 +37,9 @@ async function mockBots(page: Page, calls: { method: string; url: string; body: 
       { at: '2026-10-29T20:34:21.000Z', via: 'teamspeak', who: 'BeBeK', action: '!vol 1' },
       { at: '2026-10-29T20:35:09.000Z', via: 'panel', who: 'admin', action: '!pause' },
     ] });
+    if (path === '/channels') return route.fulfill({ json: { current: 1, channels: [
+      { cid: 1, name: 'Lobby', parentId: 0, order: 0 }, { cid: 2, name: 'Müzik', parentId: 0, order: 1 }, { cid: 3, name: 'Köşe', parentId: 2, order: 0 },
+    ] } });
     if (path === '/search') return route.fulfill({ json: { cookies: true, results: [
       { title: 'Kuzu Kuzu', artist: 'Tarkan', duration: 201, url: 'https://open.spotify.com/track/4PTG3Z6ehGkBFwjybzWkR8', source: 'Spotify' },
     ] } });
@@ -74,7 +77,8 @@ test('Bot control shows who asked for the song and drives the bot in plain contr
   await page.getByLabel('Song name or link').fill('tarkan kuzu kuzu');
   await page.getByRole('button', { name: 'Search', exact: true }).click();
   const results = page.getByRole('list', { name: 'Search results' });
-  await expect(results).toContainText('Tarkan - Kuzu Kuzu');
+  await expect(results).toContainText('Kuzu Kuzu');
+  await expect(results).toContainText('Tarkan · 3:21 · Spotify');
   await results.getByRole('button', { name: 'Add to queue' }).click();
   await expect.poll(() => calls.find((c) => c.url === '/play-url')?.body).toEqual({ url: 'https://open.spotify.com/track/4PTG3Z6ehGkBFwjybzWkR8', enqueue: true });
 });
@@ -88,4 +92,16 @@ test('a pasted link plays directly without searching', async ({ page, request })
   await page.getByRole('region', { name: 'Search' }).getByRole('button', { name: 'Play', exact: true }).click();
   await expect.poll(() => calls.find((c) => c.url === '/play-url')?.body).toEqual({ url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', enqueue: false });
   expect(calls.some((c) => c.url === '/search')).toBe(false);
+});
+
+test('the bot can be moved to any channel from the panel', async ({ page, request }) => {
+  const calls: { method: string; url: string; body: unknown }[] = [];
+  await mockBots(page, calls);
+  await signIn(page, request);
+  await page.goto('/control');
+  const picker = page.getByRole('combobox', { name: 'Bot channel' });
+  await expect(picker).toContainText('Lobby');
+  await picker.click();
+  await page.getByRole('option', { name: 'Köşe' }).click();
+  await expect.poll(() => calls.find((c) => c.url === '/join')?.body).toEqual({ cid: 3, name: 'Köşe' });
 });

@@ -40,7 +40,7 @@ Panelin yeni logosu, TR/EN arayüzü, otomatik bot portu ve isteğe bağlı
 - TS6 Manager web paneli
 - Manager müzik botu desteği; bot, Query gerekmeden başka bir TeamSpeak sunucusuna da
   adresiyle (ör. `25krs` veya `ts.ornek.com:9987`) normal kullanıcı gibi girebilir
-- `!ara` ile karma müzik araması (YouTube Music, YouTube, isteğe bağlı Spotify) ve güvenli özel komut/eklenti yönetimi
+- `!ara` ile müzik araması (YouTube, isteğe bağlı Spotify); bot `!here` ile (özel mesajla da) her kanala gelir ve güvenli özel komut/eklenti yönetimi
 - Servis yönetimi, log görüntüleme, yedekleme ve güvenli güncelleme
 
 Kurulumlar temiz Docker volume'larında oluşturulur. Repo; parola, API anahtarı,

@@ -178,14 +178,14 @@ test('!play <song name> searches YouTube Music and enqueues the top match', asyn
   f.handler.findSong = async (query: string) => {
     searched.push(query);
     return { id: 'dQw4w9WgXcQ', title: 'Never Gonna Give You Up', artist: 'Rick Astley', duration: 213,
-      thumbnail: '', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', source: 'youtube-music' };
+      thumbnail: '', url: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', source: 'youtube-audio' };
   };
   f.handler.enqueueMediaUrl = async (_botId: number, _bot: unknown, _clid: number, url: string) => { enqueued.push(url); };
   f.handler.joinChannelForCommand = async () => {};
   await f.command('!play never gonna give you up');
   assert.deepEqual(searched, ['never gonna give you up']);
   assert.deepEqual(enqueued, ['https://www.youtube.com/watch?v=dQw4w9WgXcQ']);
-  assert.match(f.replies[0], /Searching YouTube Music for "never gonna give you up"/);
+  assert.match(f.replies[0], /Searching YouTube for "never gonna give you up"/);
 
   await f.command('!play https://youtu.be/dQw4w9WgXcQ');
   assert.equal(searched.length, 1, 'URLs skip search');

@@ -934,3 +934,11 @@ test('restricted playback blocks cross-channel !here and !come privately before 
   assert.equal(privateReplies.length, 1);
   assert.match(privateReplies[0], /not allowed/i);
 });
+
+test('!here in a private message brings the bot to the sender channel', async () => {
+  const bot = Object.assign(makeBot(1, { channelId: 10 }), { getClientChannelId: (clid: number) => (clid === 2 ? 30 : 0) });
+  const f = fixture([bot]);
+  // A private message reaches the bot wherever it sits; the reply channel is the bot's own.
+  await f.handler.onTextMessage(1, bot, { invokerid: '2', msg: '!here', targetmode: '1' }, 10);
+  assert.deepEqual(bot._joins, [30]);
+});

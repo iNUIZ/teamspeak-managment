@@ -19,8 +19,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { flattenChannels as flattenTree, type TreeChannel } from '@/lib/channel-tree';
 
-interface Channel { cid: number; pid: number; name: string; depth: number }
+type Channel = TreeChannel;
 interface Person { clid: number; cid: number; nickname: string; away: boolean; muted: boolean }
 type Action = 'move' | 'poke' | 'message' | 'kick' | 'ban';
 
@@ -32,20 +33,8 @@ const ACTIONS: Array<{ id: Action; label: string; icon: typeof MoveRight; needsT
   { id: 'ban', label: 'Ban', icon: Ban, needsText: false, danger: true },
 ];
 
-/** Channels in display order with their depth, children right after their parent. */
 function flattenChannels(raw: any[]): Channel[] {
-  const channels = raw.map((c) => ({ cid: Number(c.cid), pid: Number(c.pid) || 0, name: String(c.channel_name ?? '') }));
-  const byParent = new Map<number, typeof channels>();
-  for (const c of channels) byParent.set(c.pid, [...(byParent.get(c.pid) ?? []), c]);
-  const out: Channel[] = [];
-  const known = new Set(channels.map((c) => c.cid));
-  const walk = (pid: number, depth: number) => {
-    for (const c of byParent.get(pid) ?? []) { out.push({ ...c, depth }); walk(c.cid, depth + 1); }
-  };
-  walk(0, 0);
-  // A channel whose parent is missing from the list still shows, at the top level.
-  for (const c of channels) if (c.pid !== 0 && !known.has(c.pid) && !out.some((o) => o.cid === c.cid)) out.push({ ...c, depth: 0 });
-  return out;
+  return flattenTree(raw.map((c) => ({ cid: Number(c.cid), pid: Number(c.pid) || 0, name: String(c.channel_name ?? '') })));
 }
 
 function errorText(err: unknown, fallback: string): string {

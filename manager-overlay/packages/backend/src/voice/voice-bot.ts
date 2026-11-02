@@ -527,6 +527,16 @@ export class VoiceBot extends EventEmitter {
     return this.client.getChannelMemberClids();
   }
 
+  /** Channel of another client in view (0 when unknown); works without ServerQuery. */
+  getClientChannelId(clid: number): number {
+    return this.client.getClientChannelId(clid);
+  }
+
+  /** Channels this bot can see, for the panel's channel picker. */
+  listChannels(): Array<{ cid: number; name: string; parentId: number; order: number }> {
+    return this.client.listChannels();
+  }
+
   /** Join a channel by ID (for following !play / playback commands). */
   joinChannel(channelId: number): void {
     if (this._status === 'stopped' || this._status === 'error' || this._status === 'starting') {

@@ -152,6 +152,10 @@ export class Ts3Client extends EventEmitter {
 
   // Channel map (populated during init sequence for auto-move)
   private channelMap = new Map<string, number>(); // channel_name → cid
+  /** Every channel in view, for picking a channel by name in the panel. */
+  private channelInfo = new Map<number, { name: string; parentId: number; order: number }>();
+  /** Every client in view → its channel, so a private !here can find the sender. */
+  private clientChannels = new Map<number, number>();
   private currentChannelId = 0;
   private channelMembers = new Set<number>();
   private queryMembers = new Set<number>();
@@ -226,6 +230,16 @@ export class Ts3Client extends EventEmitter {
   }
 
   /** Move this voice client into a channel by ID (no-op if already there). */
+  /** Channel of any client in view, or 0 when unknown. */
+  getClientChannelId(clid: number): number {
+    return this.clientChannels.get(clid) ?? 0;
+  }
+
+  /** Channels in view, in server order within each parent. */
+  listChannels(): Array<{ cid: number; name: string; parentId: number; order: number }> {
+    return [...this.channelInfo].map(([cid, info]) => ({ cid, ...info }));
+  }
+
   moveToChannel(channelId: number): void {
     if (!this.clientId || channelId <= 0) return;
     if (this.currentChannelId === channelId) return;
@@ -262,6 +276,8 @@ export class Ts3Client extends EventEmitter {
     this.fragmentFlags = 0;
     this.clientId = 0;
     this.channelMap.clear();
+    this.channelInfo.clear();
+    this.clientChannels.clear();
     this.currentChannelId = 0;
     this.channelMembers.clear();
     this.queryMembers.clear();
@@ -892,6 +908,7 @@ export class Ts3Client extends EventEmitter {
         if (clid) {
           this.channelMembers.delete(clid);
           this.queryMembers.delete(clid);
+          this.clientChannels.delete(clid);
         }
         if (clid && clid === this.clientId) {
           this.cleanup();
@@ -901,6 +918,7 @@ export class Ts3Client extends EventEmitter {
       case "notifyclientmoved": {
         const clid = parseInt(parsed.params.clid || "0");
         const toCid = parseInt(parsed.params.ctid || "0");
+        if (clid && toCid > 0) this.clientChannels.set(clid, toCid);
         if (clid && clid === this.clientId) {
           // moveToChannel already set currentChannelId and may have received
           // notifycliententerview for occupants before this confirmation.
@@ -922,6 +940,26 @@ export class Ts3Client extends EventEmitter {
           if (fromCid === this.currentChannelId) target.delete(clid);
           if (toCid === this.currentChannelId) target.add(clid);
         }
+        break;
+      }
+      case "notifychannelcreated":
+        this.handleChannelList(parsed);
+        break;
+      case "notifychanneledited": {
+        const cid = parseInt(parsed.params.cid || "0");
+        const known = this.channelInfo.get(cid);
+        if (known && parsed.params.channel_name) {
+          this.channelMap.delete(known.name);
+          known.name = parsed.params.channel_name;
+          this.channelMap.set(known.name, cid);
+        }
+        break;
+      }
+      case "notifychanneldeleted": {
+        const cid = parseInt(parsed.params.cid || "0");
+        const known = this.channelInfo.get(cid);
+        if (known) this.channelMap.delete(known.name);
+        this.channelInfo.delete(cid);
         break;
       }
       case "notifytextmessage":
@@ -1160,6 +1198,7 @@ export class Ts3Client extends EventEmitter {
       }
     }
     for (const e of entries) {
+      this.clientChannels.set(e.clid, e.cid);
       if (e.clid === this.clientId || e.cid !== this.currentChannelId) continue;
       if (e.isQuery) this.queryMembers.add(e.clid);
       else this.channelMembers.add(e.clid);
@@ -1174,6 +1213,11 @@ export class Ts3Client extends EventEmitter {
       const name = entry.channel_name;
       if (cid && name) {
         this.channelMap.set(name, cid);
+        this.channelInfo.set(cid, {
+          name,
+          parentId: parseInt(entry.cpid || entry.pid || "0") || 0,
+          order: parseInt(entry.channel_order || "0") || 0,
+        });
       }
     }
     this.emit("debug", `channellist: +${entries.length} channels (total: ${this.channelMap.size})`);
@@ -1209,8 +1253,13 @@ export class Ts3Client extends EventEmitter {
 
   /** Populate channelMembers from a clientlist snapshot for the current channel. */
   private seedChannelMembersFromClientList(parsed: ParsedCommand): void {
-    if (!this.currentChannelId) return;
     const entries = parsed.groups ?? [parsed.params];
+    for (const entry of entries) {
+      const clid = parseInt(entry.clid || "0");
+      const cid = parseInt(entry.cid || entry.client_channel_id || "0");
+      if (clid && cid > 0) this.clientChannels.set(clid, cid);
+    }
+    if (!this.currentChannelId) return;
     let added = 0;
     for (const entry of entries) {
       const clid = parseInt(entry.clid || "0");
