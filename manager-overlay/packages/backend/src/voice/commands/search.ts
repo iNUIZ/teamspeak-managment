@@ -38,6 +38,37 @@ export function qualityScore(item: YouTubeSearchResult, query: string, sourceLab
   return score;
 }
 
+/** Longer than this is a film, a mix or a whole album, not a song. */
+const MAX_SONG_SECONDS = 20 * 60;
+
+/** Upload noise that says nothing about the song: "(Official Video)", "[HD]", "#HERMANO", "| 8 Track". */
+const TITLE_NOISE = /\s*[([](?:[^)\]]*\b(?:official|video|audio|lyrics?|s[oö]zleri|klip|clip|hd|hq|4k|visuali[sz]er|music)\b[^)\]]*)[)\]]/gi;
+
+/**
+ * A YouTube title such as "Heijan & Muti - BİRADER (Official Video) #HERMANO" carries the real artist
+ * and song; the uploader ("AVA Media", "Lyrics Genius") often is only a channel.
+ */
+export function cleanTrack(rawTitle: string, rawArtist: string): { title: string; artist: string } {
+  let title = rawTitle
+    .replace(TITLE_NOISE, '')
+    .replace(/\s+#\S+/g, '')
+    .replace(/\s+\|.*$/, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+  let artist = cleanArtist(rawArtist);
+  const dash = title.match(/^(.+?)\s+[-–—]\s+(.+)$/);
+  const credit = title.match(/^(.+?)\s*\(([^()]+)\)$/);
+  if (dash) {
+    artist = dash[1].trim();
+    title = dash[2].trim();
+  } else if (credit && normalise(rawArtist).includes(normalise(credit[2]))) {
+    // "Birader (Osman Öztunç)" on "ZeMahşer Osman Öztunç TV": the name in brackets is the artist.
+    title = credit[1].trim();
+    artist = credit[2].trim();
+  }
+  return { title: title || rawTitle, artist: artist || rawArtist };
+}
+
 function mergeAndRank(
   query: string,
   groups: Array<{ sourceLabel: SearchSource; items: Candidate[] }>,
@@ -48,12 +79,20 @@ function mergeAndRank(
       // Channels and playlists show up in YouTube search too; only single videos play.
       if (!raw.id || unique.has(raw.id)) continue;
       if (group.sourceLabel === 'YouTube' && !/^[A-Za-z0-9_-]{11}$/.test(raw.id)) continue;
-      const item = { ...raw, artist: cleanArtist(raw.artist) };
+      if (raw.duration > MAX_SONG_SECONDS) continue;
+      const score = qualityScore(raw, query, group.sourceLabel);
+      const item = { ...raw, ...cleanTrack(raw.title, raw.artist) };
       const url = item.url ?? `https://www.youtube.com/watch?v=${item.id}`;
-      unique.set(item.id, { ...item, url, sourceLabel: group.sourceLabel, score: qualityScore(item, query, group.sourceLabel) });
+      unique.set(item.id, { ...item, url, sourceLabel: group.sourceLabel, score });
     }
   }
-  return [...unique.values()].sort((a, b) => b.score - a.score || a.title.localeCompare(b.title)).slice(0, 10);
+  // The official video and the plain upload of one song look the same once cleaned; keep the better one.
+  const bySong = new Map<string, RankedResult>();
+  for (const result of [...unique.values()].sort((a, b) => b.score - a.score || a.title.localeCompare(b.title))) {
+    const key = normalise(`${result.artist} ${result.title}`);
+    if (!bySong.has(key)) bySong.set(key, result);
+  }
+  return [...bySong.values()].slice(0, 10);
 }
 
 /** "Tarkan - Topic" and "TarkanVEVO" are YouTube channel names, not artists. */
@@ -67,14 +106,28 @@ function spotifyCandidate(track: SpotifyTrackResult): Candidate {
   return { id: `spotify:${track.id}`, title: track.title, artist: track.artist, duration: track.duration, thumbnail: '', url: track.url };
 }
 
+function markdownText(text: string, max = 48): string {
+  const short = [...text].length > max ? `${[...text].slice(0, max - 1).join('')}…` : text;
+  return short.replace(/([\\*_`~|[\]<>#])/g, '\\$1');
+}
+
+/**
+ * TS6 renders Markdown in chat. One line per result, so the sender's split at line breaks
+ * (a chat message is only ~480 bytes) never cuts a result in half.
+ */
 function formatResults(query: string, results: RankedResult[]): string {
   const lines = results.map((item, index) => {
-    const source = item.sourceLabel;
     const duration = Number.isFinite(item.duration) && item.duration > 0
-      ? ` (${Math.floor(item.duration / 60)}:${String(Math.floor(item.duration % 60)).padStart(2, '0')})` : '';
-    return `${index + 1}. [${source}] ${item.artist} - ${item.title}${duration}`;
+      ? ` · \`${Math.floor(item.duration / 60)}:${String(Math.floor(item.duration % 60)).padStart(2, '0')}\`` : '';
+    const source = item.sourceLabel === 'Spotify' ? ' · Spotify' : '';
+    return `**${index + 1}.** ${markdownText(item.title)} — *${markdownText(item.artist, 32)}*${duration}${source}`;
   });
-  return `🔎 ${query}\n${lines.join('\n')}\n\nÇalmak için 1-10 arasında yalnızca numarayı yaz.`;
+  return [
+    `### 🔎 ${markdownText(query, 60)}`,
+    ...lines,
+    '',
+    `Çalmak için numarayı yaz: **1**–**${results.length}**`,
+  ].join('\n');
 }
 
 export async function handleSearch(
