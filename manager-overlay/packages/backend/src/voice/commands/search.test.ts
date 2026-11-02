@@ -55,19 +55,43 @@ describe('mixed !ara ranking', () => {
   it('labels real Spotify results and queues their Spotify link for YouTube matching', () => {
     const ranked = searchInternals.mergeAndRank('kuzu kuzu', [
       { sourceLabel: 'Spotify', items: [{ ...item('spotify:abc', 'Kuzu Kuzu', 'Tarkan'), url: 'https://open.spotify.com/track/abc' }] },
-      { sourceLabel: 'YouTube', items: [item('yt000000001', 'Kuzu Kuzu', 'Tarkan')] },
+      { sourceLabel: 'YouTube', items: [item('yt000000001', 'Kuzu Kuzu (Live)', 'Tarkan')] },
     ]);
     const spotify = ranked.find((result) => result.sourceLabel === 'Spotify')!;
     assert.equal(spotify.url, 'https://open.spotify.com/track/abc');
     assert.equal(ranked.find((result) => result.id === 'yt000000001')!.url, 'https://www.youtube.com/watch?v=yt000000001');
-    assert.match(searchInternals.formatResults('kuzu kuzu', ranked), /\[Spotify\] Tarkan - Kuzu Kuzu/);
+    assert.match(searchInternals.formatResults('kuzu kuzu', ranked), /\*\*1\.\*\* Kuzu Kuzu — \*Tarkan\* · `3:30` · Spotify/);
   });
 
-  it('shows duration and labels YouTube results as YouTube', () => {
+  it('shows duration and leaves the YouTube source implicit', () => {
     const results = searchInternals.mergeAndRank('song', [{ sourceLabel: 'YouTube', items: [item('aaaaaaaaaaa', 'Song')] }]);
     const text = searchInternals.formatResults('song', results);
-    assert.match(text, /3:30/);
-    assert.match(text, /\[YouTube\]/);
-    assert.ok(!text.includes('Spotify'));
+    assert.match(text, /`3:30`/);
+    assert.ok(!text.includes('YouTube') && !text.includes('Spotify'));
+  });
+
+  it('cleans upload noise, takes the artist from the title and drops films and duplicates', () => {
+    const ranked = searchInternals.mergeAndRank('birader', [{ sourceLabel: 'YouTube', items: [
+      item('aaaaaaaaaaa', 'Heijan & Muti - BİRADER (Official Video) #HERMANO', 'Heijan and Muti', 205),
+      item('bbbbbbbbbbb', 'B4TU INC. - BİRADER (MUSIC VIDEO)', 'B4TU INC.', 117),
+      item('ccccccccccc', 'BİRADER', 'B4TU INC.', 116),
+      item('ddddddddddd', 'Birader – Dema Tu Dikenî | 8 Track | [HD] | #AVAEntertainment', 'AVA Media', 359),
+      item('fffffffffff', 'Birader (Osman Öztunç)', 'ZeMahşer Osman Öztunç TV (Osman Öztunç)', 311),
+      item('eeeeeeeeeee', 'KAÇMA BİRADER / Yerli Komedi Filmi Full İzle', 'İlhan Dilek', 5827),
+    ] }]);
+    const shown = ranked.map((r) => `${r.artist} | ${r.title}`);
+    assert.ok(shown.includes('Heijan & Muti | BİRADER'));
+    assert.ok(shown.includes('Birader | Dema Tu Dikenî'));
+    assert.ok(shown.includes('Osman Öztunç | Birader'));
+    assert.equal(shown.filter((s) => s === 'B4TU INC. | BİRADER').length, 1);
+    assert.ok(!ranked.some((r) => r.id === 'eeeeeeeeeee'));
+  });
+
+  it('keeps every result line whole when the chat message is split', () => {
+    const ranked = searchInternals.mergeAndRank('song', [{ sourceLabel: 'YouTube', items: Array.from({ length: 10 }, (_, i) =>
+      item(`video${String(i).padStart(6, '0')}`, `Çok uzun bir şarkı başlığı numara ${i} ve daha fazlası burada`, 'Sanatçı Adı')) }]);
+    const lines = searchInternals.formatResults('song', ranked).split('\n');
+    assert.equal(lines.filter((l) => /^\*\*\d+\.\*\*/.test(l)).length, 10);
+    assert.ok(lines.every((l) => Buffer.byteLength(l) < 200));
   });
 });
