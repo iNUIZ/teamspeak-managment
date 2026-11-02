@@ -1,6 +1,6 @@
 # Spotify araması / Spotify search
 
-`!ara <şarkı>` her zaman YouTube Music ve YouTube'da arar. Spotify geliştirici
+`!ara <şarkı>` her zaman YouTube'da arar. Spotify geliştirici
 bilgileri girilirse Spotify kataloğunda da arar; bu sonuçlar `[Spotify]` diye
 listelenir. Numara seçildiğinde şarkı adı ve sanatçı Spotify'dan alınır, ses
 YouTube'da eşleştirilip çalınır. Spotify sesi şifreli (DRM) olduğu için bot
@@ -37,7 +37,7 @@ Sızdığını düşünürseniz Spotify panelinden yenileyin.
 
 ## English
 
-`!ara` always searches YouTube Music and YouTube. With `SPOTIFY_CLIENT_ID` and
+`!ara` always searches YouTube. With `SPOTIFY_CLIENT_ID` and
 `SPOTIFY_CLIENT_SECRET` (a free Spotify developer app, client-credentials flow) it also
 searches the Spotify catalogue; chosen Spotify results are matched and played from
 YouTube, so YouTube cookies are still required. `SPOTIFY_MARKET` (default `TR`) sets the

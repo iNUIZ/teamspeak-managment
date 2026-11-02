@@ -1,14 +1,14 @@
 import type { VoiceBot } from '../voice-bot.js';
 import type { YouTubeSearchResult } from '../audio/youtube.js';
-import { getYtCookieFile, searchYouTube, searchYouTubeMusic } from '../audio/youtube.js';
+import { getYtCookieFile, searchYouTube } from '../audio/youtube.js';
 import { searchSpotifyTracks, spotifyCredentials, type SpotifyTrackResult } from '../audio/spotify-search.js';
 import type { CommandContext } from './context.js';
 
 const SEARCH_SESSION_MS = 5 * 60 * 1000;
 const MAX_QUERY_LENGTH = 160;
 
-/** 'Spotify' is the real catalogue; 'Spotify match' is the YouTube fallback without Spotify credentials. */
-type SearchSource = 'YouTube Music' | 'YouTube' | 'Spotify' | 'Spotify match';
+/** 'Spotify' is the real catalogue (needs credentials); everything else is a YouTube video. */
+type SearchSource = 'YouTube' | 'Spotify';
 /** `url` is what gets queued: a YouTube watch page, or a Spotify track matched on YouTube at play time. */
 type Candidate = YouTubeSearchResult & { url?: string };
 export type RankedResult = Candidate & { sourceLabel: SearchSource; score: number; url: string };
@@ -31,8 +31,7 @@ export function qualityScore(item: YouTubeSearchResult, query: string, sourceLab
   const terms = normalise(query).split(' ').filter(Boolean);
   const matchedTerms = terms.filter((term) => haystack.includes(term)).length;
   let score = terms.length ? (matchedTerms / terms.length) * 60 : 0;
-  if (sourceLabel === 'YouTube Music' || sourceLabel === 'Spotify') score += 18;
-  if (sourceLabel === 'Spotify match') score += 12;
+  if (sourceLabel === 'Spotify') score += 12;
   if (/official|topic|vevo|audio|provided to youtube/i.test(`${item.artist} ${item.title}`)) score += 12;
   if (item.duration >= 75 && item.duration <= 480) score += 8;
   if (/live|reaction|cover|nightcore|slowed|reverb|karaoke/i.test(item.title)) score -= 8;
@@ -45,13 +44,22 @@ function mergeAndRank(
 ): RankedResult[] {
   const unique = new Map<string, RankedResult>();
   for (const group of groups) {
-    for (const item of group.items) {
-      if (!item.id || unique.has(item.id)) continue;
+    for (const raw of group.items) {
+      // Channels and playlists show up in YouTube search too; only single videos play.
+      if (!raw.id || unique.has(raw.id)) continue;
+      if (group.sourceLabel === 'YouTube' && !/^[A-Za-z0-9_-]{11}$/.test(raw.id)) continue;
+      const item = { ...raw, artist: cleanArtist(raw.artist) };
       const url = item.url ?? `https://www.youtube.com/watch?v=${item.id}`;
       unique.set(item.id, { ...item, url, sourceLabel: group.sourceLabel, score: qualityScore(item, query, group.sourceLabel) });
     }
   }
   return [...unique.values()].sort((a, b) => b.score - a.score || a.title.localeCompare(b.title)).slice(0, 10);
+}
+
+/** "Tarkan - Topic" and "TarkanVEVO" are YouTube channel names, not artists. */
+function cleanArtist(artist: string): string {
+  const cleaned = artist.replace(/\s+-\s+topic$/i, '').replace(/vevo$/i, '').trim();
+  return cleaned || artist;
 }
 
 /** Spotify ids cannot collide with YouTube ids in the merged list. */
@@ -61,7 +69,7 @@ function spotifyCandidate(track: SpotifyTrackResult): Candidate {
 
 function formatResults(query: string, results: RankedResult[]): string {
   const lines = results.map((item, index) => {
-    const source = item.sourceLabel === 'Spotify match' ? 'YouTube' : item.sourceLabel;
+    const source = item.sourceLabel;
     const duration = Number.isFinite(item.duration) && item.duration > 0
       ? ` (${Math.floor(item.duration / 60)}:${String(Math.floor(item.duration % 60)).padStart(2, '0')})` : '';
     return `${index + 1}. [${source}] ${item.artist} - ${item.title}${duration}`;
@@ -87,8 +95,8 @@ export async function handleSearch(
     return;
   }
   await context.reply(bot, userClid, spotifyCredentials() !== null
-    ? 'YouTube Music, YouTube ve Spotify aranıyor; sonuçlar başlık, sanatçı ve sürüm uyumuna göre sıralanıyor...'
-    : 'YouTube Music ve YouTube aranıyor; sonuçlar başlık, sanatçı ve sürüm uyumuna göre sıralanıyor...');
+    ? `YouTube ve Spotify'da aranıyor: ${query}`
+    : `YouTube'da aranıyor: ${query}`);
   const results = await searchMusic(query, AbortSignal.timeout(180_000));
   if (!results.length) {
     await context.reply(bot, userClid, `“${query}” için sonuç bulunamadı.`);
@@ -102,13 +110,13 @@ export async function handleSearch(
 export async function searchMusic(rawQuery: string, signal?: AbortSignal): Promise<RankedResult[]> {
   const query = rawQuery.trim().slice(0, MAX_QUERY_LENGTH);
   const spotify = spotifyCredentials() !== null;
+  // Plain YouTube search, plus the official-audio upload that the plain search often buries.
   const settled = await Promise.allSettled<Candidate[]>([
-    searchYouTubeMusic(query, 8, signal),
-    searchYouTube(query, 8, signal),
-    // Without Spotify credentials, a YouTube search phrased like the Spotify release stands in.
+    searchYouTube(query, 10, signal),
+    searchYouTube(`${query} official audio`, 5, signal),
     spotify
       ? searchSpotifyTracks(query, 5, signal).then((tracks) => tracks.map(spotifyCandidate))
-      : searchYouTube(`${query} spotify official audio`, 8, signal),
+      : Promise.resolve([]),
   ]);
   const items = (index: number): Candidate[] => settled[index]?.status === 'fulfilled'
     ? settled[index].value
@@ -117,9 +125,8 @@ export async function searchMusic(rawQuery: string, signal?: AbortSignal): Promi
     console.warn(`[MusicCmd] Spotify search failed: ${settled[2].reason instanceof Error ? settled[2].reason.message : settled[2].reason}`);
   }
   return mergeAndRank(query, [
-    { sourceLabel: 'YouTube Music', items: items(0) },
-    { sourceLabel: 'YouTube', items: items(1) },
-    { sourceLabel: spotify ? 'Spotify' : 'Spotify match', items: items(2) },
+    { sourceLabel: 'YouTube', items: [...items(0), ...items(1)] },
+    { sourceLabel: 'Spotify', items: items(2) },
   ]);
 }
 

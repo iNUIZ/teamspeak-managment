@@ -29,7 +29,7 @@ test('TR file browser navigates protocol directories, uploads/downloads/deletes 
   });
   await page.goto('/login'); await page.getByLabel('Kullanıcı adı',{exact:true}).fill('admin'); await page.getByLabel('Parola',{exact:true}).fill('test-password');
   await page.getByRole('button',{name:'Giriş yap',exact:true}).click(); await expect(page).toHaveURL('/dashboard');
-  await page.goto('/files'); await page.getByRole('button',{name:/Dosyalar/}).click();
+  await page.goto('/files'); await page.getByRole('main').getByRole('button',{name:/Dosyalar/}).click();
   await expect(page.getByText('Boş klasör',{exact:true})).toBeVisible();
   for (const term of ['Not checked.', 'Empty directory','No files in this directory.','Size','Modified','item(s)']) await expect(page.getByText(term,{exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'Yeni klasör',exact:true}).click(); await page.getByRole('dialog').getByRole('textbox').fill('Türkçe klasör');

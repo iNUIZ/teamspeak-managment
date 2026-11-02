@@ -1037,18 +1037,18 @@ export interface SongSearchDeps {
 }
 
 /**
- * Find the most relevant song for a free-text query: the top YouTube Music song result,
- * falling back to the top regular YouTube result when Music returns nothing or fails.
+ * Find the most relevant song for a free-text query: the top official-audio YouTube result,
+ * falling back to the top regular YouTube result when that returns nothing or fails.
  * Cancellation stops the search without starting a fallback or returning stale results.
  */
 export async function findSongForQuery(
   query: string,
   deps: SongSearchDeps = {
-    searchMusic: (q, signal) => searchYouTubeMusic(q, 1, signal),
+    searchMusic: (q, signal) => searchYouTube(`${q} official audio`, 1, signal),
     searchVideos: (q, signal) => searchYouTube(q, 1, signal),
   },
   signal?: AbortSignal,
-): Promise<(YouTubeSearchResult & { url: string; source: "youtube-music" | "youtube" }) | null> {
+): Promise<(YouTubeSearchResult & { url: string; source: "youtube-audio" | "youtube" }) | null> {
   signal?.throwIfAborted();
   const trimmed = query.trim();
   if (!trimmed) return null;
@@ -1057,7 +1057,7 @@ export async function findSongForQuery(
     const results = await deps.searchMusic(trimmed, signal);
     signal?.throwIfAborted();
     const top = results.find(isPlayableSearchResult);
-    if (top) return { ...top, url: `https://www.youtube.com/watch?v=${top.id}`, source: "youtube-music" };
+    if (top) return { ...top, url: `https://www.youtube.com/watch?v=${top.id}`, source: "youtube-audio" };
   } catch (err) {
     signal?.throwIfAborted();
     if (err instanceof Error && err.name === "AbortError") throw err;

@@ -22,17 +22,24 @@ describe('mixed !ara ranking', () => {
   });
   it('mixes sources by quality instead of fixed source buckets', () => {
     const ranked = searchInternals.mergeAndRank('artist song', [
-      { sourceLabel: 'YouTube', items: [item('yt', 'unrelated reaction', 'Someone')] },
-      { sourceLabel: 'Spotify match', items: [item('sp', 'Song Official Audio')] },
-      { sourceLabel: 'YouTube Music', items: [item('ym', 'Song')] },
+      { sourceLabel: 'YouTube', items: [item('yt000000001', 'unrelated reaction', 'Someone'), item('yt000000002', 'Song Official Audio')] },
+      { sourceLabel: 'Spotify', items: [item('spotify:ym', 'Song')] },
     ]);
-    assert.deepEqual(ranked.map((result) => result.id), ['sp', 'ym', 'yt']);
+    assert.deepEqual(ranked.map((result) => result.id), ['spotify:ym', 'yt000000002', 'yt000000001']);
+  });
+
+  it('drops channels and playlists and cleans "- Topic" channel names', () => {
+    const ranked = searchInternals.mergeAndRank('song', [
+      { sourceLabel: 'YouTube', items: [item('UCchannelid0000000000', 'Song'), item('PLplaylist', 'Song'), item('abcdefghijk', 'Song', 'Tarkan - Topic')] },
+    ]);
+    assert.deepEqual(ranked.map((result) => result.id), ['abcdefghijk']);
+    assert.equal(ranked[0].artist, 'Tarkan');
   });
 
   it('deduplicates the same playable video and caps the list at ten', () => {
-    const candidates = Array.from({ length: 12 }, (_, index) => item(String(index), `Song ${index}`));
+    const candidates = Array.from({ length: 12 }, (_, index) => item(`video${String(index).padStart(6, '0')}`, `Song ${index}`));
     const ranked = searchInternals.mergeAndRank('song', [
-      { sourceLabel: 'YouTube Music', items: candidates },
+      { sourceLabel: 'YouTube', items: candidates },
       { sourceLabel: 'YouTube', items: [candidates[0]] },
     ]);
     assert.equal(ranked.length, 10);
@@ -41,23 +48,23 @@ describe('mixed !ara ranking', () => {
 
   it('penalises low-signal variants and rewards music sources', () => {
     assert.ok(
-      qualityScore(item('a', 'Song Official Audio'), 'song', 'YouTube Music')
+      qualityScore(item('a', 'Song Official Audio'), 'song', 'YouTube')
         > qualityScore(item('b', 'Song slowed reverb reaction'), 'song', 'YouTube'),
     );
   });
   it('labels real Spotify results and queues their Spotify link for YouTube matching', () => {
     const ranked = searchInternals.mergeAndRank('kuzu kuzu', [
       { sourceLabel: 'Spotify', items: [{ ...item('spotify:abc', 'Kuzu Kuzu', 'Tarkan'), url: 'https://open.spotify.com/track/abc' }] },
-      { sourceLabel: 'YouTube', items: [item('yt1', 'Kuzu Kuzu', 'Tarkan')] },
+      { sourceLabel: 'YouTube', items: [item('yt000000001', 'Kuzu Kuzu', 'Tarkan')] },
     ]);
     const spotify = ranked.find((result) => result.sourceLabel === 'Spotify')!;
     assert.equal(spotify.url, 'https://open.spotify.com/track/abc');
-    assert.equal(ranked.find((result) => result.id === 'yt1')!.url, 'https://www.youtube.com/watch?v=yt1');
+    assert.equal(ranked.find((result) => result.id === 'yt000000001')!.url, 'https://www.youtube.com/watch?v=yt000000001');
     assert.match(searchInternals.formatResults('kuzu kuzu', ranked), /\[Spotify\] Tarkan - Kuzu Kuzu/);
   });
 
-  it('shows duration and does not claim a YouTube match is Spotify audio', () => {
-    const results = searchInternals.mergeAndRank('song', [{ sourceLabel: 'Spotify match', items: [item('1', 'Song')] }]);
+  it('shows duration and labels YouTube results as YouTube', () => {
+    const results = searchInternals.mergeAndRank('song', [{ sourceLabel: 'YouTube', items: [item('aaaaaaaaaaa', 'Song')] }]);
     const text = searchInternals.formatResults('song', results);
     assert.match(text, /3:30/);
     assert.match(text, /\[YouTube\]/);

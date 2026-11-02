@@ -3,6 +3,12 @@ export const extraTurkish: Record<string, string> = {
   'Use 0 to discover the voice port automatically. For NAT, enter the externally reachable port.': 'Ses portunu otomatik öğrenmek için 0 yazın. NAT kullanıyorsanız dışarıdan erişilen portu girin.',
   'Bot control': 'Bot kontrol', 'Advanced bot settings': 'Gelişmiş bot ayarları', 'Asked by': 'İsteyen',
   'Server control': 'Sunucu kontrol',
+  Everyday: 'Günlük kullanım', 'Roles and bans': 'Roller ve yasaklar', 'Files and messages': 'Dosyalar ve mesajlar',
+  'Music and automation': 'Müzik ve otomasyon',
+  'Find a song': 'Şarkı bul', 'Results for': 'Sonuçlar:', 'Clear search': 'Aramayı temizle',
+  'Bot channel': 'Botun kanalı', 'Bot moved': 'Bot taşındı',
+  'In TeamSpeak, send the bot a private message with !here and it comes to your channel.':
+    'TeamSpeak\'te bota özel mesajla !here yaz, bot bulunduğun kanala gelir.',
   'Everyone on the server, by channel. Click a name to move, poke, message, kick or ban.':
     'Sunucudaki herkes, kanal kanal. Taşımak, dürtmek, mesaj atmak, atmak veya yasaklamak için isme tıkla.',
   online: 'çevrimiçi', 'Channels and people': 'Kanallar ve kişiler', away: 'uzakta', muted: 'sessiz',

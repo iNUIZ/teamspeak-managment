@@ -22,8 +22,10 @@ export interface BotSearchResult {
   artist: string;
   duration: number;
   url: string;
-  source: 'YouTube Music' | 'YouTube' | 'Spotify';
+  source: 'YouTube' | 'Spotify';
 }
+
+export interface BotChannel { cid: number; name: string; parentId: number; order: number }
 
 // === Music Bot API ===
 
@@ -72,7 +74,12 @@ export const musicBotsApi = {
   state: (id: number) => api.get(`/music-bots/${id}/state`).then((r) => r.data),
   /** Who did what on the bot, from TeamSpeak chat and the panel, newest first. */
   activity: (id: number): Promise<BotActivityEntry[]> => api.get(`/music-bots/${id}/activity`).then((r) => r.data),
-  /** The same ranked YouTube Music / YouTube / Spotify search as !ara. */
+  /** Channels the bot can see, and the one it sits in. */
+  channels: (id: number): Promise<{ current: number; channels: BotChannel[] }> =>
+    api.get(`/music-bots/${id}/channels`).then((r) => r.data),
+  /** Move the bot into a channel; `name` only labels the activity log entry. */
+  join: (id: number, cid: number, name?: string) => api.post(`/music-bots/${id}/join`, { cid, name }).then((r) => r.data),
+  /** The same ranked YouTube / Spotify search as !ara. */
   search: (id: number, query: string): Promise<{ cookies: boolean; results: BotSearchResult[] }> =>
     api.post(`/music-bots/${id}/search`, { query }, { timeout: 130000 }).then((r) => r.data),
 

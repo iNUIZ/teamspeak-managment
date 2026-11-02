@@ -35,43 +35,55 @@ interface NavSection {
   }>;
 }
 
+// Grouped by what people come to do, most used first. Section ids stay stable because
+// the open/closed state of each section is saved per browser.
 const navSections: NavSection[] = [
   {
     id: 'overview',
-    label: 'Overview',
+    label: 'Everyday',
     items: [
-      { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+      { to: '/control', icon: Music2, label: 'Bot control', adminOnly: true },
       { to: '/server-control', icon: Users, label: 'Server control', adminOnly: true },
+      { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     ],
   },
   {
     id: 'management',
-    label: 'Management',
+    label: 'Channels and people',
     items: [
       { to: '/channels', icon: Hash, label: 'Channels' },
       { to: '/clients', icon: Users, label: 'Clients' },
-      { to: '/server-groups', icon: Shield, label: 'Server Groups', adminOnly: true },
-      { to: '/channel-groups', icon: ShieldCheck, label: 'Channel Groups', adminOnly: true },
-      { to: '/permissions', icon: Lock, label: 'Permissions', adminOnly: true },
     ],
   },
   {
     id: 'security',
-    label: 'Security',
+    label: 'Roles and bans',
     adminOnly: true,
     items: [
+      { to: '/server-groups', icon: Shield, label: 'Server Groups', adminOnly: true },
+      { to: '/channel-groups', icon: ShieldCheck, label: 'Channel Groups', adminOnly: true },
+      { to: '/permissions', icon: Lock, label: 'Permissions', adminOnly: true },
       { to: '/bans', icon: Ban, label: 'Bans', adminOnly: true },
-      { to: '/tokens', icon: KeyRound, label: 'Tokens', adminOnly: true },
     ],
   },
   {
     id: 'content',
-    label: 'Content',
+    label: 'Files and messages',
     adminOnly: true,
     items: [
       { to: '/files', icon: FolderOpen, label: 'Files', adminOnly: true },
-      { to: '/complaints', icon: MessageSquareWarning, label: 'Complaints', adminOnly: true },
       { to: '/messages', icon: Mail, label: 'Messages', adminOnly: true },
+      { to: '/complaints', icon: MessageSquareWarning, label: 'Complaints', adminOnly: true },
+    ],
+  },
+  {
+    id: 'automation',
+    label: 'Music and automation',
+    adminOnly: true,
+    items: [
+      { to: '/media-bots', icon: Library, label: 'Media Library', adminOnly: true },
+      { to: '/iptv', icon: Tv, label: 'IPTV', adminOnly: true },
+      { to: '/bots', icon: Bot, label: 'Bot Flows', adminOnly: true },
     ],
   },
   {
@@ -80,19 +92,8 @@ const navSections: NavSection[] = [
     adminOnly: true,
     items: [
       { to: '/servers', icon: Server, label: 'Virtual Servers', adminOnly: true },
+      { to: '/tokens', icon: KeyRound, label: 'Tokens', adminOnly: true },
       { to: '/reports', icon: ScrollText, label: 'Reports and diagnostics', adminOnly: true },
-    ],
-  },
-  {
-    id: 'automation',
-    label: 'Automation',
-    adminOnly: true,
-    items: [
-      // The simple control screen; Bot Hub stays reachable from it for advanced settings.
-      { to: '/control', icon: Music2, label: 'Bot control', adminOnly: true },
-      { to: '/bots', icon: Bot, label: 'Bot Flows', adminOnly: true },
-      { to: '/media-bots', icon: Library, label: 'Media Library', adminOnly: true },
-      { to: '/iptv', icon: Tv, label: 'IPTV', adminOnly: true },
     ],
   },
 ];
