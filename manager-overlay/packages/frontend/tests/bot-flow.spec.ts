@@ -126,9 +126,9 @@ test('dirty Bot Flow navigation offers Stay and Discard & continue', async ({ pa
   await page.getByRole('button', { name: 'Stay' }).click();
   await expect(page).toHaveURL('/bots/1');
   await expect(name).toHaveValue('Unsaved draft');
-  await page.getByRole('link', { name: 'Bot Flows', exact: true }).click();
+  await page.getByRole('navigation', { name: 'Breadcrumb' }).getByRole('link', { name: 'Settings' }).click();
   await page.getByRole('button', { name: 'Discard & continue' }).click();
-  await expect(page).toHaveURL('/bots');
+  await expect(page).toHaveURL('/settings');
 });
 
 test('dirty editor protects unload and query refetch while a clean editor adopts server refresh', async ({ page, request }) => {

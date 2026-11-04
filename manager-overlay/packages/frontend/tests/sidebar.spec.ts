@@ -1,44 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
-const sectionLabels = ['Everyday', 'Channels and people', 'Roles and bans', 'Files and messages', 'Music and automation', 'System'] as const;
-const sectionIds = ['overview', 'management', 'security', 'content', 'automation', 'system'] as const;
-const destinations = [
-  'Dashboard',
-  'Virtual Servers',
-  'Channels',
-  'Clients',
-  'Server Groups',
-  'Channel Groups',
-  'Permissions',
-  'Bans',
-  'Tokens',
-  'Files',
-  'Complaints',
-  'Messages',
-  'Reports and diagnostics',
-  'Bot control',
-  'Bot Flows',
-  'Media Library',
-  'IPTV',
-  'Settings',
-] as const;
-
-const defaultSections = {
-  overview: true,
-  management: true,
-  security: true,
-  content: true,
-  system: false,
-  automation: false,
-} as const;
-
-async function expectDefaultSections(page: Page) {
-  for (const [index, label] of sectionLabels.entries()) {
-    const expanded = defaultSections[sectionIds[index]];
-    await expect(page.getByRole('button', { name: `${expanded ? 'Collapse' : 'Expand'} ${label} section` }))
-      .toHaveAttribute('aria-expanded', String(expanded));
-  }
-}
+const mainItems = ['Music bots', 'Server', 'Channels', 'Library', 'Status', 'Settings'] as const;
 
 async function signInAsAdmin(page: Page, request: APIRequestContext) {
   await request.post('/__test/auth?on');
@@ -53,216 +15,76 @@ test.beforeEach(async ({ request }) => {
   await request.post('/__test/reset');
 });
 
-test('old UI preferences migrate without disturbing appearance or whole-sidebar state', async ({ page, request }) => {
-  await page.addInitScript(() => {
-    localStorage.setItem('ts6-ui', JSON.stringify({
-      state: { sidebarCollapsed: false, baseTheme: 'black', accent: 'violet' },
-      version: 1,
-    }));
-  });
-
+test('the menu is one short list; configuration pages live under Settings', async ({ page, request }) => {
   await signInAsAdmin(page, request);
-
-  await expect(page.locator('html')).toHaveAttribute('data-theme', 'black');
-  await expect(page.locator('html')).toHaveAttribute('data-accent', 'violet');
-  await expectDefaultSections(page);
-
-  const state = await page.evaluate(() => JSON.parse(localStorage.getItem('ts6-ui')!).state);
-  expect(state).toMatchObject({
-    sidebarCollapsed: false,
-    baseTheme: 'black',
-    accent: 'violet',
-    sidebarSections: defaultSections,
-  });
+  const nav = page.getByRole('navigation', { name: 'Primary navigation' });
+  for (const label of mainItems.slice(0, 5)) await expect(nav.getByRole('link', { name: label, exact: true })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Settings', exact: true })).toBeVisible();
+  for (const hidden of ['Permissions', 'IPTV', 'Bot Flows', 'Server Groups']) {
+    await expect(nav.getByRole('link', { name: hidden, exact: true })).toHaveCount(0);
+  }
+  await expect(page.getByRole('button', { name: /section$/ })).toHaveCount(0);
 });
 
-test('existing fully expanded sidebars adopt the compact defaults once, then keep user choices', async ({ page, request }) => {
-  await page.addInitScript(() => {
-    if (sessionStorage.getItem('seeded')) return;
-    sessionStorage.setItem('seeded', '1');
-    localStorage.setItem('ts6-ui', JSON.stringify({
-      state: {
-        sidebarCollapsed: false,
-        sidebarSections: { overview: true, management: true, security: false, content: true, system: true, automation: true },
-        baseTheme: 'dark',
-        accent: 'cyan',
-      },
-      version: 6,
-    }));
-  });
-
+test('Settings opens an overview of every management page, each with a way back', async ({ page, request }) => {
   await signInAsAdmin(page, request);
-  await expect(page.getByRole('button', { name: 'Expand Roles and bans section' })).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByRole('button', { name: 'Expand System section' })).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByRole('button', { name: 'Expand Music and automation section' })).toHaveAttribute('aria-expanded', 'false');
-  await expect(page.getByRole('link', { name: 'Media Library', exact: true })).toHaveCount(0);
-
-  await page.getByRole('button', { name: 'Expand Music and automation section' }).click();
-  await expect(page.getByRole('link', { name: 'Media Library', exact: true })).toBeVisible();
-
-  await page.reload();
-  await expect(page.getByRole('button', { name: 'Collapse Music and automation section' })).toHaveAttribute('aria-expanded', 'true');
-  const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('ts6-ui')!));
-  expect(persisted.version).toBe(7);
-  expect(persisted.state.sidebarSections).toMatchObject({ security: false, system: false, automation: true });
+  await page.getByRole('link', { name: 'Settings', exact: true }).click();
+  const people = page.getByRole('region', { name: 'People and access' });
+  await expect(people.getByRole('link', { name: /Permissions/ })).toBeVisible();
+  await people.getByRole('link', { name: /Permissions/ }).click();
+  await expect(page).toHaveURL('/permissions');
+  await expect(page.getByRole('complementary').getByRole('link', { name: 'Settings', exact: true })).toHaveAttribute('aria-current', 'page');
+  const crumb = page.getByRole('navigation', { name: 'Breadcrumb' });
+  await expect(crumb).toContainText('Permissions');
+  await crumb.getByRole('link', { name: 'Settings' }).click();
+  await expect(page).toHaveURL('/settings');
 });
 
-for (const [width, height] of [[1366, 768], [1440, 900]] as const) {
-  test(`default sidebar shows every section heading without scrolling at ${width}x${height}`, async ({ page, request }) => {
+test('menu search also finds the pages under Settings', async ({ page, request }) => {
+  await signInAsAdmin(page, request);
+  const search = page.getByRole('textbox', { name: 'Search menu' });
+  await search.fill('perm');
+  const nav = page.getByRole('navigation', { name: 'Primary navigation' });
+  await expect(nav.getByRole('link', { name: 'Permissions', exact: true })).toBeVisible();
+  await search.fill('iptv');
+  await expect(nav.getByRole('link', { name: 'Library', exact: true })).toBeVisible();
+});
+
+test('old IPTV and YouTube links open their Library tabs', async ({ page, request }) => {
+  await signInAsAdmin(page, request);
+  await page.goto('/iptv');
+  await expect(page).toHaveURL(/\/media-bots\?tab=tv/);
+  await expect(page.getByRole('tab', { name: 'TV (IPTV)' })).toHaveAttribute('aria-selected', 'true');
+  await page.goto('/settings?tab=youtube');
+  await expect(page).toHaveURL(/\/media-bots\?tab=youtube/);
+  await expect(page.getByRole('tab', { name: 'YouTube access' })).toHaveAttribute('aria-selected', 'true');
+});
+
+for (const [width, height] of [[1366, 768], [1024, 700]] as const) {
+  test(`the whole menu fits without scrolling at ${width}x${height}`, async ({ page, request }) => {
     await page.setViewportSize({ width, height });
     await signInAsAdmin(page, request);
-
-    const nav = page.getByRole('navigation', { name: 'Primary navigation' });
-    const headingsInView = await nav.evaluate((element) => {
-      const viewport = element.closest<HTMLElement>('[data-radix-scroll-area-viewport]')!.getBoundingClientRect();
-      return [...element.querySelectorAll<HTMLElement>('button[aria-expanded]')]
-        .map((button) => button.getBoundingClientRect())
-        .every((rect) => rect.top >= viewport.top && rect.bottom <= viewport.bottom);
-    });
-    expect(headingsInView).toBe(true);
     await expect(page.locator('[data-nav-scroll-edge]')).toHaveCount(0);
   });
 }
 
-test('collapsed sections advertise their size and still reveal the active destination', async ({ page, request }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await signInAsAdmin(page, request);
-
-  const automation = page.getByRole('button', { name: 'Expand Music and automation section' });
-  await expect(automation.locator('[data-section-count]')).toHaveText('3');
-  await expect(page.getByRole('button', { name: 'Collapse Channels and people section' }).locator('[data-section-count]')).toHaveCount(0);
-
-  await page.goto('/iptv');
-  await expect(page.getByRole('link', { name: 'IPTV', exact: true })).toHaveAttribute('aria-current', 'page');
-  await expect(page.getByRole('link', { name: 'Media Library', exact: true })).toHaveCount(0);
-});
-
-test('every section is keyboard controlled, persists independently, and keeps the active destination visible', async ({ page, request }) => {
-  await signInAsAdmin(page, request);
-
-  for (const label of sectionLabels) {
-    const expanded = defaultSections[sectionIds[sectionLabels.indexOf(label)]];
-    if (!expanded) {
-      const expand = page.getByRole('button', { name: `Expand ${label} section` });
-      await expand.focus();
-      await page.keyboard.press('Space');
-      await expect(page.getByRole('button', { name: `Collapse ${label} section` })).toHaveAttribute('aria-expanded', 'true');
-    }
-    const control = page.getByRole('button', { name: `Collapse ${label} section` });
-    await control.focus();
-    await page.keyboard.press('Space');
-    await expect(page.getByRole('button', { name: `Expand ${label} section` })).toHaveAttribute('aria-expanded', 'false');
-  }
-
-  await expect(page.getByRole('link', { name: 'Dashboard', exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Channels', exact: true })).toHaveCount(0);
-
-  const persisted = await page.evaluate(() => JSON.parse(localStorage.getItem('ts6-ui')!).state.sidebarSections);
-  expect(persisted).toEqual(Object.fromEntries(sectionIds.map(id => [id, false])));
-
-  await page.reload();
-  for (const label of sectionLabels) {
-    await expect(page.getByRole('button', { name: `Expand ${label} section` })).toHaveAttribute('aria-expanded', 'false');
-  }
-
-  await page.goto('/clients');
-  await expect(page.getByRole('link', { name: 'Clients', exact: true })).toBeVisible();
-  await expect(page.getByRole('link', { name: 'Channels', exact: true })).toHaveCount(0);
-});
-
-test('icon-only desktop navigation keeps every destination accessible and discoverable', async ({ page, request }) => {
+test('icon-only desktop navigation keeps every destination accessible', async ({ page, request }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await signInAsAdmin(page, request);
   await page.getByRole('button', { name: 'Collapse sidebar' }).click();
-
-  await expect(page.getByRole('button', { name: /section$/ })).toHaveCount(0);
-  for (const label of destinations) {
-    await expect(page.getByRole('link', { name: label, exact: true })).toBeVisible();
-  }
-
-  await page.getByRole('link', { name: 'IPTV', exact: true }).hover();
-  await expect(page.getByRole('tooltip')).toContainText('IPTV');
+  for (const label of mainItems) await expect(page.getByRole('link', { name: label, exact: true })).toBeVisible();
+  await page.getByRole('link', { name: 'Library', exact: true }).hover();
+  await expect(page.getByRole('tooltip')).toContainText('Library');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
-async function scrollNavigation(page: Page, navigationName: string, to: 'top' | 'bottom') {
-  await page.getByRole('navigation', { name: navigationName }).evaluate((nav, position) => {
-    const viewport = nav.closest<HTMLElement>('[data-radix-scroll-area-viewport]')!;
-    viewport.scrollTop = position === 'bottom' ? viewport.scrollHeight : 0;
-  }, to);
-}
-
-for (const [width, height, navigationName, opensSheet] of [
-  [1024, 700, 'Primary navigation', false],
-  [390, 844, 'Mobile navigation', true],
-] as const) {
-  test(`overflowing navigation shows where hidden destinations are at ${width}x${height}`, async ({ page, request }) => {
-    await page.setViewportSize({ width, height });
-    await signInAsAdmin(page, request);
-    if (opensSheet) await page.getByRole('button', { name: 'Open navigation menu' }).click();
-    await page.getByRole('button', { name: 'Expand Music and automation section' }).click();
-    await scrollNavigation(page, navigationName, 'top');
-    const container = page.getByRole('navigation', { name: navigationName }).locator('xpath=ancestor::div[@data-nav-scroll-container][1]');
-
-    await expect(container.locator('[data-nav-scroll-edge="bottom"]')).toHaveCount(1);
-    await expect(container.locator('[data-nav-scroll-edge="top"]')).toHaveCount(0);
-
-    await scrollNavigation(page, navigationName, 'bottom');
-    await expect(container.locator('[data-nav-scroll-edge="bottom"]')).toHaveCount(0);
-    await expect(container.locator('[data-nav-scroll-edge="top"]')).toHaveCount(1);
-    await expect(page.getByRole('link', { name: 'IPTV', exact: true })).toBeInViewport();
-
-    await page.getByRole('link', { name: 'IPTV', exact: true }).click();
-    await expect(page).toHaveURL('/iptv');
-  });
-}
-
-test('the bottom hint goes away at the end of the list when the browser is zoomed', async ({ page, request }) => {
-  await page.setViewportSize({ width: 1280, height: 458 });
+test('mobile navigation lists the same short menu', async ({ page, request }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
   await signInAsAdmin(page, request);
-  await page.getByRole('button', { name: 'Expand Music and automation section' }).click();
-  // 110% zoom leaves the furthest scroll position a fraction short of scrollHeight - clientHeight.
-  await page.evaluate(() => { document.documentElement.style.setProperty('zoom', '1.1'); });
-  const navigation = page.getByRole('navigation', { name: 'Primary navigation' });
-  const container = navigation.locator('xpath=ancestor::div[@data-nav-scroll-container][1]');
-  await expect(container.locator('[data-nav-scroll-edge="bottom"]')).toHaveCount(1);
-
-  await navigation.hover();
-  await page.mouse.wheel(0, 5000);
-  await expect(container.locator('[data-nav-scroll-edge="bottom"]')).toHaveCount(0);
-  await expect(container.locator('[data-nav-scroll-edge="top"]')).toHaveCount(1);
-  await expect(page.getByRole('link', { name: 'IPTV', exact: true })).toBeInViewport();
+  await page.getByRole('button', { name: 'Open navigation menu' }).click();
+  const nav = page.getByRole('navigation', { name: 'Mobile navigation' });
+  for (const label of mainItems.slice(0, 5)) await expect(nav.getByRole('link', { name: label, exact: true })).toBeVisible();
+  await nav.getByRole('link', { name: 'Channels', exact: true }).click();
+  await expect(page).toHaveURL('/channels');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
-
-test('navigation that fits shows no scroll edges', async ({ page, request }) => {
-  await page.setViewportSize({ width: 1440, height: 1400 });
-  await signInAsAdmin(page, request);
-  await expect(page.locator('[data-nav-scroll-edge]')).toHaveCount(0);
-});
-
-for (const [width, height] of [[390, 844], [768, 1024]] as const) {
-  test(`mobile section navigation remains compact and usable at ${width}x${height}`, async ({ page, request }) => {
-    await page.setViewportSize({ width, height });
-    await signInAsAdmin(page, request);
-    await page.getByRole('button', { name: 'Open navigation menu' }).click();
-
-    await expect(page.getByRole('link', { name: 'Media Library', exact: true })).toHaveCount(0);
-    const automation = page.getByRole('button', { name: 'Expand Music and automation section' });
-    await automation.focus();
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('link', { name: 'Media Library', exact: true })).toBeVisible();
-    await page.getByRole('button', { name: 'Collapse Music and automation section' }).focus();
-    await page.keyboard.press('Enter');
-    await expect(page.getByRole('button', { name: 'Expand Music and automation section' })).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.getByRole('link', { name: 'Media Library', exact: true })).toHaveCount(0);
-
-    await page.getByRole('button', { name: 'Collapse Everyday section' }).click();
-    await expect(page.getByRole('link', { name: 'Dashboard', exact: true })).toBeVisible();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-
-    await page.getByRole('button', { name: 'Close navigation' }).click();
-    await page.getByRole('button', { name: 'Open navigation menu' }).click();
-    await expect(page.getByRole('button', { name: 'Expand Music and automation section' })).toHaveAttribute('aria-expanded', 'false');
-    await expect(page.getByRole('link', { name: 'Dashboard', exact: true })).toBeVisible();
-  });
-}

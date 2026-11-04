@@ -1,6 +1,6 @@
 import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { useState, useMemo, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { Navigate, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { usersApi } from '@/api/bots.api';
 import { authApi } from '@/api/auth.api';
@@ -38,12 +38,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ConfirmDialog } from '@/components/shared/ConfirmDialog';
 import { BrandMark } from '@/components/shared/BrandMark';
-import { Settings as SettingsIcon, Users, Server, Plus, Trash2, Pencil, TestTube, Check, X, Lock, KeyRound, Youtube, Upload, FileText, Wand2, Info, Github, Palette, Loader2, ShieldAlert } from 'lucide-react';
+import { Settings as SettingsIcon, Users, Server, Plus, Trash2, Pencil, TestTube, Check, X, Lock, KeyRound, Youtube, Upload, LayoutGrid, FileText, Wand2, Info, Github, Palette, Loader2, ShieldAlert } from 'lucide-react';
 import { APP_REPOSITORY_URL, APP_VERSION, APP_VERSION_LABEL } from '@/lib/app-version';
 import { apiErrorMessage } from '@/lib/api-error';
 import { toast } from 'sonner';
 import type { ConnectionDiagnosticReport } from '@ts6/common';
 import { useTranslation } from '@/lib/i18n';
+
+import { SettingsOverview } from '@/pages/settings/SettingsOverview';
 
 export default function Settings() {
   useUiLanguageStore(state => state.language);
@@ -53,9 +55,9 @@ export default function Settings() {
   const [searchParams, setSearchParams] = useSearchParams();
   const tabParam = searchParams.get('tab');
   const availableTabs = isAdmin
-    ? ['connections', 'account', 'appearance', 'users', 'youtube', 'about']
+    ? ['overview', 'connections', 'users', 'account', 'appearance', 'about']
     : ['account', 'appearance', 'about'];
-  const activeTab = tabParam && availableTabs.includes(tabParam) ? tabParam : 'account';
+  const activeTab = tabParam && availableTabs.includes(tabParam) ? tabParam : isAdmin ? 'overview' : 'account';
 
   const handleTabChange = (tab: string) => {
     const next = new URLSearchParams(searchParams);
@@ -64,19 +66,31 @@ export default function Settings() {
     setSearchParams(next);
   };
 
+  // YouTube cookies moved to the Library, next to the music they unlock.
+  if (tabParam === 'youtube') return <Navigate to="/media-bots?tab=youtube" replace />;
+
   return (
     <div className="min-w-0 space-y-5">
-      <h1 className="text-xl font-semibold">{t('Settings')}</h1>
+      <div>
+        <h1 className="text-xl font-semibold">{t('Settings')}</h1>
+        {isAdmin && <p className="text-sm text-muted-foreground">{t('Everything here applies to the TeamSpeak server selected at the top.')}</p>}
+      </div>
 
       <Tabs value={activeTab} onValueChange={handleTabChange} className="min-w-0 max-w-full">
         <TabsList className="w-full sm:w-auto">
+          {isAdmin && <TabsTrigger value="overview"><LayoutGrid className="h-3.5 w-3.5 mr-1" /> {t('Overview')}</TabsTrigger>}
           {isAdmin && <TabsTrigger value="connections"><Server className="h-3.5 w-3.5 mr-1" /> {t('Connections')}</TabsTrigger>}
+          {isAdmin && <TabsTrigger value="users"><Users className="h-3.5 w-3.5 mr-1" /> {t('Panel users')}</TabsTrigger>}
           <TabsTrigger value="account"><Lock className="h-3.5 w-3.5 mr-1" /> {t('Account')}</TabsTrigger>
           <TabsTrigger value="appearance"><Palette className="h-3.5 w-3.5 mr-1" /> {t('Appearance')}</TabsTrigger>
-          {isAdmin && <TabsTrigger value="users"><Users className="h-3.5 w-3.5 mr-1" /> {t('Users')}</TabsTrigger>}
-          {isAdmin && <TabsTrigger value="youtube"><Youtube className="h-3.5 w-3.5 mr-1" /> {uiText(" YouTube")}</TabsTrigger>}
           <TabsTrigger value="about"><Info className="h-3.5 w-3.5 mr-1" /> {t('About')}</TabsTrigger>
         </TabsList>
+
+        {isAdmin && (
+          <TabsContent value="overview" className="mt-4">
+            <SettingsOverview />
+          </TabsContent>
+        )}
 
         {isAdmin && (
           <TabsContent value="connections" className="mt-4">
@@ -95,12 +109,6 @@ export default function Settings() {
         {isAdmin && (
           <TabsContent value="users" className="mt-4">
             <UsersTab />
-          </TabsContent>
-        )}
-
-        {isAdmin && (
-          <TabsContent value="youtube" className="mt-4">
-            <YouTubeTab />
           </TabsContent>
         )}
 
@@ -914,7 +922,7 @@ function UsersTab() {
   );
 }
 
-function YouTubeTab() {
+export function YouTubeTab() {
   useUiLanguageStore(state => state.language);
   const { t } = useTranslation();
   const qc = useQueryClient();

@@ -99,7 +99,7 @@ settingsRoutes.get('/yt-cookies', requireAdmin, ytCookiesLimiter, async (_req: R
 
 // Retired API: stale clients must not re-enable the removed provider.
 settingsRoutes.put('/yt-cookies/mode', requireAdmin, ytCookiesLimiter, async (req, res, next) => {
-  next(new AppError(410, 'YouTube uses cookies only. Upload or remove cookies in Settings → YouTube.'));
+  next(new AppError(410, 'YouTube uses cookies only. Upload or remove cookies in Library → YouTube access.'));
 });
 
 // POST /api/settings/yt-cookies — Upload cookie file

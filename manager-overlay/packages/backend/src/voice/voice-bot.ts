@@ -96,7 +96,7 @@ export interface VoiceBotConfig {
   loadVideoSettings?: () => Promise<VideoStreamSettings>;
   /**
    * Whether YouTube videos are streamed directly instead of downloaded first
-   * (Settings → YouTube). Read when a source is resolved, so a change applies
+   * (Library → YouTube access). Read when a source is resolved, so a change applies
    * to the next stream.
    */
   loadYoutubeDirectStream?: () => Promise<boolean>;

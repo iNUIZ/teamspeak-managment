@@ -188,7 +188,7 @@ export default function BotControl() {
       const found = await musicBotsApi.search(botId, text);
       setResults(found.results);
       setSearchedFor(text);
-      if (!found.results.length) setSearchNote(found.cookies ? tr('No results.') : tr('YouTube cookies are missing. Upload them in Settings → YouTube.'));
+      if (!found.results.length) setSearchNote(found.cookies ? tr('No results.') : tr('YouTube cookies are missing. Upload them in Library → YouTube access.'));
     } catch (err) {
       setResults([]); setSearchNote(errorText(err, 'Search failed. Try again.'));
     } finally { setSearching(false); }

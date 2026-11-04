@@ -18,7 +18,7 @@ function axiosData(error: unknown): { status?: number; data?: any; message?: str
 }
 
 const REASON_DEFAULTS: Record<string, Partial<ApiErrorPresentation>> = {
-  media_auth_required: { title: 'The media provider requires verification', retryable: false, action: 'Refresh your YouTube cookies in Settings → YouTube and check outbound connectivity. Cookies do not guarantee access.' },
+  media_auth_required: { title: 'The media provider requires verification', retryable: false, action: 'Refresh your YouTube cookies in Library → YouTube access and check outbound connectivity. Cookies do not guarantee access.' },
   media_download_failed: { title: 'The media download failed', retryable: true },
   stream_already_running: { title: 'A video is already streaming', retryable: false },
   stream_not_running: { title: 'No active stream', retryable: false, action: 'Start a video first.' },

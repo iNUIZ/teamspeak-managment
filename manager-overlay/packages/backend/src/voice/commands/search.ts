@@ -144,7 +144,7 @@ export async function handleSearch(
   }
   if (!getYtCookieFile()) {
     sessions.delete(sessionKey(botId, userClid));
-    await context.reply(bot, userClid, 'YouTube çerezleri gerekli. Yönetici, panelde Ayarlar → YouTube bölümünden cookies.txt yüklemeli.');
+    await context.reply(bot, userClid, 'YouTube çerezleri gerekli. Yönetici, panelde Kütüphane → YouTube erişimi bölümünden cookies.txt yüklemeli.');
     return;
   }
   await context.reply(bot, userClid, spotifyCredentials() !== null

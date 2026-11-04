@@ -24,6 +24,11 @@ function MusicBotsRedirect() {
 function MusicRequestsRedirect() {
   return <Navigate to="/media-bots?tab=requests" replace />;
 }
+/** IPTV moved into the Library; keep `?server=` and other links working. */
+function LinkedRedirect({ to, tab }: { to: string; tab: string }) {
+  const { search } = useLocation(); const params = new URLSearchParams(search); params.set('tab', tab);
+  return <Navigate to={`${to}?${params}`} replace />;
+}
 function ReportRedirect({ view }: { view: string }) {
   const { search } = useLocation(); const params = new URLSearchParams(search); params.set('view', view);
   return <Navigate to={`/reports?${params}`} replace />;
@@ -63,7 +68,6 @@ const BotHub = lazy(() => import('@/pages/BotHub'));
 const BotControl = lazy(() => import('@/pages/BotControl'));
 const ServerControl = lazy(() => import('@/pages/ServerControl'));
 const BotConsole = lazy(() => import('@/pages/bot-hub/BotConsole'));
-const Iptv = lazy(() => import('@/pages/Iptv'));
 const Settings = lazy(() => import('@/pages/Settings'));
 const NotFound = lazy(() => import('@/pages/NotFound'));
 const WidgetPage = lazy(() => import('@/pages/WidgetPage'));
@@ -114,7 +118,7 @@ export function App() {
               <Route path="/bot-hub/:botId" element={<AdminRoute><BotConsole /></AdminRoute>} />
               <Route path="/media-bots" element={<AdminRoute><MusicBots /></AdminRoute>} />
               <Route path="/music-bots" element={<MusicBotsRedirect />} />
-              <Route path="/iptv" element={<AdminRoute><Iptv /></AdminRoute>} />
+              <Route path="/iptv" element={<AdminRoute><LinkedRedirect to="/media-bots" tab="tv" /></AdminRoute>} />
               <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<NotFound />} />
             </Route>

@@ -1,20 +1,19 @@
 import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
 import { useEffect, useRef, useState } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Server, Hash, Users, Shield, ShieldCheck,
   Lock, Ban, KeyRound, FolderOpen, MessageSquareWarning, Mail,
-  ScrollText, Settings, Bot, Cpu, ChevronDown, ChevronLeft, ChevronRight, Library, Tv, Github, BookOpen, Menu,
-  ClipboardList, NotebookPen, Stethoscope, Music2,
+  ScrollText, Settings, Bot, ChevronDown, ChevronLeft, ChevronRight, Library, Github, BookOpen, Menu,
+  Music2,
 
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUiStore, type SidebarSectionId } from '@/stores/ui.store';
+import { useUiStore } from '@/stores/ui.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { useScrollEdges } from '@/hooks/use-scroll-edges';
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip';
-import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetDescription, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -23,80 +22,49 @@ import { APP_DOCUMENTATION_URL, APP_REPOSITORY_URL, APP_VERSION, APP_VERSION_LAB
 import { useTranslation } from '@/lib/i18n';
 import { Input } from '@/components/ui/input';
 
-interface NavSection {
-  id: SidebarSectionId;
+export interface NavItem {
+  to: string;
+  icon: LucideIcon;
   label: string;
   adminOnly?: boolean;
-  items: Array<{
-    to: string;
-    icon: LucideIcon;
-    label: string;
-    adminOnly?: boolean;
-  }>;
+  /** Extra words the menu search matches, in both languages. */
+  keywords?: string[];
 }
 
-// Grouped by what people come to do, most used first. Section ids stay stable because
-// the open/closed state of each section is saved per browser.
-const navSections: NavSection[] = [
-  {
-    id: 'overview',
-    label: 'Everyday',
-    items: [
-      { to: '/control', icon: Music2, label: 'Bot control', adminOnly: true },
-      { to: '/server-control', icon: Users, label: 'Server control', adminOnly: true },
-      { to: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
-    ],
-  },
-  {
-    id: 'management',
-    label: 'Channels and people',
-    items: [
-      { to: '/channels', icon: Hash, label: 'Channels' },
-      { to: '/clients', icon: Users, label: 'Clients' },
-    ],
-  },
-  {
-    id: 'security',
-    label: 'Roles and bans',
-    adminOnly: true,
-    items: [
-      { to: '/server-groups', icon: Shield, label: 'Server Groups', adminOnly: true },
-      { to: '/channel-groups', icon: ShieldCheck, label: 'Channel Groups', adminOnly: true },
-      { to: '/permissions', icon: Lock, label: 'Permissions', adminOnly: true },
-      { to: '/bans', icon: Ban, label: 'Bans', adminOnly: true },
-    ],
-  },
-  {
-    id: 'content',
-    label: 'Files and messages',
-    adminOnly: true,
-    items: [
-      { to: '/files', icon: FolderOpen, label: 'Files', adminOnly: true },
-      { to: '/messages', icon: Mail, label: 'Messages', adminOnly: true },
-      { to: '/complaints', icon: MessageSquareWarning, label: 'Complaints', adminOnly: true },
-    ],
-  },
-  {
-    id: 'automation',
-    label: 'Music and automation',
-    adminOnly: true,
-    items: [
-      { to: '/media-bots', icon: Library, label: 'Media Library', adminOnly: true },
-      { to: '/iptv', icon: Tv, label: 'IPTV', adminOnly: true },
-      { to: '/bots', icon: Bot, label: 'Bot Flows', adminOnly: true },
-    ],
-  },
-  {
-    id: 'system',
-    label: 'System',
-    adminOnly: true,
-    items: [
-      { to: '/servers', icon: Server, label: 'Virtual Servers', adminOnly: true },
-      { to: '/tokens', icon: KeyRound, label: 'Tokens', adminOnly: true },
-      { to: '/reports', icon: ScrollText, label: 'Reports and diagnostics', adminOnly: true },
-    ],
-  },
+/** The whole menu: what people come to do. Everything that configures something lives under Settings. */
+const mainNav: NavItem[] = [
+  { to: '/control', icon: Music2, label: 'Music bots', adminOnly: true, keywords: ['bot', 'müzik', 'music', 'radio', 'radyo'] },
+  { to: '/server-control', icon: Users, label: 'Server', adminOnly: true, keywords: ['kick', 'ban', 'poke', 'move', 'taşı', 'dürt', 'people', 'kişiler'] },
+  { to: '/channels', icon: Hash, label: 'Channels', keywords: ['kanal'] },
+  { to: '/media-bots', icon: Library, label: 'Library', adminOnly: true, keywords: ['playlist', 'liste', 'iptv', 'tv', 'youtube', 'cookie', 'çerez', 'radio', 'radyo'] },
+  { to: '/dashboard', icon: LayoutDashboard, label: 'Status', keywords: ['dashboard', 'pano', 'kontrol paneli'] },
 ];
+
+/**
+ * Pages opened from the Settings overview. They are not in the menu, but the menu search
+ * finds them and Settings stays highlighted while one is open.
+ */
+export const settingsPages: NavItem[] = [
+  { to: '/server-groups', icon: Shield, label: 'Server Groups', adminOnly: true },
+  { to: '/channel-groups', icon: ShieldCheck, label: 'Channel Groups', adminOnly: true },
+  { to: '/permissions', icon: Lock, label: 'Permissions', adminOnly: true },
+  { to: '/bans', icon: Ban, label: 'Bans', adminOnly: true },
+  { to: '/tokens', icon: KeyRound, label: 'Tokens', adminOnly: true },
+  { to: '/clients', icon: Users, label: 'Clients' },
+  { to: '/files', icon: FolderOpen, label: 'Files', adminOnly: true },
+  { to: '/messages', icon: Mail, label: 'Messages', adminOnly: true },
+  { to: '/complaints', icon: MessageSquareWarning, label: 'Complaints', adminOnly: true },
+  { to: '/servers', icon: Server, label: 'Virtual Servers', adminOnly: true, keywords: ['teamspeak', 'connection', 'bağlantı'] },
+  { to: '/reports', icon: ScrollText, label: 'Reports and diagnostics', adminOnly: true, keywords: ['logs', 'audit', 'activity', 'diagnostics', 'kayıt', 'günlük', 'etkinlik', 'tanılama'] },
+  { to: '/bots', icon: Bot, label: 'Bot Flows', adminOnly: true, keywords: ['flow', 'akış', 'otomasyon', 'automation'] },
+];
+
+const isAt = (pathname: string, to: string) => pathname === to || pathname.startsWith(to + '/');
+
+/** The Settings page a settings sub-page belongs to, for its back link. */
+export function settingsPageFor(pathname: string): NavItem | undefined {
+  return settingsPages.find((item) => isAt(pathname, item.to));
+}
 
 interface NavigationContentProps {
   collapsed?: boolean;
@@ -109,32 +77,31 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
   const { t } = useTranslation();
   const [menuSearch, setMenuSearch] = useState('');
   const query = collapsed ? '' : menuSearch.trim().toLocaleLowerCase('tr-TR');
-  const matches = (label: string) => !query || t(label).toLocaleLowerCase('tr-TR').includes(query)
-    || label.toLocaleLowerCase('en-US').includes(query)
-    || (label === 'Reports and diagnostics' && ['logs', 'audit', 'activity', 'diagnostics', 'kayıt', 'günlük', 'etkinlik', 'tanılama'].some(alias => alias.includes(query)));
+  const matches = (item: NavItem) => !query || t(item.label).toLocaleLowerCase('tr-TR').includes(query)
+    || item.label.toLocaleLowerCase('en-US').includes(query)
+    || !!item.keywords?.some((word) => word.includes(query));
   const isAdmin = useAuthStore((s) => s.isAdmin());
   const location = useLocation();
-  const sidebarSections = useUiStore((s) => s.sidebarSections);
-  const toggleSidebarSection = useUiStore((s) => s.toggleSidebarSection);
-  const settingsActive = location.pathname.startsWith('/settings');
+  const settingsActive = location.pathname.startsWith('/settings') || !!settingsPageFor(location.pathname);
   const scrollRootRef = useRef<HTMLDivElement>(null);
   const scrollEdges = useScrollEdges(scrollRootRef);
   const settingsLink = (
-    <NavLink
+    // A plain Link: NavLink would drop aria-current on the pages that live under Settings.
+    <Link
       to="/settings"
       onClick={onNavigate}
       aria-label={collapsed ? t('Settings') : undefined}
       aria-current={settingsActive ? 'page' : undefined}
       className={cn(
         'flex items-center gap-2.5 rounded-md text-sm text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        mobile ? 'min-h-10 px-2.5 py-2' : 'px-2.5 py-0.5',
-        collapsed && 'justify-center px-0 py-2',
-        settingsActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
+        'min-h-10 px-3 py-2',
+        collapsed && 'justify-center px-0',
+        settingsActive && 'bg-sidebar-accent font-medium text-sidebar-accent-foreground',
       )}
     >
-      <Settings className="h-4 w-4" />
+      <Settings className={cn('h-[18px] w-[18px]', settingsActive && 'text-primary')} />
       {!collapsed && <span>{t('Settings')}</span>}
-    </NavLink>
+    </Link>
   );
 
   return (
@@ -149,92 +116,56 @@ function NavigationContent({ collapsed = false, mobile = false, onNavigate }: Na
         </div>}
         <ScrollArea ref={scrollRootRef} type="auto" className="h-full py-2">
           <nav className="space-y-1 px-2" aria-label={mobile ? uiText("Mobile navigation") : uiText("Primary navigation")}>
-            {query && !navSections.some(section => (!section.adminOnly || isAdmin)
-              && section.items.some(item => (!item.adminOnly || isAdmin) && matches(item.label)))
-              && <p role="status" className="px-2 py-3 text-sm text-muted-foreground">{t('No matching pages')}</p>}
-            {navSections
-              .filter((section) => !section.adminOnly || isAdmin)
-              .map((section, si) => {
-                const visibleItems = section.items.filter((item) => (!item.adminOnly || isAdmin) && matches(item.label));
-                if (visibleItems.length === 0) return null;
-                const expanded = !!query || sidebarSections[section.id];
-                const activeItem = visibleItems.find(item => location.pathname === item.to || location.pathname.startsWith(item.to + '/'));
-                const contentId = `${mobile ? 'mobile' : 'desktop'}-${section.id}-navigation`;
-                const renderItem = (item: (typeof visibleItems)[number]) => {
-                  const isActive = location.pathname === item.to || location.pathname.startsWith(item.to + '/');
-                  const link = (
-                    <NavLink
-                      key={item.to}
-                      to={item.to}
-                      onClick={onNavigate}
-                      aria-label={collapsed ? t(item.label) : undefined}
-                      aria-current={isActive ? 'page' : undefined}
-                      className={cn(
-                        'flex items-center gap-2.5 rounded-md text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                        mobile ? 'min-h-10 px-2.5 py-2' : 'px-2.5 py-0.5',
-                        collapsed && 'justify-center px-0 py-2',
-                        isActive
-                          ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                          : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
-                      )}
-                    >
-                      <item.icon className={cn('h-4 w-4 shrink-0', isActive && 'text-primary')} />
-                      {!collapsed && <span>{t(item.label)}</span>}
-                    </NavLink>
-                  );
-
-                  if (collapsed) {
-                    return (
-                      <Tooltip key={item.to}>
-                        <TooltipTrigger asChild>{link}</TooltipTrigger>
-                        <TooltipContent side="right" className="font-medium">
-                          {t(item.label)}
-                        </TooltipContent>
-                      </Tooltip>
-                    );
-                  }
-                  return link;
-                };
-
-                return (
-                  <div key={section.id} className={cn(si > 0 && !collapsed && !mobile && 'pt-1')}>
-                    {si > 0 && collapsed && <Separator className="my-2 bg-sidebar-border" />}
-                    {!collapsed && (
-                      <button
-                        type="button"
-                        aria-expanded={expanded}
-                        aria-controls={contentId}
-                        aria-label={uiText(expanded ? 'Collapse {0} section' : 'Expand {0} section', t(section.label))}
-                        onClick={() => toggleSidebarSection(section.id)}
-                        className={cn(
-                          'flex w-full items-center justify-between rounded-md px-2 py-1 text-left text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/55 hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-                          mobile && 'min-h-9',
-                        )}
-                      >
-                        <span>{t(section.label)}</span>
-                        <span className="flex items-center gap-1.5">
-                          {!expanded && (
-                            <span aria-hidden="true" data-section-count className="rounded bg-sidebar-accent px-1.5 font-mono-data text-[10px] font-medium tracking-normal text-sidebar-foreground/75">
-                              {visibleItems.length}
-                            </span>
-                          )}
-                          {expanded
-                            ? <ChevronDown className="h-3.5 w-3.5" aria-hidden="true" />
-                            : <ChevronRight className="h-3.5 w-3.5" aria-hidden="true" />}
-                        </span>
-                      </button>
+            {(() => {
+              const allowed = (item: NavItem) => !item.adminOnly || isAdmin;
+              const items = mainNav.filter((item) => allowed(item) && matches(item));
+              // Searching also finds the pages that live under Settings.
+              const more = query ? settingsPages.filter((item) => allowed(item) && matches(item)) : [];
+              const renderItem = (item: NavItem) => {
+                const isActive = isAt(location.pathname, item.to);
+                const link = (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    onClick={onNavigate}
+                    aria-label={collapsed ? t(item.label) : undefined}
+                    aria-current={isActive ? 'page' : undefined}
+                    className={cn(
+                      'flex items-center gap-3 rounded-md text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+                      'min-h-10 px-3 py-2',
+                      collapsed && 'justify-center px-0',
+                      isActive
+                        ? 'bg-sidebar-accent font-medium text-sidebar-accent-foreground'
+                        : 'text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground',
                     )}
-                    <div id={contentId} hidden={!collapsed && !expanded} className="space-y-1">
-                      {(collapsed || expanded) && visibleItems.map(renderItem)}
-                    </div>
-                    {!collapsed && !expanded && activeItem && (
-                      <div className="space-y-1" data-active-section-destination={section.id}>
-                        {renderItem(activeItem)}
-                      </div>
-                    )}
-                  </div>
+                  >
+                    <item.icon className={cn('h-[18px] w-[18px] shrink-0', isActive && 'text-primary')} />
+                    {!collapsed && <span>{t(item.label)}</span>}
+                  </NavLink>
                 );
-              })}
+                if (!collapsed) return link;
+                return (
+                  <Tooltip key={item.to}>
+                    <TooltipTrigger asChild>{link}</TooltipTrigger>
+                    <TooltipContent side="right" className="font-medium">{t(item.label)}</TooltipContent>
+                  </Tooltip>
+                );
+              };
+              if (query && items.length === 0 && more.length === 0) {
+                return <p role="status" className="px-2 py-3 text-sm text-muted-foreground">{t('No matching pages')}</p>;
+              }
+              return (
+                <>
+                  {items.map(renderItem)}
+                  {more.length > 0 && (
+                    <>
+                      <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-sidebar-foreground/55">{t('Settings')}</p>
+                      {more.map(renderItem)}
+                    </>
+                  )}
+                </>
+              );
+            })()}
           </nav>
         </ScrollArea>
         {scrollEdges.top && (

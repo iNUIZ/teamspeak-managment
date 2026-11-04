@@ -27,8 +27,7 @@ test('high-traffic pages expose the shared title, description, metadata, and act
     { path: '/channels', title: 'Channels', description: /channels · 2 users online/, action: 'Create Channel' },
     { path: '/clients', title: 'Clients', description: '2 online' },
     { path: '/servers', title: 'TeamSpeak servers', description: /TeamSpeak servers in the selected connection/ },
-    { path: '/media-bots', title: 'Media Library', description: /playlists/i },
-    { path: '/iptv', title: 'IPTV', description: /Stream live IPTV channels/ , action: 'Add Playlist' },
+    { path: '/media-bots', title: 'Library', description: /playlists/i },
   ] as const;
 
   for (const target of pages) {

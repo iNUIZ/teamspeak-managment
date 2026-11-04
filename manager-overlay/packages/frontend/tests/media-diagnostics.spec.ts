@@ -30,9 +30,8 @@ async function signIn(page: Page, request: APIRequestContext, role = 'admin') {
 }
 
 async function openFromSidebar(page: Page) {
-  const link = page.getByRole('link', { name: 'Reports and diagnostics', exact: true });
-  if (!await link.isVisible()) await page.getByRole('button', { name: 'Expand System section', exact: true }).click();
-  await link.click();
+  await page.getByRole('link', { name: 'Settings', exact: true }).click();
+  await page.getByRole('region', { name: 'Panel' }).getByRole('link', { name: /Reports and diagnostics/ }).click();
   await page.getByRole('button', { name: 'Media diagnostics', exact: true }).click();
   await expect(page).toHaveURL('/reports?view=media');
 }
@@ -88,7 +87,7 @@ test('only page entry and manual Refresh run probes', async ({ page, request }) 
   });
   await page.clock.runFor(60_000);
   expect(probes).toBe(1);
-  await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
+  await page.getByRole('link', { name: 'Status', exact: true }).click();
   await openFromSidebar(page);
   await expect(page.getByText('FFmpeg', { exact: true })).toBeVisible();
   expect(probes).toBe(1);

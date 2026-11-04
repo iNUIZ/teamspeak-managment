@@ -251,7 +251,7 @@ test('safe-ui latches before injection and survives SPA navigation', async ({ pa
   expect(state.customCssText).toContain('display: none');
   expect(state.customCssEnabled).toBe(true);
 
-  await page.getByRole('link', { name: 'Dashboard', exact: true }).click();
+  await page.getByRole('link', { name: 'Status', exact: true }).click();
   await expect(page).toHaveURL('/dashboard');
   await expect(styleEl(page)).toHaveCount(0);
 });
