@@ -45,7 +45,7 @@ export const operationsTurkish: Record<string, string> = {
   'Upload cookies.txt': 'cookies.txt yükle', 'Paste cookies': 'Çerezleri yapıştır',
   'Failed to upload cookie file': 'Çerez dosyası yüklenemedi', 'Failed to save cookies': 'Çerezler kaydedilemedi', 'Failed to remove cookies': 'Çerezler kaldırılamadı',
   'YouTube requires authentication': 'YouTube oturum doğrulaması istiyor',
-  'Update your YouTube cookies in Settings > YouTube. Cookies may expire and do not guarantee playback.': 'Ayarlar → YouTube bölümündeki çerezleri güncelleyin. Çerezlerin süresi dolabilir; çerez yüklemek oynatmayı garanti etmez.',
+  'Update your YouTube cookies in Library → YouTube access. Cookies may expire and do not guarantee playback.': 'Kütüphane → YouTube erişimi bölümündeki çerezleri güncelleyin. Çerezlerin süresi dolabilir; çerez yüklemek oynatmayı garanti etmez.',
   'The media download failed': 'Medya indirilemedi', 'Review the media diagnostics and try another source.': 'Medya bileşeni kontrollerini inceleyin ve başka bir kaynak deneyin.',
   'Something went wrong': 'Bir hata oluştu', 'Try again. If it keeps happening, check the server logs.': 'Tekrar deneyin. Sorun sürerse sunucu kayıtlarını kontrol edin.',
   'Player widget': 'Oynatıcı bileşeni', 'Widget token': 'Bileşen erişim anahtarı',

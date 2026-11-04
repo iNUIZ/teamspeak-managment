@@ -524,7 +524,7 @@ export const panelTurkish: Record<string, string> = {
   'LOADING...': 'YÜKLENİYOR…', 'Label': 'Etiket', 'Language': 'Dil', 'Language (optional)': 'Dil (isteğe bağlı)',
   'Large Apple Music playlists can take 1–2 minutes': 'Büyük Apple Music listeleri 1–2 dakika sürebilir', 'Last seen: Set': 'Son görülme: Ata',
   'Leave empty for no auth': 'Kimlik doğrulaması olmaması için boş bırakın', 'Leave empty to keep current': 'Mevcut değeri korumak için boş bırakın',
-  'Leave empty to keep unchanged.': 'Değiştirmemek için boş bırakın.', 'Left': 'Sol', 'Length': 'Uzunluk', 'Library': 'Kitaplık',
+  'Leave empty to keep unchanged.': 'Değiştirmemek için boş bırakın.', 'Left': 'Sol', 'Length': 'Uzunluk', 'Library': 'Kütüphane',
   'Library scan failed': 'Kitaplık taraması başarısız oldu', 'Link': 'Bağlantı', 'Links': 'Bağlantılar',
   'Listen Channel ID (optional)': 'Dinlenecek kanal kimliği (isteğe bağlı)', 'Lists': 'Listeler', 'Load': 'Yükle', 'Load playlist instead': 'Bunun yerine listeyi yükle',
   'Loading channel details…': 'Kanal ayrıntıları yükleniyor…', 'Loading command permissions…': 'Komut yetkileri yükleniyor…',

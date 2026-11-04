@@ -160,7 +160,7 @@ test('Bot Hub shows each bot\'s active media session and links to its sections',
   await expect(sections.getByRole('link')).toHaveText(['Bot Flows', 'Media Library', 'Streaming defaults', 'IPTV']);
   await sections.getByRole('link', { name: 'Streaming defaults' }).click();
   await expect(page).toHaveURL('/media-bots?tab=streaming');
-  await expect(page.getByRole('heading', { name: 'Media Library' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Library', exact: true })).toBeVisible();
   await expect(page.getByRole('tab', { name: 'Streaming defaults' })).toHaveAttribute('aria-selected', 'true');
 });
 
@@ -316,8 +316,8 @@ test('old Media Bots links land on their 1.10.0 pages', async ({ page, request }
   }
 
   await page.goto('/media-bots');
-  await expect(page.getByRole('heading', { name: 'Media Library' })).toBeVisible();
-  await expect(page.getByRole('tab')).toHaveText(['Library', 'Playlists', 'Radio stations', 'Requests', 'Streaming defaults']);
+  await expect(page.getByRole('heading', { name: 'Library', exact: true })).toBeVisible();
+  await expect(page.getByRole('tab')).toHaveText(['Songs', 'Playlists', 'Radio stations', 'TV (IPTV)', 'Requests', 'YouTube access', 'Streaming defaults']);
 });
 
 test('a live stream switches source from the console without stopping', async ({ page, request }) => {

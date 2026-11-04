@@ -146,7 +146,7 @@ export function mapOperationalError(err: Error): AppError | null {
 
   if (msg.startsWith('YouTube cookies required.')) {
     return new AppError(422, 'YouTube cookies required',
-      'Upload a cookies.txt file in Settings → YouTube before searching or playing YouTube media.',
+      'Upload a cookies.txt file in Library → YouTube access before searching or playing YouTube media.',
       { reason: 'media_auth_required', retryable: false });
   }
 
@@ -155,7 +155,7 @@ export function mapOperationalError(err: Error): AppError | null {
   if (/yt-dlp (?:info|download|stream resolve|music search|search) failed/i.test(msg)) {
     if (/sign in to confirm|not a bot|cookies are no longer valid|cookies.*expired/i.test(msg)) {
       return new AppError(422, 'The media provider requires verification',
-        'Refresh your YouTube cookies in Settings → YouTube and check outbound connectivity. Cookies do not guarantee access.',
+        'Refresh your YouTube cookies in Library → YouTube access and check outbound connectivity. Cookies do not guarantee access.',
         { reason: 'media_auth_required', retryable: false });
     }
     return new AppError(502, 'The media download failed', 'Review the media diagnostics and try another source.',

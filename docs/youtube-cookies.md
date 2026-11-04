@@ -5,7 +5,7 @@ Token hizmeti, otomatik anonim alternatif veya ek proxy kurulmaz.
 
 ## Kullanım
 
-1. Ayarlar → YouTube bölümünden kendi Netscape biçimli `cookies.txt` dosyanızı yükleyin.
+1. Kütüphane → YouTube erişimi bölümünden kendi Netscape biçimli `cookies.txt` dosyanızı yükleyin.
 2. Yüklenen dosya yeni arama ve oynatma işlemlerinde otomatik kullanılır; ayrıca yöntem seçilmez.
 3. Çerez yoksa veya dosya okunamıyorsa YouTube işlemleri açık bir uyarıyla durur.
 4. Süresi dolan veya reddedilen çerezleri aynı ekrandan yenileyin. Çerezler ağ, hesap veya bölge kısıtlamalarının aşılmasını garanti etmez.
@@ -26,7 +26,7 @@ birkaç saat içinde kapatır. Kapanan çerez dosyası, ilk istekten sonra giri�
 2. Tarayıcıda gizli pencere açın ve yalnızca bu hesapla youtube.com'a girin.
 3. Aynı pencerede çerezleri Netscape biçiminde dışa aktarın (ör. "Get cookies.txt LOCALLY").
 4. Gizli pencereyi hemen kapatın; oturumu kapatmayın ve bu hesabı başka yerde açmayın.
-5. Dosyayı Ayarlar → YouTube bölümünden yükleyin, ardından yerel kopyayı silin.
+5. Dosyayı Kütüphane → YouTube erişimi bölümünden yükleyin, ardından yerel kopyayı silin.
 
 Oturum yine kapanırsa yalnızca aynı yöntemle yeni dosya yüklemek yeterlidir.
 
@@ -46,7 +46,7 @@ Eski yöntem ayarı yok sayılır; eski `/yt-cookies/mode` API'si 410 döndürü
 
 ## English
 
-Upload your own Netscape-format `cookies.txt` under Settings → YouTube. The file is
+Upload your own Netscape-format `cookies.txt` under Library → YouTube access. The file is
 used immediately for new YouTube searches and playback. Missing or unreadable
 cookies block YouTube requests, without an anonymous/provider fallback. Radio and
 local media remain independent. Refresh expired cookies; access is not guaranteed.

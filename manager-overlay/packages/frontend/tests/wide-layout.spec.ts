@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 
 // Layout-only checks for the wide-viewport treatment of Settings > Appearance,
-// Settings > YouTube and the Bot Flows > Chat commands permissions card.
+// Library → YouTube access and the Bot Flows > Chat commands permissions card.
 // Set WIDE_LAYOUT_SHOTS=<dir> to also write screenshots there (not committed).
 
 const shotDir = process.env.WIDE_LAYOUT_SHOTS;

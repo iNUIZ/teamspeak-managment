@@ -65,7 +65,7 @@ test('service information moved under servers and new-server group templates und
 test('provider refusal is Turkish, actionable, and never shown as playing', async ({ page, request }) => {
   await page.route('**/api/music-bots', route => route.fulfill({ json: [{ id: 4, name: 'Review bot', serverConfigId: 1, status: 'idle' }] }));
   await page.route('**/api/servers/*/vs/*/clients', route => route.fulfill({ json: [{ clid: 11, client_type: 0, client_nickname: 'Review Alice' }] }));
-  await page.route('**/api/music-bots/4/play-url', route => route.fulfill({ status: 422, json: { error: 'The media provider requires verification', reason: 'media_auth_required', retryable: false, details: 'Refresh your YouTube cookies in Settings → YouTube and check outbound connectivity. Cookies do not guarantee access.' } }));
+  await page.route('**/api/music-bots/4/play-url', route => route.fulfill({ status: 422, json: { error: 'The media provider requires verification', reason: 'media_auth_required', retryable: false, details: 'Refresh your YouTube cookies in Library → YouTube access and check outbound connectivity. Cookies do not guarantee access.' } }));
   await login(page, request); await page.goto('/clients'); await page.getByRole('button', { name: 'Review Alice işlemleri', exact: true }).click(); await page.getByRole('menuitem', { name: 'YouTube / Spotify / Apple Music çal', exact: true }).click();
   await page.getByRole('dialog').getByRole('textbox').fill('https://www.youtube.com/watch?v=abcdefghijk'); await page.getByRole('button', { name: 'Oynat', exact: true }).click();
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Medya sağlayıcısı doğrulama istiyor');

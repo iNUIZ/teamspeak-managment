@@ -65,7 +65,7 @@ export function getCookieArgs(): string[] {
 function formatYtDlpFailure(phase: string, code: number | null, stderr: string): string {
   const summary = summarizeYtDlpStderr(stderr);
   if (/sign in to confirm|not a bot/i.test(stderr)) {
-    return `${phase} (code ${code}): ${summary}. Refresh your YouTube cookies in Settings → YouTube and check outbound connectivity. Cookies do not guarantee access.`;
+    return `${phase} (code ${code}): ${summary}. Refresh your YouTube cookies in Library → YouTube access and check outbound connectivity. Cookies do not guarantee access.`;
   }
   return `${phase} (code ${code}): ${summary}`;
 }

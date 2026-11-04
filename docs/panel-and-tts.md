@@ -75,7 +75,7 @@ Wiki: https://nuiz.mintlify.site/index
 
 ## Panel kullanım kolaylığı ve şarkı profili
 
-YouTube için Ayarlar → YouTube bölümünden cookies.txt yüklenir. Dosya yeni
+YouTube için Kütüphane → YouTube erişimi bölümünden cookies.txt yüklenir. Dosya yeni
 işlemlerde otomatik kullanılır; çerezsiz alternatif hizmet bulunmaz.
 Platform gereksinimleri ve sınırlamalar: [Çerezle oynatma](youtube-cookies.md).
 

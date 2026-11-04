@@ -58,7 +58,7 @@ test('phone header keeps the connection and virtual server pickers visibly disti
 test('overflowing tab bars fade the hidden edge and keep the selected tab in view', async ({ page, request }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await signInAsAdmin(page, request);
-  await page.goto('/settings?tab=account');
+  await page.goto('/settings?tab=overview');
 
   const tabs = page.getByRole('tablist');
   await expect(tabs).toHaveAttribute('data-overflow-end', 'true');

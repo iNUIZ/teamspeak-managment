@@ -379,7 +379,7 @@ function ReplaceFileDialog({
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function Iptv() {
+export default function Iptv({ embedded = false }: { embedded?: boolean } = {}) {
   useUiLanguageStore(state => state.language);
   const [searchParams] = useSearchParams();
   const linkedServer = Number(searchParams.get('server')) || null;
@@ -431,27 +431,38 @@ export default function Iptv() {
     ? apiErrorMessage(error, 'Playlist refresh failed. The last successful list is still displayed.')
     : null;
 
+  const playlistActions = (
+    <>
+      {isAdmin && <IptvLocalHostsTrigger onClick={() => setHostsOpen(true)} />}
+      <Button onClick={() => setAddOpen(true)} disabled={!selectedConfigId}>
+        <Plus className="h-4 w-4 mr-1.5" /> {uiText(" Add Playlist")}</Button>
+    </>
+  );
+
   return (
     <div className="space-y-6">
-      <PageHeader
-        title={uiText("IPTV")}
-        icon={Tv}
-        description={uiText("Stream live IPTV channels into TeamSpeak via a Media Bot's video sidecar.")}
-        actions={(
-          <>
-            <Select value={selectedConfigId ? String(selectedConfigId) : ''} onValueChange={(v) => { setServer(parseInt(v)); setSelectedPlaylistId(null); }}>
-              <SelectTrigger aria-label={uiText("IPTV server")} className="h-10 min-w-0 flex-1 sm:h-9 sm:w-48 sm:flex-none"><SelectValue placeholder={uiText("Select server")} /></SelectTrigger>
-              <SelectContent>
-                {serverList.map((s: any) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
-              </SelectContent>
-            </Select>
-            {isAdmin && <IptvLocalHostsTrigger onClick={() => setHostsOpen(true)} />}
-            <Button onClick={() => setAddOpen(true)} disabled={!selectedConfigId}>
-              <Plus className="h-4 w-4 mr-1.5" /> {uiText(" Add Playlist")}</Button>
-          </>
-        )}
-        metadata={<RefreshStatus isRefreshing={isFetching} idleLabel={uiText("Playlist data up to date")} refreshingLabel={uiText("Refreshing playlists…")} />}
-      />
+      {embedded ? (
+        // Inside the Library tab: the page title and the server picker come from the page around it.
+        <div className="flex flex-wrap items-center justify-end gap-2">{playlistActions}</div>
+      ) : (
+        <PageHeader
+          title={uiText("IPTV")}
+          icon={Tv}
+          description={uiText("Stream live IPTV channels into TeamSpeak via a Media Bot's video sidecar.")}
+          actions={(
+            <>
+              <Select value={selectedConfigId ? String(selectedConfigId) : ''} onValueChange={(v) => { setServer(parseInt(v)); setSelectedPlaylistId(null); }}>
+                <SelectTrigger aria-label={uiText("IPTV server")} className="h-10 min-w-0 flex-1 sm:h-9 sm:w-48 sm:flex-none"><SelectValue placeholder={uiText("Select server")} /></SelectTrigger>
+                <SelectContent>
+                  {serverList.map((s: any) => <SelectItem key={s.id} value={String(s.id)}>{s.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+              {playlistActions}
+            </>
+          )}
+          metadata={<RefreshStatus isRefreshing={isFetching} idleLabel={uiText("Playlist data up to date")} refreshingLabel={uiText("Refreshing playlists…")} />}
+        />
+      )}
 
       {backgroundError && (
         <StaleDataNotice message={backgroundError} onRetry={() => { void refetch(); }} isRetrying={isFetching} />

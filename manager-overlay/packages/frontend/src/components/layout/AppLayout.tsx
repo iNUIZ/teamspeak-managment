@@ -1,3 +1,4 @@
+import { SettingsBackLink } from './SettingsBackLink';
 import { useEffect } from 'react';
 import { Outlet, Navigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -56,6 +57,7 @@ export function AppLayout() {
           data-motion-resolved={resolvedMotion}
         >
           <div className="fade-in min-w-0 p-3 sm:p-4 lg:p-5" style={{ paddingBottom: 'calc(var(--pwa-status-height, 0px) + max(1.25rem, env(safe-area-inset-bottom)))' }}>
+            <SettingsBackLink />
             <Outlet />
           </div>
         </main>

@@ -26,6 +26,6 @@ export function requireYouTubeCookies(target: string, args: readonly string[]): 
   const file = getYtCookieFile();
   const at = args.indexOf('--cookies');
   if (!file || at < 0 || args[at + 1] !== file) {
-    throw new Error('YouTube cookies required. Upload a cookies.txt file in Settings → YouTube before searching or playing YouTube media.');
+    throw new Error('YouTube cookies required. Upload a cookies.txt file in Library → YouTube access before searching or playing YouTube media.');
   }
 }

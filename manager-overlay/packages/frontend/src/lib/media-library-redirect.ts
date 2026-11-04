@@ -5,7 +5,7 @@
  */
 
 /** Media Library tabs addressable as `/media-bots?tab=…`. */
-export const MEDIA_LIBRARY_TABS = ['library', 'playlists', 'radio', 'requests', 'streaming'] as const;
+export const MEDIA_LIBRARY_TABS = ['library', 'playlists', 'radio', 'tv', 'requests', 'youtube', 'streaming'] as const;
 
 export type MediaLibraryTab = (typeof MEDIA_LIBRARY_TABS)[number];
 
