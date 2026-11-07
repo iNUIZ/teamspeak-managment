@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- New servers come with a ready "Müzik Botu" and "Radyo Botu". The radio bot plays the first saved station, also takes `!play` requests, and goes back to the station after them. Existing servers keep their bots.
+- While a track plays, the bot's whole nickname becomes the track ("♪ Song") instead of "BotName ♪ Song".
+- Extensions page rebuilt: ready extensions (welcome message, clock channel, temp channels, support…) switch on with a short form, and your own `!command → reply` lines are added with two fields. No JSON.
+
 ## 0.3.8-alpha.3 - 2026-10-20
 
 - Cookie-only YouTube playback with automatic activation of an administrator's uploaded cookie file.

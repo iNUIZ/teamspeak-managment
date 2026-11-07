@@ -1,5 +1,5 @@
 import { translate as uiText, useLanguageStore as useUiLanguageStore } from '@/lib/i18n';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { BOT_TEMPLATES, TEMPLATE_CATEGORIES, templateConfigError, type BotTemplate } from '@/data/bot-templates';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -14,9 +14,13 @@ interface TemplateGalleryProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSelect: (name: string, description: string, flowData: { nodes: any[]; edges: any[] }) => void;
+  /** Open straight on this template's settings form (Extensions page). */
+  template?: BotTemplate | null;
+  /** Label of the final button. */
+  createLabel?: string;
 }
 
-export function TemplateGallery({ open, onOpenChange, onSelect }: TemplateGalleryProps) {
+export function TemplateGallery({ open, onOpenChange, onSelect, template, createLabel }: TemplateGalleryProps) {
   useUiLanguageStore(state => state.language);
   const [selected, setSelected] = useState<BotTemplate | null>(null);
   const [config, setConfig] = useState<Record<string, string>>({});
@@ -44,6 +48,11 @@ export function TemplateGallery({ open, onOpenChange, onSelect }: TemplateGaller
     setConfig(defaults);
   };
 
+  useEffect(() => {
+    if (open && template) handleSelectTemplate(template);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, template]);
+
   const configError = selected ? templateConfigError(selected, config) : null;
 
   const handleCreate = () => {
@@ -59,7 +68,7 @@ export function TemplateGallery({ open, onOpenChange, onSelect }: TemplateGaller
         <div className="p-6 pb-0">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              {selected && (
+              {selected && !template && (
                 <Button variant="ghost" size="icon" className="h-6 w-6 mr-1" onClick={handleBack} aria-label={uiText("Back to templates")} title={uiText("Back to templates")}>
                   <ArrowLeft className="h-4 w-4" />
                 </Button>
@@ -163,9 +172,9 @@ export function TemplateGallery({ open, onOpenChange, onSelect }: TemplateGaller
             <div className="p-6 pt-2">
               {configError && <p role="alert" className="text-[10px] text-destructive mb-2">{configError}</p>}
               <DialogFooter>
-                <Button variant="outline" size="sm" onClick={handleBack}>{uiText("Back")}</Button>
+                <Button variant="outline" size="sm" onClick={template ? () => handleClose(false) : handleBack}>{uiText(template ? "Cancel" : "Back")}</Button>
                 <Button size="sm" onClick={handleCreate} disabled={!!configError}>
-                  {uiText("Create Bot")}</Button>
+                  {createLabel ?? uiText("Create Bot")}</Button>
               </DialogFooter>
             </div>
           </>

@@ -25,6 +25,7 @@ import { startMediaEgress } from './voice/egress/media-egress.js';
 import { runInOrderWithin } from './utils/ordered-shutdown.js';
 import { applyInstallerAdmin } from './bootstrap/installer.js';
 import { seedRadioDefaults } from './bootstrap/radio-presets.js';
+import { seedDefaultBots } from './bootstrap/default-bots.js';
 
 async function main() {
   // C1: JWT secret startup guard
@@ -165,6 +166,13 @@ async function main() {
   botEngine.setMusicCommandHandler(musicCommandHandler);
   voiceBotManager.setMusicCommandHandler(musicCommandHandler);
   await musicCommandHandler.refreshAllBotChannels();
+
+  // A fresh server gets a ready music bot and radio bot (once; never re-created).
+  for (const server of await prisma.tsServerConfig.findMany({ where: { isDemo: false }, select: { id: true } })) {
+    try { await seedDefaultBots(prisma, voiceBotManager, server.id); } catch (err) {
+      console.warn(`[TS6 WebUI] Default bots for connection ${server.id}: ${(err as Error)?.message || err}`);
+    }
+  }
 
   // TeamSpeak activity journal (#91 Slice 5) — opt-in per connection/SID
   const activityJournal = new ActivityJournalService(prisma, botEngine.getEventBridge());

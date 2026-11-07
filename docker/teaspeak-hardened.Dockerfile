@@ -5,6 +5,7 @@ ARG TEASPEAK_VERSION=1.5.6
 ARG TEASPEAK_SHA256=50ddd39e59c075137371ccde4c26c5930b33cc3a326230bd93d442efc57b7c9c
 
 RUN apt-get update \
+ && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y \
  && DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends ca-certificates curl ffmpeg openssl tzdata \
  && mkdir -p /ts/logs /ts/certs /ts/files /ts/database /ts/config /ts/crash_dumps \
  && curl -fsSL "https://repo.teaspeak.de/server/linux/amd64_stable/TeaSpeak-${TEASPEAK_VERSION}.tar.gz" -o /tmp/teaspeak.tar.gz \
