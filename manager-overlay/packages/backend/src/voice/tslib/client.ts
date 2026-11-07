@@ -871,7 +871,14 @@ export class Ts3Client extends EventEmitter {
     const cmdStr = data.toString("utf-8");
     this.emit("debug", `[CMD IN] ${cmdStr.substring(0, 200)}`);
 
-    const parsed = parseCommand(cmdStr);
+    let parsed: ParsedCommand;
+    try {
+      parsed = parseCommand(cmdStr);
+    } catch (e: any) {
+      // One unreadable command must not drop the whole voice connection.
+      this.emit("debug", `Unparsable command ignored: ${e?.message || e}`);
+      return;
+    }
     this.emit("command", parsed);
 
     switch (parsed.name) {
