@@ -144,6 +144,18 @@ export interface MusicStartOptions {
   automation?: () => boolean;
 }
 
+/**
+ * While a track plays the whole nickname becomes the track ("♪ Song"),
+ * not "BotName ♪ Song". TeamSpeak allows 3-30 characters.
+ */
+export function nowPlayingNickname(title: string, fallback: string): string {
+  const clean = [...String(title ?? '').replace(/\s+/g, ' ').trim()];
+  if (clean.length === 0) return fallback;
+  const max = 30 - 2; // "♪ " prefix
+  const body = clean.length > max ? clean.slice(0, max - 1).join('').trimEnd() + '…' : clean.join('');
+  return `♪ ${body}`;
+}
+
 /** One log record for a viewer-controlled signaling error. */
 function quoteLog(err: unknown): string {
   const message = err instanceof Error ? err.message : String(err);
@@ -817,16 +829,7 @@ export class VoiceBot extends EventEmitter {
   /** Update the TS3 nickname to show what's playing. Max 30 chars. */
   private updateNowPlayingNickname(title: string): void {
     if (this._status === 'stopped') return;
-    const prefix = this._originalNickname;
-    const sep = ' \u266A '; // ♪
-    const maxLen = 30;
-    let nick = prefix + sep + title;
-    if (nick.length > maxLen) {
-      const available = maxLen - prefix.length - sep.length - 1; // -1 for …
-      nick = prefix + sep + (available > 0 ? title.substring(0, available) + '\u2026' : '\u2026');
-    }
-    // A long base nickname can still overflow; TeamSpeak counts characters.
-    nick = [...nick].slice(0, maxLen).join('');
+    const nick = nowPlayingNickname(title, this._originalNickname);
     try {
       this.client.sendCommand(buildCommand('clientupdate', { client_nickname: nick }));
     } catch { }

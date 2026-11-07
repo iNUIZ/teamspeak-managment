@@ -10,7 +10,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { BotTtsSettings } from './BotTtsSettings';
-import { CommandsTab } from '@/pages/media-bots/CommandsTab';
 import { ExtensionsTab } from '@/pages/extensions/ExtensionsTab';
 
 type BotExtensions = { serverConfigId: number; disabledCommands: string[];
@@ -43,8 +42,7 @@ export function BotExtensionsDialog({ botId, botName, onClose }: { botId: number
         <TabsList className="w-full flex-wrap h-auto">
           <TabsTrigger value="commands">{tr ? uiText("Komutlar") : uiText("Commands")}</TabsTrigger>
           <TabsTrigger value="tts">{tr ? uiText("Sesli okuma (TTS)") : uiText("Text to speech (TTS)")}</TabsTrigger>
-          <TabsTrigger value="custom">{tr ? uiText("Özel komut kitaplığı") : uiText("Custom command library")}</TabsTrigger>
-          <TabsTrigger value="packages">{tr ? uiText("Eklenti paketleri") : uiText("Extension packages")}</TabsTrigger>
+          <TabsTrigger value="packages">{tr ? uiText("Eklentiler") : uiText("Extensions")}</TabsTrigger>
         </TabsList>
         <TabsContent value="commands" className="space-y-3">
           <Input aria-label={tr ? uiText("Komutlarda ara") : uiText("Search commands")} placeholder={tr ? uiText("Komutlarda ara…") : uiText("Search commands…")} value={search} onChange={e => setSearch(e.target.value)} />
@@ -56,12 +54,8 @@ export function BotExtensionsDialog({ botId, botName, onClose }: { botId: number
           </div>)}</div>
         </TabsContent>
         <TabsContent value="tts"><BotTtsSettings key={botId} botId={botId} /></TabsContent>
-        <TabsContent value="custom">
-          <p className="my-3 rounded-md border p-3 text-sm">{tr ? uiText("Bu kitaplıktaki tanımlar aynı TeamSpeak bağlantısındaki botlar arasında ortaktır. Bir komutu yalnızca bu botta kapatmak için Komutlar sekmesini kullanın.") : uiText("Definitions in this library are shared by bots on the same TeamSpeak connection. Use the Commands tab to disable one only for this bot.")}</p>
-          <CommandsTab fixedConfigId={query.data!.serverConfigId} />
-        </TabsContent>
         <TabsContent value="packages">
-          <p className="my-3 rounded-md border p-3 text-sm">{tr ? uiText("Paket kurma ve kaldırma bu sunucu bağlantısının ortak kitaplığını değiştirir. Paket komutlarını bu botta Komutlar sekmesinden açıp kapatabilirsiniz.") : uiText("Installing or removing packages changes the shared connection library. Enable or disable their commands for this bot in the Commands tab.")}</p>
+          <p className="my-3 rounded-md border p-3 text-sm">{tr ? uiText("Buradaki eklentiler ve komutlar bu sunucudaki tüm botlar için geçerlidir. Bir komutu yalnızca bu botta kapatmak için Komutlar sekmesini kullan.") : uiText("Extensions and commands here apply to every bot on this server. To turn a command off only for this bot, use the Commands tab.")}</p>
           <ExtensionsTab fixedConfigId={query.data!.serverConfigId} />
         </TabsContent>
       </Tabs>}
