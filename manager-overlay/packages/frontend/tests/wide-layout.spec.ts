@@ -130,6 +130,9 @@ for (const size of widths) {
     await expect(groups).toBeVisible();
     const fieldsets = groups.locator('fieldset');
     await expect(fieldsets).toHaveCount(3);
+    // Measure only after the loaded groups have rendered; earlier boxes can still move.
+    await expect(fieldsets.nth(0).getByRole('checkbox', { name: /Server Admin/ })).toBeChecked();
+    await expect(page.getByRole('button', { name: 'Save permissions' })).toBeVisible();
     const boxes = [];
     for (let i = 0; i < 3; i++) boxes.push((await fieldsets.nth(i).boundingBox())!);
     if (wide) {
