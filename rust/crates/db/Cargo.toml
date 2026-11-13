@@ -1,0 +1,15 @@
+[package]
+name = "teamhub-db"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+chrono.workspace = true
+sqlx = { version = "0.9", default-features = false, features = ["derive", "runtime-tokio", "sqlite"] }
+
+[dev-dependencies]
+serde_json.workspace = true
+teamhub-core.workspace = true
+teamhub-ts-proto.workspace = true
+tokio.workspace = true

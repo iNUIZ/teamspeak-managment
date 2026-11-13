@@ -1,0 +1,29 @@
+[workspace]
+resolver = "2"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.3.8-alpha.3"
+edition = "2021"
+license = "MIT"
+
+[workspace.dependencies]
+teamhub-shared = { path = "crates/shared" }
+teamhub-core = { path = "crates/core" }
+teamhub-db = { path = "crates/db" }
+teamhub-ts-proto = { path = "crates/ts-proto" }
+teamhub-ts-query = { path = "crates/ts-query" }
+teamhub-media = { path = "crates/media" }
+teamhub-voice = { path = "crates/voice" }
+teamhub-stream = { path = "crates/stream" }
+teamhub-flow = { path = "crates/flow" }
+
+axum = "0.8"
+chrono = { version = "0.4", default-features = false, features = ["clock", "serde"] }
+leptos = { version = "0.8", features = ["csr"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "net", "rt-multi-thread", "signal"] }
+tower = { version = "0.5", features = ["util"] }
+tracing = "0.1"
+tracing-subscriber = "0.3"

@@ -1,0 +1,15 @@
+[package]
+name = "teamhub-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+aes-gcm = "0.11"
+bcrypt = "0.19"
+getrandom = "0.3"
+hex = "0.4"
+scrypt = "0.12"
+
+[dev-dependencies]
+serde_json.workspace = true

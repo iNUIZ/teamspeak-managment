@@ -1,0 +1,38 @@
+[package]
+name = "teamhub-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "teamhub"
+path = "src/main.rs"
+
+[dependencies]
+axum.workspace = true
+chrono.workspace = true
+getrandom = "0.3"
+jsonwebtoken = "9"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde.workspace = true
+serde_json.workspace = true
+sha2 = "0.11"
+tokio.workspace = true
+tower-http = { version = "0.6", features = ["cors"] }
+tracing.workspace = true
+tracing-subscriber.workspace = true
+url = "2"
+teamhub-shared.workspace = true
+teamhub-core.workspace = true
+teamhub-db.workspace = true
+teamhub-ts-query.workspace = true
+teamhub-flow.workspace = true
+teamhub-media.workspace = true
+teamhub-voice.workspace = true
+
+[dev-dependencies]
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite"] }
+tower.workspace = true

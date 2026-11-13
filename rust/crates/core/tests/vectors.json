@@ -1,0 +1,24 @@
+{
+ "source": "test-encryption-key-not-a-secret",
+ "key": "1663459247fdeadb7d14c859f634be046c242fab19adec84b84c8f070f9cca68",
+ "fields": [
+  {
+   "plain": "",
+   "encrypted": "enc:609389aa950417b4067dbcf0:f9294bfeb0b388d1c2f6b558230bf07c:"
+  },
+  {
+   "plain": "kısa",
+   "encrypted": "enc:13fde8b819bb48e7f042b1b5:22ef3b7099d99c31e9bb5ff19354398f:7a786b1e4b"
+  },
+  {
+   "plain": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+   "encrypted": "enc:10d0cb639a59a1dac151331d:d2ca0081f5400dda115b763a25132881:03903ddce628d6bfeacc0432f303bf83b68fa7ee12cb507c6e00cb2becc8bd6377709969fd7f5bac08ff289cd0120563589f0bb1ee2b56c4c69412db767e9ccce3632c03bcc51964019aa909324683c9e29f22a1400d9298b5612aa0f965a484a67245aedbed472b3a3d26c34b930674386c40b4be340cb4f7a5e1aca82a472603948bbbd6950614c84280f5c66bb07b351182dcdfdd72ea369c92b83ffbb021da2825ca5f698530471fa5cbbefa18c5ee5e053a1190d5974e96e98c44c23ea4a4c8fbd1ac2af8a2"
+  },
+  {
+   "plain": "{\"uid\":\"x\",\"keyOffset\":\"123\"}",
+   "encrypted": "enc:807a017a0ea63de0c50655b2:f8a685ba23c6e4b8b7648318164ce792:1bebe68a45627d00fa12873c647566dd616f8d95579fd29354e8e45297"
+  }
+ ],
+ "password": "test-password",
+ "hash": "$2a$04$I7VKZ7/1IpH05tmKtyShkeM.n27tXfkrEm33uxhLC2Lr8/mtqhbDS"
+}

@@ -1,0 +1,21 @@
+[package]
+name = "teamhub-ts-proto"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+aes = "0.9"
+base64 = "0.22"
+curve25519-dalek = "5"
+getrandom = "0.3"
+num-bigint = "0.4"
+p256 = { version = "0.14", features = ["ecdh", "ecdsa"] }
+sha1 = "0.11"
+sha2 = "0.11"
+tokio = { workspace = true, features = ["sync", "time"] }
+tracing.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+tracing-subscriber = { workspace = true, features = ["env-filter"] }

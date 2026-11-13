@@ -1,0 +1,23 @@
+[package]
+name = "teamhub-voice"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+chrono.workspace = true
+fastrand = "2"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+serde_json.workspace = true
+teamhub-core.workspace = true
+teamhub-db.workspace = true
+teamhub-ts-proto.workspace = true
+teamhub-media.workspace = true
+teamhub-stream.workspace = true
+tokio = { workspace = true, features = ["sync", "time"] }
+tracing.workspace = true
+
+[dev-dependencies]
+opus = "0.4"
+sqlx = { version = "0.9", default-features = false, features = ["runtime-tokio", "sqlite"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
